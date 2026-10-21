@@ -27,7 +27,7 @@ for OKE, Functions and database procedures instead of copying them.
 |---|---|
 | Decide | **Available.** Five skills, a tested value model and a live price-list lookup. See [the business value](docs/BUSINESS-VALUE.md) |
 | Migrate | **Assessment available.** Discovery for AWS, Azure and Google Cloud and a tested service map. Next: migration plan, data runbooks, cutover |
-| Build | In progress: account readiness, the approval-gated deploy tool, the first full-stack golden path |
+| Build | **Deploy gate available** ([`oci-deploy`](skills/oci-deploy/SKILL.md)): apply only the exact plan approved, with receipts and teardown checks. In progress: the first full-stack golden path and its live proof |
 
 Start with [`oci-kit`](skills/oci-kit/SKILL.md): it routes a request to the
 right track and carries the safety contract every skill follows.

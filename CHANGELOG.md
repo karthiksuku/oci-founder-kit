@@ -11,6 +11,11 @@
   the OCI, AWS, azurerm and Google Terraform providers and the CloudFormation
   specification; `scripts/refresh_provider_types.py` refreshes those lists.
 - Example migration scan of an AWS application.
+- `oci-deploy` and `deploy_gate.py`: Terraform applies only for the exact plan
+  approved (SHA-256), with an expiry fixed at plan time, one-time use, the same
+  Terraform binary, re-checked plan contents, IAM changes called out, receipts
+  for every attempt and teardown verification. Hardened after an adversarial
+  review; its limits are documented in the skill.
 
 ## 0.1.0 - 2026-10-21
 
