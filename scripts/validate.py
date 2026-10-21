@@ -29,7 +29,7 @@ SECRET_RES = (
 )
 MAX_DESCRIPTION = 1024
 MAX_BODY_LINES = 500
-SKIP_DIRS = {".git", "__pycache__"}
+SKIP_DIRS = {".git", "__pycache__", "node_modules", ".terraform", ".gate"}
 
 
 def parse_frontmatter(text: str) -> tuple[dict, str] | None:

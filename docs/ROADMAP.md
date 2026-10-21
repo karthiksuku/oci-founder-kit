@@ -27,8 +27,8 @@ a validated plan, or a live deploy and teardown receipt.
 
 | Item | Evidence of done |
 |---|---|
-| `deploy_gate.py`: Terraform plan summary with a plan hash, apply only with the approved hash, receipts, destroy and teardown verification | Unit tests with a fake Terraform; one live run |
-| `oci-deploy` skill | Eval prompts: never applies without approval, never applies a changed plan |
+| `deploy_gate.py`: Terraform plan summary with a plan hash, apply only with the approved hash, receipts, destroy and teardown verification | **Built.** 34 tests with a fake Terraform, including nine findings from an adversarial review. Live run pending |
+| `oci-deploy` skill | **Built.** States what the gate guarantees and what it cannot. Eval prompts pending |
 | Golden path `fullstack-container`: web frontend and API on Container Instances behind a load balancer, managed database, Object Storage, Vault, logging, alarms, budget, OIDC sign-in | `terraform validate`; a live deploy in a sandbox compartment, smoke test, teardown receipt |
 | Sample full-stack application used by both Build and Migrate | Its own tests; runs locally and on OCI |
 | `oci-build` skill | Eval prompts and the live receipt above |

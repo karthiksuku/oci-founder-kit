@@ -1,0 +1,7 @@
+interface:
+  display_name: "OCI approval-gated deploy"
+  short_description: "Apply only the exact plan the owner approved"
+  brand_color: "#0F766E"
+  default_prompt: 'Use $oci-deploy to plan this Terraform stack for OCI, show me the exact changes and cost, and apply only after I approve that plan.'
+policy:
+  allow_implicit_invocation: true
