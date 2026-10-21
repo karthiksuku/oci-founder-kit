@@ -17,3 +17,4 @@ crash.log
 *.tfvars
 !*.tfvars.example
 /receipts/
+.gate/

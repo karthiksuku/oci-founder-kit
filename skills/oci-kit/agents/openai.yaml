@@ -1,0 +1,7 @@
+interface:
+  display_name: "OCI Founder Kit"
+  short_description: "Decide, build or migrate on OCI"
+  brand_color: "#0F766E"
+  default_prompt: 'Use $oci-kit to work out whether I need to decide, build or migrate on OCI, and route me to the right skill. Nothing is applied to a cloud account without my approval.'
+policy:
+  allow_implicit_invocation: true

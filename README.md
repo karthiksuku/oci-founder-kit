@@ -26,8 +26,22 @@ for OKE, Functions and database procedures instead of copying them.
 | Track | State |
 |---|---|
 | Decide | **Available.** Five skills, a tested value model and a live price-list lookup. See [the business value](docs/BUSINESS-VALUE.md) |
+| Migrate | **Assessment available.** Discovery for AWS, Azure and Google Cloud and a tested service map. Next: migration plan, data runbooks, cutover |
 | Build | In progress: account readiness, the approval-gated deploy tool, the first full-stack golden path |
-| Migrate | In progress: IaC discovery for AWS, Azure and Google Cloud, the service map, data runbooks |
+
+Start with [`oci-kit`](skills/oci-kit/SKILL.md): it routes a request to the
+right track and carries the safety contract every skill follows.
+
+**Name the skill when you ask.** In testing, a plain request ("we're on AWS,
+what would it take to move to OCI?") was sometimes answered from the model's
+general knowledge instead of the kit, especially on machines with many other
+skills installed, and that answer missed facts the kit checks (for example
+Cloudflare@OCI for CDN). Invoking the skill by name gave the evidence-based
+result every time:
+
+```text
+/oci-founder-kit:oci-migrate-assess We run this app on AWS. What would it take to move it to OCI, and what first?
+```
 
 The [roadmap](docs/ROADMAP.md) lists each piece and the evidence it needs
 before it is called done.
@@ -63,6 +77,33 @@ Use `codex` or `cursor` instead of `claude-code`.
 
 Worked example: [a seed-stage AI SaaS company](examples/seed-ai-saas/README.md).
 Prompts to paste: [founder playbook](docs/PLAYBOOK.md).
+
+## Migrate track: assessment available
+
+[`oci-migrate-assess`](skills/oci-migrate-assess/SKILL.md) scans a
+repository read-only and maps every cloud resource to OCI:
+
+- **Reads** Terraform resources and registry modules, CloudFormation and SAM,
+  ARM and Bicep, Deployment Manager, Kubernetes manifests, Compose files, and
+  SDK dependencies in npm, PyPI, Go, Maven/Gradle and NuGet projects.
+- **Maps** each finding through a [service map](skills/oci-migrate-assess/assets/service-map.json)
+  of 59 OCI target services and about 330 rules, with the fit (equivalent,
+  partial, gap), what differs, how to migrate and a documentation link.
+- **Proves the map** in tests: every OCI Terraform type is checked against the
+  OCI provider schema (oracle/oci 9.10.0), every source type against the
+  current AWS, azurerm and Google providers and the CloudFormation
+  specification, and every documentation link was checked live on 2026-10-21.
+- **Reports** partial fits and gaps first, cloud SDK calls that need code
+  changes, self-hosted services that could become managed, Kubernetes
+  settings tied to the old cloud, anything it did not recognise, and an S to
+  XL effort signal.
+
+```bash
+python3 skills/oci-migrate-assess/scripts/iac_scan.py /path/to/repo --out migration-scan.md
+```
+
+Example: [scan of an AWS app](examples/migrate-aws-taskboard/migration-scan.md)
+(ECS, RDS PostgreSQL, S3, ElastiCache, SQS, Cognito, CloudFront).
 
 ## Principles
 

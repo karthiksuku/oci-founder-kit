@@ -14,11 +14,14 @@ a validated plan, or a live deploy and teardown receipt.
 
 ## Phase 1: migrate discovery
 
-| Item | Evidence of done |
-|---|---|
-| Machine-readable service map: AWS, Azure and Google Cloud to OCI, with fit (equivalent, partial, gap), non-equivalences and documentation links | Every OCI Terraform resource type checked against the OCI provider schema |
-| `iac_scan.py`: inventory from Terraform, CloudFormation, ARM and Bicep, Kubernetes manifests, Compose files and SDK dependencies | Unit tests over source fixtures for one sample app on each cloud |
-| `oci-migrate-assess` skill: inventory, mapping, gaps, effort and a first verdict | Eval prompts on the fixtures |
+| Item | State | Evidence |
+|---|---|---|
+| Service map: AWS, Azure and Google Cloud to OCI with fit, differences, migration method and docs | **Done** | `tests/test_service_map.py`: OCI types against oracle/oci 9.10.0; source types against aws 6.69.1, azurerm 5.10.0, google 8.7.0 and CloudFormation spec 268.0.0; 52 doc links checked live 2026-10-21 |
+| `iac_scan.py`: Terraform, modules, CloudFormation/SAM, ARM/Bicep, Deployment Manager, Kubernetes, Compose, SDK manifests | **Done** | `tests/test_iac_scan.py` over fixtures for AWS, Azure, Google Cloud and Kubernetes |
+| `oci-migrate-assess` skill | **Done** | Headless session with explicit invocation on the AWS fixture: ran the scanner, correct fits and CDN mapping, assessment written, source untouched |
+| `oci-kit` router and safety contract | **Done** | Skill validation |
+| Implicit triggering | Open | Two plain-language sessions on a machine with about 190 other skills answered without invoking the kit; measure again in a clean profile |
+| Eval suite for the Migrate skills | Next | Scored headless sessions per release |
 
 ## Phase 2: build with approval gates
 
