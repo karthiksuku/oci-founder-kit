@@ -1,0 +1,7 @@
+interface:
+  display_name: "AI unit economics"
+  short_description: "Cost per AI action and AI margin by plan"
+  brand_color: "#0F766E"
+  default_prompt: "Use $founder-value-ai to work out what one AI action costs us, the AI share of ARPA, and whether a model on OCI protects margin after an evaluation."
+policy:
+  allow_implicit_invocation: true

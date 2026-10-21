@@ -1,0 +1,27 @@
+{
+  "name": "oci-founder-kit",
+  "version": "0.1.0",
+  "description": "Build, migrate and justify applications on Oracle Cloud Infrastructure with Claude Code: full-stack golden paths, AWS/Azure/Google Cloud migration with automated discovery, approval-gated deploys, and the business case for founders and executives.",
+  "license": "UPL-1.0",
+  "author": {
+    "name": "Karthik Sukumar"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OCI Founder Kit",
+    "shortDescription": "Build, migrate and justify apps on OCI.",
+    "longDescription": "Build, migrate and justify applications on Oracle Cloud Infrastructure with Claude Code: full-stack golden paths, AWS/Azure/Google Cloud migration with automated discovery, approval-gated deploys, and the business case for founders and executives. Independent project; not an Oracle product.",
+    "developerName": "Karthik Sukumar",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Guidance",
+      "Planning",
+      "Analysis"
+    ],
+    "defaultPrompt": [
+      "Assess this repo for migration from AWS to OCI.",
+      "Build this full-stack app on OCI, with a plan I approve before anything is created.",
+      "Is OCI worth it for our startup? Here is our cloud bill."
+    ]
+  }
+}

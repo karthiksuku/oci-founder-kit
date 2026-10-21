@@ -1,0 +1,220 @@
+{
+ "_fixture_note": "Real response from Oracle public price list API, captured 2026-10-21; trimmed to USD and AUD localizations for test size.",
+ "lastUpdated": "2026-10-08T14:38:16.165Z",
+ "items": [
+  {
+   "partNumber": "B108080",
+   "displayName": "OCI Generative AI - Large Meta",
+   "metricName": "10,000 Transactions",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "AUD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.0027
+      }
+     ]
+    },
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.0018
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112004",
+   "displayName": "OCI Generative AI - OpenAI - gpt-oss-120b - Input Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "AUD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.225
+      }
+     ]
+    },
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.15
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112005",
+   "displayName": "OCI Generative AI - OpenAI - gpt-oss-120b - Output Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "AUD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.9
+      }
+     ]
+    },
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.6
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B91628",
+   "displayName": "Object Storage - Storage",
+   "metricName": "Gigabyte Storage Capacity Per Month",
+   "serviceCategory": "Storage - Object Storage",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "AUD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0,
+       "rangeMin": 0,
+       "rangeMax": 10
+      },
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.03825,
+       "rangeMin": 10,
+       "rangeMax": 999999999
+      }
+     ]
+    },
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0,
+       "rangeMin": 0,
+       "rangeMax": 10
+      },
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.0255,
+       "rangeMin": 10,
+       "rangeMax": 999999999
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B93455",
+   "displayName": "Outbound Data Transfer - Originating in APAC, Japan, and South America",
+   "metricName": "Gigabyte Outbound Data Transfer Per Month",
+   "serviceCategory": "Networking - Virtual Cloud Networks",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "AUD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0,
+       "rangeMin": 0,
+       "rangeMax": 10240
+      },
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.0375,
+       "rangeMin": 10240,
+       "rangeMax": 999999999999999
+      }
+     ]
+    },
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0,
+       "rangeMin": 0,
+       "rangeMax": 10240
+      },
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.025,
+       "rangeMin": 10240,
+       "rangeMax": 999999999999999
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B97384",
+   "displayName": "Compute - Standard - E5 - OCPU",
+   "metricName": "OCPU Per Hour",
+   "serviceCategory": "Compute - Virtual Machine",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "AUD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.045
+      }
+     ]
+    },
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.03
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B97385",
+   "displayName": "Compute - Standard - E5 - Memory",
+   "metricName": "Gigabytes Per Hour",
+   "serviceCategory": "Compute - Virtual Machine",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "AUD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.003
+      }
+     ]
+    },
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.002
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

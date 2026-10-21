@@ -1,0 +1,67 @@
+{
+  "schema": "founder-value-scenario/1",
+  "name": "Illustrative seed-stage AI SaaS (not a real company)",
+  "as_of": "2026-10-21",
+  "currency": "USD",
+  "horizon_months": 24,
+  "baseline": "current",
+  "notes": [
+    "Illustrative inputs only. Replace every 'stated' value with your own invoice and every 'assumed' value with a measured or agreed number.",
+    "The current-cloud lines are a founder-stated invoice for a comparable footprint, not a measured price from any provider.",
+    "OCI prices come from Oracle's public PAY_AS_YOU_GO list (744 billable hours a month, the convention in Oracle's cost estimator). They exclude discounts, commitments, taxes and support.",
+    "The OCI AI line assumes a different model from the current provider. Run a quality evaluation before treating the saving as real.",
+    "Credits of USD 25,000 are an assumption inside the published Startup Growth Engine range. Award, amount and timing are at Oracle's discretion."
+  ],
+  "business": {
+    "customers_start": 40,
+    "customer_growth_monthly": 0.06,
+    "arpa_monthly": 600,
+    "other_cogs_per_customer_monthly": 25,
+    "opex_monthly": 85000,
+    "cash_on_hand": 1100000
+  },
+  "ai_usage": {
+    "actions_per_customer_monthly": 1200,
+    "input_tokens_per_action": 3000,
+    "cached_input_share": 0.4,
+    "output_tokens_per_action": 600
+  },
+  "options": {
+    "current": {
+      "label": "Current cloud",
+      "lines": [
+        {"id": "compute_base", "group": "compute", "label": "App servers, base footprint", "amount": 620, "evidence": "stated"},
+        {"id": "compute_per_customer", "group": "compute", "label": "App servers, per-customer scale", "basis": "per_customer", "amount": 7, "evidence": "stated"},
+        {"id": "postgres", "group": "database", "label": "Managed PostgreSQL", "amount": 560, "evidence": "stated"},
+        {"id": "object_storage", "group": "storage", "label": "Object storage, 2 TB", "amount": 46, "evidence": "stated"},
+        {"id": "egress", "group": "network", "label": "Internet egress, 6 TB", "amount": 540, "evidence": "stated"},
+        {"id": "load_balancer", "group": "network", "label": "Load balancer", "amount": 40, "evidence": "stated"},
+        {"id": "logs", "group": "observability", "label": "Cloud logging", "amount": 80, "evidence": "stated"},
+        {"id": "apm_vendor", "group": "observability", "label": "Third-party monitoring", "amount": 300, "evidence": "stated"}
+      ],
+      "ai": {"input_per_mtok": 3.0, "cached_input_per_mtok": 0.3, "output_per_mtok": 15.0, "evidence": "stated"}
+    },
+    "oci": {
+      "label": "OCI",
+      "lines": [
+        {"id": "app_ocpu_base", "group": "compute", "label": "Compute E5, 8 OCPU", "part_number": "B97384", "expected_metric": "OCPU Per Hour", "quantity": 8, "hours_per_month": 744},
+        {"id": "app_memory_base", "group": "compute", "label": "Compute E5, 64 GB", "part_number": "B97385", "expected_metric": "Gigabytes Per Hour", "quantity": 64, "hours_per_month": 744},
+        {"id": "app_ocpu_per_customer", "group": "compute", "label": "Compute E5 OCPU per customer", "part_number": "B97384", "expected_metric": "OCPU Per Hour", "basis": "per_customer", "quantity": 0.1, "hours_per_month": 744},
+        {"id": "app_memory_per_customer", "group": "compute", "label": "Compute E5 memory per customer", "part_number": "B97385", "expected_metric": "Gigabytes Per Hour", "basis": "per_customer", "quantity": 0.8, "hours_per_month": 744},
+        {"id": "postgres_ocpu", "group": "database", "label": "Database with PostgreSQL, 4 OCPU", "part_number": "B99060", "expected_metric": "OCPU Per Hour", "quantity": 4, "hours_per_month": 744},
+        {"id": "postgres_storage", "group": "database", "label": "PostgreSQL optimized storage, 200 GB", "part_number": "B99062", "expected_metric": "Gigabyte Storage Capacity Per Month", "quantity": 200},
+        {"id": "object_storage", "group": "storage", "label": "Object Storage, 2 TB", "part_number": "B91628", "expected_metric": "Gigabyte Storage Capacity Per Month", "quantity": 2000},
+        {"id": "egress", "group": "network", "label": "Internet egress from APAC, 6 TB", "part_number": "B93455", "expected_metric": "Gigabyte Outbound Data Transfer", "quantity": 6000},
+        {"id": "lb_base", "group": "network", "label": "Load Balancer base hours", "part_number": "B93030", "quantity": 744},
+        {"id": "lb_bandwidth", "group": "network", "label": "Load Balancer 100 Mbps", "part_number": "B93031", "expected_metric": "Mbps Per Hour", "quantity": 100, "hours_per_month": 744},
+        {"id": "block_volume", "group": "compute", "label": "Block Volume, 400 GB", "part_number": "B91961", "expected_metric": "Gigabyte Storage Capacity Per Month", "quantity": 400},
+        {"id": "block_volume_vpu", "group": "compute", "label": "Block Volume balanced performance (10 VPU/GB)", "part_number": "B91962", "quantity": 4000},
+        {"id": "log_storage", "group": "observability", "label": "Logging storage, 60 GB", "part_number": "B92593", "expected_metric": "Gigabyte Log Storage", "quantity": 60},
+        {"id": "apm_vendor", "group": "observability", "label": "Third-party monitoring, kept", "amount": 300, "evidence": "assumed"}
+      ],
+      "ai": {"input_part": "B112080", "cached_input_part": "B112081", "output_part": "B112082"},
+      "credits": {"amount": 25000, "start_month": 1, "valid_months": 12, "evidence": "assumed"},
+      "migration": {"one_time_cost": 26400, "start_month": 1, "dual_run_months": 2, "evidence": "assumed", "basis": "240 engineering hours at USD 110 loaded rate"}
+    }
+  }
+}

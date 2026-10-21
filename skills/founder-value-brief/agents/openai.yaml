@@ -1,0 +1,7 @@
+interface:
+  display_name: "Board and investor brief"
+  short_description: "Infrastructure and AI cost brief for investors"
+  brand_color: "#0F766E"
+  default_prompt: "Use $founder-value-brief to turn our value model into a one-page board brief with a margin bridge, honest credits and a risk register."
+policy:
+  allow_implicit_invocation: true

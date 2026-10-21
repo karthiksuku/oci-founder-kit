@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.DS_Store
+# Founder working files: keep real invoices, scenarios and reports out of Git
+/work/
+*.priced.json
+value-report.md
+!examples/**/value-report.md
+# Terraform working state, plans and local receipts never go to Git
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan*
+.terraform.lock.hcl.bak
+crash.log
+*.tfvars
+!*.tfvars.example
+/receipts/
