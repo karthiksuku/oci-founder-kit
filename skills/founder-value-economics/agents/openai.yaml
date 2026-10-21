@@ -1,0 +1,7 @@
+interface:
+  display_name: "Founder unit economics"
+  short_description: "Margin, runway, payback and the credit cliff"
+  brand_color: "#0F766E"
+  default_prompt: "Use $founder-value-economics to turn our cloud bill into gross margin, cost per customer, payback with and without credits, and the credit cliff."
+policy:
+  allow_implicit_invocation: true

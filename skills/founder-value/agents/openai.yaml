@@ -1,0 +1,7 @@
+interface:
+  display_name: "Founder Value Kit for OCI"
+  short_description: "The business case for a startup on OCI"
+  brand_color: "#0F766E"
+  default_prompt: "Use $founder-value to tell me whether OCI is worth it for this startup: give a verdict, the deciding numbers and one next step. Do not sign up, apply or contact anyone."
+policy:
+  allow_implicit_invocation: true

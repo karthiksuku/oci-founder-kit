@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "oci-founder-kit",
+  "version": "0.1.0",
+  "description": "Build, migrate and justify applications on Oracle Cloud Infrastructure with Claude Code: full-stack golden paths, AWS/Azure/Google Cloud migration with automated discovery, approval-gated deploys, and the business case for founders and executives.",
+  "author": {
+    "name": "Karthik Sukumar"
+  },
+  "license": "UPL-1.0"
+}
