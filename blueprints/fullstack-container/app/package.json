@@ -1,0 +1,20 @@
+{
+  "name": "taskboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reference full-stack app for the OCI Founder Kit golden path: web UI, API, PostgreSQL, Object Storage.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "oci-common": "2.142.2",
+    "oci-objectstorage": "2.142.2",
+    "pg": "8.23.1"
+  }
+}

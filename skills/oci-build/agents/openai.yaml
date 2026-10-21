@@ -1,0 +1,7 @@
+interface:
+  display_name: "Build on OCI"
+  short_description: "Full-stack golden path, deployed through the approval gate"
+  brand_color: "#0F766E"
+  default_prompt: 'Use $oci-build to deploy this containerised app to OCI with the fullstack-container golden path. Show me the plan and cost; nothing is applied until I approve it.'
+policy:
+  allow_implicit_invocation: true
