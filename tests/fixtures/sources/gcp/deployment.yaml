@@ -1,0 +1,5 @@
+resources:
+- name: batch-vm
+  type: compute.v1.instance
+  properties:
+    zone: australia-southeast1-a

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- `oci-kit`: entry skill that routes requests to the Decide, Build or Migrate
+  track and carries the kit's safety contract.
+- `oci-migrate-assess`: read-only migration assessment with `iac_scan.py`
+  (Terraform, registry modules, CloudFormation/SAM, ARM/Bicep, Deployment
+  Manager, Kubernetes, Compose, npm/PyPI/Go/Maven/Gradle/NuGet dependencies).
+- Service map of 59 OCI target services and about 330 rules, tested against
+  the OCI, AWS, azurerm and Google Terraform providers and the CloudFormation
+  specification; `scripts/refresh_provider_types.py` refreshes those lists.
+- Example migration scan of an AWS application.
+
 ## 0.1.0 - 2026-10-21
 
 First preview.

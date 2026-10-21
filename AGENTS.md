@@ -17,6 +17,10 @@ build and deploy skills) and Migrate (`oci-migrate-*` skills). See
 
 ## Conventions
 
+- The migration service map is `skills/oci-migrate-assess/assets/service-map.json`.
+  Every change must pass `tests/test_service_map.py`, which checks Terraform
+  types against provider schemas in `tests/fixtures/provider-types/`. Refresh
+  those with `python3 scripts/refresh_provider_types.py` when providers move.
 - Skills live in `skills/<name>/SKILL.md` with references beside them. Keep
   frontmatter to the portable keys (`name`, `description`, `license`,
   `compatibility`, `metadata`, `allowed-tools`) and keep `metadata.version`

@@ -1,0 +1,7 @@
+interface:
+  display_name: "OCI migration assessment"
+  short_description: "Map an AWS, Azure or Google Cloud app to OCI"
+  brand_color: "#0F766E"
+  default_prompt: 'Use $oci-migrate-assess to scan this repository read-only, map every cloud resource to OCI with its fit and gaps, and recommend a first migration wave.'
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2022-05-01-preview",
+      "name": "taskboard-sql",
+      "resources": [
+        {
+          "type": "databases",
+          "apiVersion": "2022-05-01-preview",
+          "name": "reports"
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.ContainerService/managedClusters",
+      "apiVersion": "2024-02-01",
+      "name": "taskboard-aks"
+    }
+  ]
+}

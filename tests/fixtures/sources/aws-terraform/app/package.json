@@ -1,0 +1,12 @@
+{
+  "name": "taskboard-api",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-sqs": "^3.600.0",
+    "express": "^4.19.0",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  }
+}

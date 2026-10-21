@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.22.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.43.0" />
+    <PackageReference Include="Serilog" Version="4.0.0" />
+  </ItemGroup>
+</Project>
