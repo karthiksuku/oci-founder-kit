@@ -29,9 +29,9 @@ a validated plan, or a live deploy and teardown receipt.
 |---|---|
 | `deploy_gate.py`: Terraform plan summary with a plan hash, apply only with the approved hash, receipts, destroy and teardown verification | **Built.** 34 tests with a fake Terraform, including nine findings from an adversarial review. Live run pending |
 | `oci-deploy` skill | **Built.** States what the gate guarantees and what it cannot. Eval prompts pending |
-| Golden path `fullstack-container`: web frontend and API on Container Instances behind a load balancer, managed database, Object Storage, Vault, logging, alarms, budget, OIDC sign-in | `terraform validate`; a live deploy in a sandbox compartment, smoke test, teardown receipt |
-| Sample full-stack application used by both Build and Migrate | Its own tests; runs locally and on OCI |
-| `oci-build` skill | Eval prompts and the live receipt above |
+| Golden path `fullstack-container`: web frontend and API on Container Instances behind a load balancer, PostgreSQL, Object Storage through a resource principal, alarms | **Built.** `terraform validate` against oracle/oci 9.10.0; security properties pinned in `tests/test_blueprint_fullstack.py`; a read-only plan of 29 resources against the sandbox. Live deploy, smoke test and teardown receipt pending approval. Still to add: HTTPS, OIDC sign-in, Vault-held secrets, remote state |
+| Sample full-stack application used by both Build and Migrate | **Built.** 17 unit tests; a PostgreSQL integration test that runs when `TEST_DATABASE_URL` is set |
+| `oci-build` skill | **Built.** Eval prompts and the live receipt pending |
 
 ## Phase 3: migrate execution
 

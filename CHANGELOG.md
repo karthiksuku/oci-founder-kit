@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `oci-build` and the `fullstack-container` golden path: a reference Taskboard app
+  (Express, PostgreSQL with verified TLS, Object Storage uploads through
+  pre-authenticated requests and a resource principal) and Terraform for
+  Container Instances, OCI Database with PostgreSQL, a load balancer, private
+  networking, scoped IAM and an alarm. Security properties are pinned in tests.
 - `oci-kit`: entry skill that routes requests to the Decide, Build or Migrate
   track and carries the kit's safety contract.
 - `oci-migrate-assess`: read-only migration assessment with `iac_scan.py`
