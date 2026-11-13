@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4 - 2026-11-13
+
+- Fixed synthetic OCI backend rehearsal with separate exact approval, observed native lock contention, overwrite and historical-version recovery into a separate key.
+- Separate exact-version cleanup; no workspace/prefix deletion or forced unlock.
+- Private identity/source binding, bounded output retention, normal unlock on failure and conservative handling of interrupted native launches.
+- Local native behavior and fake-client controls are verified; live OCI write/recovery acceptance remains pending. See [0.3.4 evidence](docs/RELEASE-0.3.4.md).
+
 ## 0.3.3 - 2026-11-13
 
 - Offline preparation and one-attempt approval for OCI backend initialization

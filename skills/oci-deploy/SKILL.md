@@ -4,7 +4,7 @@ description: Deploy, change or tear down infrastructure on Oracle Cloud Infrastr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Approval-gated deploys on OCI
@@ -43,6 +43,8 @@ lock objects.
    seven private settings, an existing APIKey profile and the default workspace.
    Effective bucket IAM, versioning and recovery remain independent acceptance
    requirements; bucket privacy alone does not establish secure state.
+   For a fixed provider-free synthetic lock/version/recovery test, use the
+   separately approved [backend rehearsal](references/backend-rehearsal.md).
    For an exceptional bootstrap, an explicit `--target RESOURCE_ADDRESS` may
    select a managed resource and its dependencies. Targets appear in the summary
    and receipt. Inspect every resulting change and run a full plan afterward;
@@ -77,7 +79,8 @@ lock objects.
    and what it costs. Empty Search results do not prove deletion: permissions,
    unsupported resource types and indexing delay can hide existing resources.
    Retained state/lock versions require separate cleanup approval and permissions;
-   the kit does not yet provide a version-deletion operation.
+   the [synthetic rehearsal cleanup](references/backend-rehearsal.md) deletes
+   only reviewed versions from that rehearsal, not arbitrary application state.
    Use authorized service-specific checks for those unknowns before saying
    cleanup is complete. Do not change profile or region to make the check pass.
 
@@ -105,7 +108,7 @@ hash, which the agent can read; an agent running as the same OS user could
 also edit the gate's files, change the environment or call Terraform
 directly. The controls for that are the owner's explicit approval in the
 conversation and an `ask` permission rule for the apply and destroy commands
-and for `backend-run`/`image-push`
+and for `backend-run`/`image-push`/`backend-rehearsal-run`/`backend-cleanup-run`
 ([references/permissions.md](references/permissions.md)). Backend approvals bind
 the explicit destination, source/input hashes, binary, expiry and one attempt;
 they do not establish inherited IAM, a working restore or live lock contention.
