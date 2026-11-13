@@ -19,8 +19,9 @@ locals {
     }, var.production == null ? {
     DATABASE_URL = local.database_url
     } : {
-    PUBLIC_ORIGIN                    = var.production.public_origin
+    PUBLIC_ORIGIN                    = local.public_origin
     OIDC_ISSUER                      = var.production.oidc_issuer
+    OIDC_DISCOVERY_URL               = var.production.oidc_discovery_url == null ? "" : var.production.oidc_discovery_url
     OIDC_CLIENT_ID                   = var.production.oidc_client_id
     OIDC_CLIENT_SECRET_OCID          = var.production.oidc_client_secret_ocid
     SESSION_SECRET_OCID              = var.production.session_secret_ocid
@@ -30,7 +31,7 @@ locals {
     DATABASE_PORT                    = tostring(local.db_endpoint.port)
     DATABASE_NAME                    = "postgres"
     DATABASE_USER                    = "taskboard"
-    TRUST_PROXY_CIDRS                = local.public_cidr
+    TRUST_PROXY_CIDRS                = local.api_gateway_enabled ? local.gateway_cidr : local.public_cidr
   })
 }
 
@@ -72,6 +73,10 @@ resource "oci_container_instances_container_instance" "app" {
   }
 
   lifecycle {
+    precondition {
+      condition     = !local.api_gateway_enabled || local.production_enabled
+      error_message = "API Gateway may be bootstrapped separately, but its app requires complete production OIDC/Vault configuration."
+    }
     precondition {
       condition     = !local.production_enabled || can(regex("@sha256:[0-9a-f]{64}$", var.app_image))
       error_message = "Production app_image must use an immutable sha256 image digest."

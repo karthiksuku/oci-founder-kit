@@ -200,6 +200,9 @@ def render_summary(summary: dict, stack: Path) -> str:
                   + ". These widen what identities can do; review them on their own.", ""]
     if summary.get("required_backend"):
         lines += ["Required state backend: OCI. Bucket IAM, versioning and recovery require separate verification.", ""]
+    if summary.get("resource_targets"):
+        lines += ["Targeted plan (dependencies can also change): " + ", ".join(summary["resource_targets"])
+                  + ". Run and review a full plan after this exceptional bootstrap/recovery step.", ""]
     lines += [f"Account: {target.get('tenancy_ocid', 'not declared — verify privately')}; "
               f"authentication: {target.get('auth', 'provider default')}; "
               f"IAM home region: {target.get('home_region', 'same as target or separately verified')}.", ""]
@@ -282,9 +285,16 @@ def require_backend(stack: Path, expected: str | None) -> None:
 
 
 def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
-             required_backend: str | None = None) -> int:
+             required_backend: str | None = None, resource_targets: list[str] | None = None) -> int:
     if max_age <= 0:
         raise GateInputError("--max-age-minutes must be positive")
+    resource_targets = resource_targets or []
+    ident = r"[A-Za-z_][A-Za-z0-9_-]*"
+    index = r'(?:\[(?:0|[1-9][0-9]*|"[A-Za-z0-9_./-]+")\])?'
+    address = rf"(?:module\.{ident}{index}\.)*(?!(?:module|data)\.){ident}\.{ident}{index}"
+    if len(resource_targets) > 32 or len(set(resource_targets)) != len(resource_targets) or any(
+            len(t) > 512 or not re.fullmatch(address, t) or t.startswith("data.") for t in resource_targets):
+        raise GateInputError("--target requires unique, explicit managed-resource addresses (maximum 32).")
     binary = terraform_binary()
     gate = _gate(stack, create=True)
     plan_path = _no_symlink(gate / PLAN_FILE)
@@ -295,6 +305,7 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
     args = ["plan", "-input=false", "-no-color", f"-out={plan_path}"]
     args += ["-destroy"] if kind == "destroy" else []
     args += [f"-var-file={f}" for f in var_files]
+    args += [f"-target={target}" for target in resource_targets]
     run_terraform(binary, args, stack, gate)
     _no_symlink(plan_path).chmod(0o600)
     plan_bytes = plan_path.read_bytes()
@@ -315,7 +326,7 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
     created_at, epoch = _now()
     summary = {"kind": kind, "stack": stack.name, "stack_path": str(stack), "plan_sha256": sha256_bytes(plan_bytes),
                "created_at": created_at, "created_at_epoch": epoch, "expires_at_epoch": epoch + max_age * 60,
-               "terraform": binary, "required_backend": required_backend, **described}
+               "terraform": binary, "required_backend": required_backend, "resource_targets": resource_targets, **described}
     text = render_summary(summary, stack)
     _write_private(gate / SUMMARY_FILE, json.dumps(summary, indent=2) + "\n")
     _write_private(gate / SUMMARY_MD, text)
@@ -374,7 +385,8 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     receipt_path = receipts / f"{started.replace(':', '').replace('-', '')}-{kind}-{sha[:12]}.json"
     receipt = {"schema": "oci-deploy-receipt/2", "kind": kind, "status": "attempted", "stack": summary["stack"],
                "started_at": started, "plan_sha256": sha, "target": summary["target"],
-               "changes": summary["changes"], "planned": summary["resources"]}
+               "changes": summary["changes"], "planned": summary["resources"],
+               "resource_targets": summary.get("resource_targets", [])}
     if kind == "destroy":
         try:
             receipt["destroyed_resources"] = _read_state(binary, stack, gate)
@@ -522,7 +534,10 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--registry-receipt", type=Path, required=True)
             p.add_argument("--repository-id", required=True)
             p.add_argument("--image", required=True, help="Local image reference resolved to immutable content ID")
-            p.add_argument("--tag", required=True, help="New destination tag")
+            destination = p.add_mutually_exclusive_group(required=True)
+            destination.add_argument("--layout", type=Path, help="Private prepared Skopeo dir layout; publish only by digest")
+            destination.add_argument("--tag", help="Legacy new tag; requires a verified immutable repository")
+            p.add_argument("--registry-auth-file", type=Path, help="Existing private registry auth JSON (required with --layout)")
             p.add_argument("--max-image-bytes", type=int, default=1024 ** 3)
             p.add_argument("--max-age-minutes", type=int, default=DEFAULT_MAX_AGE_MINUTES)
         else:
@@ -532,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--dir", type=Path, required=True, help="Terraform stack directory")
         if name in ("plan", "destroy-plan"):
             p.add_argument("--var-file", action="append", default=[])
+            p.add_argument("--target", action="append", default=[], help="Explicit managed-resource address for exceptional bootstrap/recovery; repeatable")
             p.add_argument("--require-backend", choices=["oci"],
                            help="require initialized OCI state backend at plan and apply time")
             p.add_argument("--max-age-minutes", type=int, default=DEFAULT_MAX_AGE_MINUTES,
@@ -556,7 +572,7 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_status(stack)
         if args.command in ("plan", "destroy-plan"):
             return cmd_plan(stack, "destroy" if args.command == "destroy-plan" else "apply",
-                            args.var_file, args.max_age_minutes, args.require_backend)
+                            args.var_file, args.max_age_minutes, args.require_backend, args.target)
         return cmd_apply(stack, "destroy" if args.command == "destroy" else "apply", args.approve)
     except GateRefused as exc:
         sys.stderr.write(f"deploy_gate: refused. {exc}\n")

@@ -4,7 +4,7 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.3.1 preview
+## 0.3.2 preview
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
@@ -13,16 +13,18 @@ establish a completed migration or a production deployment.
 | Compartment foundation | Terraform child compartment and inspection policy for an existing developer group | Provider validation, scoped-policy tests and live read-only plan; no cloud apply performed; workload provisioning grants remain a separate reviewed plan |
 | Well-Architected design | Source-backed five-pillar review with evidence and risk decisions | Agent guidance, not Oracle certification or an automatic deployed-control audit |
 | Build | Local app workflow, container/PostgreSQL/storage reference, optional HTTPS/OIDC/Vault configuration and private registry stage | Real local PostgreSQL and signed-OIDC tests; live deploy/identity/recovery/teardown remain workload acceptance |
+| Local starter | Taskboard/PostgreSQL Compose preview and offline blueprint contract inspection | Local sandbox only; metadata validation does not run commands or establish cloud readiness |
 | Web migration | Vercel/Netlify/Next.js static scanner, source adaptation and staged cutover workflow | Fictional fixtures and security/behavior tests; arbitrary apps need their own build, data rehearsal and target verification |
 | Other clouds | IaC/SDK scanner and OCI mapping for AWS, Azure and Google Cloud | Provider-type fixture tests; map documentation freshness remains dated in the source |
 | Infrastructure approval | Hash-bound saved plan, expiry, one attempt, Terraform binary check, IAM summary, private receipts and cleanup checks | Fake Terraform regression tests; actual human approval remains a conversation/harness control |
-| Image publication | Separate image/destination approval, immutable private registry, one-use receipt and remote manifest verification | Fake-client regression tests and actual local image inspection; live OCI publication remains unverified |
+| Image publication | Exact digest-only destination, private registry, validated image content, one-use receipt and remote manifest verification | Fake-client regressions and a real local TLS registry probe; live OCI publication remains unverified. Legacy tags require verified immutability |
+| Managed hostname rehearsal | Optional API Gateway HTTPS entry point with restricted ingress and separate hostname bootstrap | Provider validation and mocked plans; live routing, hosted identity and gateway recovery remain unverified |
 | Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
 | Founder website | Build/migrate/setup prompt builder, guides, examples and light/dark themes | Static build, browser/mobile/keyboard and automated accessibility checks; no account connection or credential collection |
 | Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | Unit tests and actual Claude runtime; Codex schema parsed but trusted runtime remains unverified |
 
 Actual results and skipped checks for this release are in
-[RELEASE-0.3.1.md](RELEASE-0.3.1.md).
+[RELEASE-0.3.2.md](RELEASE-0.3.2.md).
 
 An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
 installed as an Actions workflow because the publication credential lacks that

@@ -13,7 +13,9 @@ build and deploy skills) and Migrate (`oci-migrate-*` skills). See
   live run ends with a teardown and a check that nothing is left running.
 - No credentials, private keys, OCIDs of real tenancies, Terraform state or
   plan files in Git. Receipts committed as evidence are redacted first.
-- Name AWS, Azure and Google Cloud only as migration sources, factually.
+- Name AWS, Azure and Google Cloud factually as migration sources or public
+  design references. Attribute references, check their licenses and distinguish
+  reviewed source from behavior independently verified by this kit.
 
 ## Conventions
 

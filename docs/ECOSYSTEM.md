@@ -20,6 +20,10 @@ replacement. See the [handoff](../skills/oci-build/references/app-workflow.md).
 Retain original licenses and attribution when reusing code. Listed capabilities
 are maintainer-documented behavior, not independent operational verification.
 
+See [lessons from AWS, Azure and Google Cloud starters](STARTER-PATTERNS.md) for
+pinned public sources, license checks and the local-preview/blueprint patterns
+adapted into this kit.
+
 ## Public skills worth composing
 
 The following exact public sources were inspected on 13 November 2026. These are

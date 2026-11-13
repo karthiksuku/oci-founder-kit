@@ -1,0 +1,54 @@
+services:
+  app:
+    build:
+      context: ./app
+    ports:
+      - "127.0.0.1:${PREVIEW_PORT:?Run local_preview.py start}:8080"
+    environment:
+      APP_MODE: sandbox
+      HOST: 0.0.0.0
+      PORT: "8080"
+      DATABASE_URL: "postgresql://taskboard:${PREVIEW_DB_PASSWORD:?Run local_preview.py start}@db:5432/taskboard"
+      DATABASE_SSL: "false"
+      OCI_BUCKET: ""
+      OCI_NAMESPACE: ""
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    stop_grace_period: 15s
+    labels:
+      io.oci-founder-kit.preview: "${PREVIEW_PROJECT:?Run local_preview.py start}"
+  db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: taskboard
+      POSTGRES_USER: taskboard
+      POSTGRES_PASSWORD: ${PREVIEW_DB_PASSWORD:?Run local_preview.py start}
+    volumes:
+      - taskboard-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "taskboard", "-d", "taskboard"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    stop_grace_period: 15s
+    labels:
+      io.oci-founder-kit.preview: "${PREVIEW_PROJECT:?Run local_preview.py start}"
+volumes:
+  taskboard-data:
+    labels:
+      io.oci-founder-kit.preview: "${PREVIEW_PROJECT:?Run local_preview.py start}"
+networks:
+  default:
+    labels:
+      io.oci-founder-kit.preview: "${PREVIEW_PROJECT:?Run local_preview.py start}"

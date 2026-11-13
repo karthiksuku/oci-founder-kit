@@ -111,6 +111,7 @@ class Installation(unittest.TestCase):
         for name in ["skills/x/.env", "skills/x/.env.local", "blueprints/x/a.tfstate",
                      "blueprints/x/a.tfvars", "blueprints/x/private.auto.tfvars.json", "blueprints/x/private.tfbackend",
                      "blueprints/x/crash.log", "skills/x/credentials/config.json",
+                     "blueprints/x/.local-preview/settings.json",
                      "skills/x/key.pem", "skills/x/.gate/report.json"]:
             self.assertFalse(installer.distributable(ROOT / name), name)
         self.assertTrue(installer.distributable(ROOT / "blueprints/x/terraform.tfvars.example"))
@@ -155,6 +156,17 @@ class Installation(unittest.TestCase):
                 installer.install(Path(app), "codex")
             for name in ["private.auto.tfvars.json", "crash.log"]:
                 self.assertFalse((Path(app) / ".oci-founder-kit/blueprints/test" / name).exists())
+
+    def test_private_local_preview_is_not_distributed(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as app:
+            fake_root = Path(tmp) / "kit"
+            (fake_root / "skills").mkdir(parents=True)
+            private = fake_root / "blueprints/test/.local-preview"
+            private.mkdir(parents=True)
+            (private / "settings.json").write_text("PRIVATE_PREVIEW_SENTINEL")
+            with mock.patch.object(installer, "ROOT", fake_root):
+                installer.install(Path(app), "codex")
+            self.assertFalse((Path(app) / ".oci-founder-kit/blueprints/test/.local-preview").exists())
 
 
 if __name__ == "__main__":

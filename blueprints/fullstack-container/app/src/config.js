@@ -44,6 +44,7 @@ export function loadConfig(env) {
   if (Boolean(env.OCI_BUCKET) !== Boolean(env.OCI_NAMESPACE)) throw new Error("Configure both OCI_BUCKET and OCI_NAMESPACE");
   config.publicOrigin = httpsUrl(required(env, "PUBLIC_ORIGIN"), "PUBLIC_ORIGIN", true);
   config.oidcIssuer = httpsUrl(required(env, "OIDC_ISSUER"), "OIDC_ISSUER");
+  if (env.OIDC_DISCOVERY_URL) config.oidcDiscoveryUrl = httpsUrl(env.OIDC_DISCOVERY_URL, "OIDC_DISCOVERY_URL");
   config.oidcClientId = required(env, "OIDC_CLIENT_ID");
   config.secretIds = { oidc: secretId(env, "OIDC_CLIENT_SECRET_OCID"), session: secretId(env, "SESSION_SECRET_OCID"),
     database: secretId(env, "DATABASE_PASSWORD_SECRET_OCID") };

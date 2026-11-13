@@ -39,7 +39,7 @@ variable "name" {
 }
 
 variable "allowed_ingress_cidrs" {
-  description = "CIDRs allowed to reach the load balancer. No default: choose who can reach the app."
+  description = "CIDRs allowed to reach the selected ingress. No default; the API Gateway rehearsal requires tester IPv4 /32 addresses."
   type        = list(string)
   validation {
     condition     = length(var.allowed_ingress_cidrs) > 0 && alltrue([for c in var.allowed_ingress_cidrs : can(cidrhost(c, 0))])
@@ -47,8 +47,18 @@ variable "allowed_ingress_cidrs" {
   }
 }
 
+variable "ingress_mode" {
+  description = "load_balancer keeps the existing entry point; api_gateway uses an OCI-managed HTTPS hostname and requires production auth before routing to the app."
+  type        = string
+  default     = "load_balancer"
+  validation {
+    condition     = contains(["load_balancer", "api_gateway"], var.ingress_mode)
+    error_message = "ingress_mode must be load_balancer or api_gateway."
+  }
+}
+
 variable "app_image" {
-  description = "Container image for the app, for example <region-key>.ocir.io/<namespace>/taskboard:0.1.0."
+  description = "Verified image URI from the publication receipt: <region-key>.ocir.io/<namespace>/taskboard@sha256:<digest>."
   type        = string
 }
 

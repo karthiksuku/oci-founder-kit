@@ -55,6 +55,21 @@ Then start your coding agent inside that project:
 
 </details>
 
+### Try a working app locally
+
+With Python 3.11+ and Docker Compose, run from a clone of this repository:
+
+```sh
+python3 scripts/blueprint.py inspect fullstack-container
+python3 blueprints/fullstack-container/local_preview.py start
+```
+
+Open the localhost URL it prints and start adding tasks. The app uses a real
+PostgreSQL database and needs no OCI credentials. `local_preview.py stop` stops
+the containers while keeping your local data. This is an unauthenticated local
+sandbox; cloud uploads and hosted sign-in are separate setup steps.
+[Local preview guide →](blueprints/fullstack-container/LOCAL.md)
+
 ## Choose your task
 
 ### Set up OCI
@@ -90,17 +105,17 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.3.1 preview.** The founder website, optional hooks, safer scanners, gated image publication and an opt-in hardened app reference are included. Local builds, agent workflows, container persistence, logical restore and read-only OCI planning have been exercised; the release evidence identifies which version each check covers.
+**0.3.2 preview.** Includes a local app preview, blueprint inspection for coding agents, optional hooks, digest-bound image publication and an opt-in hardened app reference. Local app behavior, persistence and logical restore have been exercised; the release evidence identifies the checks and remaining cloud validation.
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.3.1.md)
+The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.3.2.md)
 
 ## Go deeper
 
-[Start guide](docs/START-HERE.md) · [Architecture and capability status](docs/ROADMAP.md) · [Optional hooks](docs/HOOKS.md) · [Reference projects](docs/ECOSYSTEM.md) · [Maintain the kit](docs/MAINTAINING.md) · [Contribute](CONTRIBUTING.md)
+[Start guide](docs/START-HERE.md) · [Architecture and capability status](docs/ROADMAP.md) · [Optional hooks](docs/HOOKS.md) · [Reference projects](docs/ECOSYSTEM.md) · [Lessons from other cloud starters](docs/STARTER-PATTERNS.md) · [Maintain the kit](docs/MAINTAINING.md) · [Contribute](CONTRIBUTING.md)
 
 Launchpad Studio build briefs can feed the [optional app workflow](skills/oci-build/references/app-workflow.md). Launchpad is not required to use the kit.
 

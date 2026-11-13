@@ -1,0 +1,41 @@
+{
+  "schema": "oci-kit-blueprint/1",
+  "id": "fullstack-container",
+  "name": "Taskboard full-stack app",
+  "summary": "Build and test a small task workflow locally, then prepare a separately approved OCI deployment.",
+  "runtime": {
+    "name": "Node.js",
+    "requirement": ">=22",
+    "source": "app/package.json"
+  },
+  "paths": {
+    "app": "app",
+    "infrastructure": "terraform",
+    "tests": "app/test",
+    "local_preview": "local_preview.py"
+  },
+  "tools": [
+    {"name": "python3", "requirement": ">=3.11", "purpose": "Kit checks and local preview helper."},
+    {"name": "docker", "requirement": "Engine >=28, local daemon and Compose with up --wait/--wait-timeout and build --builder", "purpose": "Local app and PostgreSQL preview; Node runs inside the app image."},
+    {"name": "node", "requirement": ">=22", "purpose": "Application tests on the host; not needed on the host for Docker preview."},
+    {"name": "npm", "requirement": "Compatible with Node.js 22 or newer", "purpose": "Run npm ci in app before host application tests; the Docker preview installs its own dependencies."},
+    {"name": "terraform", "requirement": ">=1.6; >=1.7 for mock-provider tests", "purpose": "Infrastructure validation after provider initialization; cloud plans use the existing approval gate."}
+  ],
+  "commands": {
+    "preview": {"cwd": ".", "argv": ["python3", "local_preview.py", "start"]},
+    "application_tests": {"cwd": "app", "argv": ["npm", "test"]},
+    "infrastructure_validate": {"cwd": "terraform", "argv": ["terraform", "validate"]}
+  },
+  "operating_modes": [
+    {"id": "local-preview", "description": "Unauthenticated loopback-only task preview with local PostgreSQL on Linux, macOS or WSL2. Attachments and OCI services are not enabled. This is not production acceptance."},
+    {"id": "restricted-sandbox", "description": "Explicitly allowed client CIDRs and unauthenticated sandbox app. Cloud creation, image publication and cleanup need separate exact approvals."},
+    {"id": "hardened", "description": "HTTPS, OIDC, Vault, private app networking and ownership checks. Requires configured prerequisites and live security/recovery evidence before real users."}
+  ],
+  "outputs": ["app_url", "load_balancer_ip", "api_gateway_hostname", "api_gateway_id", "bucket", "database_endpoint", "container_instance_id"],
+  "acceptance": [
+    {"id": "local-workflow", "description": "Record the source revision, local task create/update/delete result and application test output."},
+    {"id": "access-and-plan", "description": "Retain private readiness evidence, exact approved saved plan and dated cost basis; metadata validity proves none of these."},
+    {"id": "runtime-security", "description": "Verify the actual HTTPS endpoint, OIDC login, two-user isolation, CSRF rejection and authenticated upload/download bytes."},
+    {"id": "recovery-and-cleanup", "description": "Record restore/rollback checks, retention decisions, approved cleanup and residual-resource verification."}
+  ]
+}

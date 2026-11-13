@@ -24,6 +24,9 @@ describe("production configuration and secret loading", () => {
     assert.throws(() => loadConfig({}), /APP_MODE/);
     for (const patch of [{ PUBLIC_ORIGIN: "http://app.example.test" }, { PUBLIC_ORIGIN: "https://app.example.test/path" },
       { OIDC_ISSUER: "http://id.example.test" }, { DATABASE_SSL: "false" }, { DATABASE_URL: "synthetic" },
+      { OIDC_DISCOVERY_URL: "http://domain.example.test/.well-known/openid-configuration" },
+      { OIDC_DISCOVERY_URL: "https://user:password@domain.example.test/.well-known/openid-configuration" },
+      { OIDC_DISCOVERY_URL: "https://domain.example.test/.well-known/openid-configuration?redirect=other" },
       { OCI_AUTH: "config-file" }, { DATABASE_CA_CERT: "" }, { TRUST_PROXY_CIDRS: "0.0.0.0/0" },
       { TRUST_PROXY_CIDRS: "true" }, { SESSION_SECRET: "synthetic" }]) {
       assert.throws(() => loadConfig({ ...environment(), ...patch }));
@@ -64,6 +67,40 @@ describe("production configuration and secret loading", () => {
       content = bad;
       await assert.rejects(reader(secretId("session")));
     }
+  });
+});
+
+describe("explicit OIDC discovery with a separately pinned issuer", () => {
+  const discoveryUrl = "https://domain.example.test/.well-known/openid-configuration";
+  const issuer = "https://issuer.example.test/shared";
+  const metadata = () => ({ issuer, authorization_endpoint: "https://domain.example.test/authorize",
+    token_endpoint: "https://domain.example.test/token", jwks_uri: "https://domain.example.test/jwks",
+    response_types_supported: ["code"], id_token_signing_alg_values_supported: ["RS256"],
+    token_endpoint_auth_methods_supported: ["client_secret_post"] });
+  const configuration = () => ({ ...loadConfig({ ...environment(), OIDC_ISSUER: issuer,
+    OIDC_DISCOVERY_URL: discoveryUrl }), sessionSecret: "synthetic-session-".repeat(4),
+    oidcClientSecret: "synthetic-client-value" });
+
+  test("accepts a trusted domain document while retaining the configured issuer", async () => {
+    const calls = [];
+    const auth = await createAuth({ config: configuration(), store: new session.MemoryStore(),
+      discoveryOptions: { [oidc.customFetch]: async (url) => {
+        calls.push(String(url));
+        return new Response(JSON.stringify(metadata()), { headers: { "content-type": "application/json" } });
+      } } });
+    assert.deepEqual(calls, [discoveryUrl]);
+    assert.equal(typeof auth.mount, "function");
+  });
+
+  test("refuses a different advertised issuer before starting sign-in", async () => {
+    const calls = [];
+    await assert.rejects(createAuth({ config: configuration(), store: new session.MemoryStore(),
+      discoveryOptions: { [oidc.customFetch]: async (url) => {
+        calls.push(String(url));
+        return new Response(JSON.stringify({ ...metadata(), issuer: "https://other.example.test/" }),
+          { headers: { "content-type": "application/json" } });
+      } } }), /does not match the configured issuer/);
+    assert.deepEqual(calls, [discoveryUrl]);
   });
 });
 
@@ -180,8 +217,8 @@ describe("OIDC sessions, CSRF and user isolation", () => {
     assert.equal((await client.request("/api/tasks", { ...jsonRequest("POST", { title: "blocked" }),
       headers: { "content-type": "application/json", origin: "https://other.example.test" } })).status, 403);
   });
-  test("wrong state, nonce, audience, expiry and signature are rejected; callback cannot replay", async () => {
-    for (const kind of ["state", "nonce", "aud", "exp", "signature"]) {
+  test("wrong state, nonce, issuer, audience, expiry and signature are rejected; callback cannot replay", async () => {
+    for (const kind of ["state", "nonce", "iss", "aud", "exp", "signature"]) {
       const client = browser();
       let callback = await begin(client);
       if (kind === "state") callback = callback.replace(/state=[^&]+/, "state=wrong");

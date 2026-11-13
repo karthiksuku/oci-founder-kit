@@ -58,6 +58,11 @@ class Staged(unittest.TestCase):
         self.stage('.env.example', b'ACCESS_TOKEN="' + ('ghp_' + 'D' * 30).encode() + b'"')
         self.assertEqual(hooks.scan_staged(self.root)['status'], 'blocked')
 
+    def test_local_preview_private_settings_are_blocked_even_without_a_token_pattern(self):
+        self.stage('blueprints/fullstack-container/.local-preview/settings.json', b'{}')
+        result = hooks.scan_staged(self.root)
+        self.assertEqual(result['status'], 'blocked')
+
     def test_placeholder_examples_are_allowed(self):
         self.stage('.env.example', b'DATABASE_URL=<set-locally>\nAPI_' + b'KEY="${API_KEY}"\n')
         self.stage('terraform.tfvars.example', b'region = "<your-region>"\n')
@@ -122,6 +127,20 @@ class Guard(unittest.TestCase):
     def test_shell_substitution_is_inspected(self):
         self.assertIsNotNone(hooks.cloud_reason('echo $(terraform destroy)'))
         self.assertIsNotNone(hooks.cloud_reason('terraform\\\n apply'))
+
+    def test_skopeo_remote_writes_need_review_but_local_preparation_and_reads_do_not(self):
+        for command in [
+            'skopeo copy --preserve-digests dir:prepared docker://registry.example/app@sha256:abc',
+            'skopeo copy docker://registry.example/source docker://registry.example/destination --retry-times 0',
+            'skopeo delete docker://registry.example/app:old',
+        ]:
+            self.assertIsNotNone(hooks.cloud_reason(command), command)
+        for command in [
+            'skopeo copy docker-archive:local.tar dir:prepared',
+            'skopeo copy docker://registry.example/app dir:downloaded',
+            'skopeo inspect docker://registry.example/app',
+        ]:
+            self.assertIsNone(hooks.cloud_reason(command), command)
 
     def test_malformed_command_does_not_echo_secrets(self):
         sentinel = 'ghp_' + 'G' * 30

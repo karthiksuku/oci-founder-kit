@@ -98,7 +98,7 @@ def private_path(name: str) -> bool:
     parts = Path(name).parts
     low = name.lower()
     base = Path(low).name
-    if any(p.lower() in {'.oci', '.aws', '.gate', '.hooks', 'credentials', 'private-receipts'} for p in parts):
+    if any(p.lower() in {'.oci', '.aws', '.gate', '.hooks', '.local-preview', 'credentials', 'private-receipts'} for p in parts):
         return True
     if low.endswith('.claude/settings.local.json'):
         return True
@@ -272,6 +272,15 @@ def cloud_reason(command: str, depth: int = 0) -> str | None:
                 return reason
         elif executable in {'docker', 'podman'} and 'push' in args:
             return reason
+        elif executable == 'skopeo':
+            if 'delete' in args:
+                return reason
+            if 'copy' in args:
+                transports = ('docker://', 'dir:', 'docker-archive:', 'oci:',
+                              'oci-archive:', 'docker-daemon:', 'containers-storage:')
+                references = [arg for arg in args if arg.startswith(transports)]
+                if references and references[-1].startswith('docker://'):
+                    return reason
         elif executable in {'kubectl', 'helm', 'pulumi'} and any(a in {'apply', 'delete', 'create', 'install', 'upgrade', 'uninstall', 'up', 'destroy'} for a in args):
             return reason
     return None

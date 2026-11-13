@@ -49,17 +49,24 @@ class Network(unittest.TestCase):
         var = re.search(r'variable\s+"allowed_ingress_cidrs"\s*\{(.*?)\n\}', SOURCE, re.S).group(1)
         self.assertIsNone(re.search(r"^\s*default\s*=", var, re.M))
 
-    def test_only_the_load_balancer_accepts_client_ranges(self):
+    def test_only_reviewed_ingress_components_accept_client_ranges(self):
         rules = blocks("resource", "oci_core_network_security_group_security_rule")
         for name, body in rules.items():
             if 'direction                 = "INGRESS"' in body and "CIDR_BLOCK" in body:
-                self.assertIn("oci_core_network_security_group.lb.id", body, name)
+                expected_group = {
+                    "lb_in_http": "oci_core_network_security_group.lb[0].id",
+                    "lb_in_https": "oci_core_network_security_group.lb[0].id",
+                    "gateway_in_https": "oci_core_network_security_group.gateway[0].id",
+                }
+                self.assertIn(name, expected_group)
+                self.assertIn(expected_group[name], body, name)
                 self.assertIn("var.allowed_ingress_cidrs", SOURCE)
                 self.assertNotIn('"0.0.0.0/0"', body, name)
 
     def test_app_and_database_accept_traffic_only_from_their_neighbour(self):
         rules = blocks("resource", "oci_core_network_security_group_security_rule")
-        self.assertIn("oci_core_network_security_group.lb.id", rules["app_in_lb"])
+        self.assertIn("oci_core_network_security_group.lb[0].id", rules["app_in_lb"])
+        self.assertIn("oci_core_network_security_group.gateway[0].id", rules["app_in_gateway"])
         self.assertIn("oci_core_network_security_group.app.id", rules["db_in_app"])
 
     def test_default_security_list_is_replaced_and_private_subnet_has_no_public_ips(self):
