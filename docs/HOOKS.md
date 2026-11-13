@@ -147,11 +147,30 @@ their own consumer verification before a compatibility claim.
 The implementation follows the current documented interfaces for
 [Claude Code hooks](https://code.claude.com/docs/en/hooks) and
 [Codex hooks](https://learn.chatgpt.com/docs/hooks), checked 13 November 2026.
-Local CLI versions available during development were Claude Code 2.1.251 and
-Codex 0.162.1. Tests exercise both adapters' event payloads, deny responses,
-installation preservation, rollback, script changes and removal. A real Claude consumer received SessionStart context and a PreToolUse denial
-for a harmless fake Terraform command; the fake command never executed. Codex's
-installed host parsed the four event definitions without configuration errors
-and reported them untrusted. Its project layer correctly remained disabled
-until normal workspace trust. A trusted Codex runtime run remains a separate
-consumer check; adapter tests and schema loading do not establish that result.
+Local CLI versions tested were Claude Code 2.1.251 and Codex 0.162.1. Tests
+exercise both adapters' event payloads, deny responses, installation preservation,
+rollback, script changes and removal.
+
+The published 0.3.4 hook implementation was exercised in isolated Claude projects
+on 13 November 2026. Its script SHA-256 is
+`7381dc1854dbf6dca7ade94e460ec7ce99ce576ed5476d1c53917e62d649c147`.
+
+- Actual host events verified SessionStart context and the non-blocking Stop reminder.
+- Fake Terraform init/plan and Skopeo publication commands were denied before
+  execution. A fake saved-plan inspection ran exactly once as a positive control.
+- A literal Git commit attempt was denied specifically because a synthetic
+  `*.tfbackend.json` file was staged. No commit occurred and the index was unchanged.
+- One Write produced an invalid synthetic Python file and a fresh validation-cache
+  entry matching its exact path/content hashes. Claude reported the expected
+  `invalid-py` warning. This host did not stream a separate raw PostToolUse response,
+  so the diagnostic text is model-reported and corroborated by the runtime cache.
+
+The probes used normal restricted host permissions; temporary hooks were removed
+through the installer afterward. No application code or OCI command was executed.
+These cases do not establish coverage of arbitrary shell commands or every host
+version. See the [dated release follow-up](RELEASE-0.3.4.md).
+
+Codex loaded the four current event definitions without configuration errors,
+with its project layer active, and reported all four hooks untrusted. Normal
+owner review remains required. Trusted Codex runtime is still unverified;
+adapter tests and schema loading do not establish that result.
