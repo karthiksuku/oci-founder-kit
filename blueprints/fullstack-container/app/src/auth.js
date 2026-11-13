@@ -13,9 +13,14 @@ const token = () => randomBytes(32).toString("base64url");
 const callSession = (req, method) => new Promise((resolve, reject) => req.session[method]((err) => err ? reject(err) : resolve()));
 export const ownerKey = (issuer, subject) => createHash("sha256").update(JSON.stringify([issuer, subject])).digest("hex");
 
-export async function createAuth({ config, pool, store, oidcConfiguration }) {
+export async function createAuth({ config, pool, store, oidcConfiguration, discoveryOptions }) {
   if (config.mode !== "production" || !config.sessionSecret || (!pool && !store)) throw new Error("Production auth is incomplete");
-  const client = oidcConfiguration ?? await oidc.discovery(new URL(config.oidcIssuer), config.oidcClientId, config.oidcClientSecret);
+  const client = oidcConfiguration ?? await oidc.discovery(new URL(config.oidcDiscoveryUrl ?? config.oidcIssuer),
+    config.oidcClientId, config.oidcClientSecret, undefined, discoveryOptions);
+  // An explicit discovery document can live on a different host from its issuer.
+  if (config.oidcDiscoveryUrl && client.serverMetadata().issuer !== config.oidcIssuer) {
+    throw new Error("OIDC discovery does not match the configured issuer");
+  }
   client.timeout = 10;
   oidc.enableNonRepudiationChecks(client);
   const sessionStore = store ?? new (connectPgSimple(session))({ pool, tableName: "web_sessions",

@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.1"
+  version: "0.3.2"
 ---
 
 # Start building on OCI
@@ -34,6 +34,11 @@ prepare the required foundation, adapt the existing blueprint, review the design
 then deploy and verify. The order can overlap: missing cloud access does not block
 local app development. For migration: inventory dependencies, preserve source
 behavior, adapt and test, rehearse data movement, then stage/cut over with rollback.
+
+For the bundled Taskboard, inspect `scripts/blueprint.py inspect fullstack-container`
+from the kit root and follow the [local preview guide](../../blueprints/fullstack-container/LOCAL.md).
+Its metadata lists command arguments and working directories without executing
+them. A valid contract is not a successful app test or cloud readiness result.
 
 Read [the start guide](../../docs/START-HERE.md) for setup and prompts, and the
 [capability and evidence status](../../docs/ROADMAP.md) before making a claim.

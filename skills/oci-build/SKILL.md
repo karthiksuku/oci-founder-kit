@@ -4,7 +4,7 @@ description: Build and test a useful application locally, preserve its chosen fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.1"
+  version: "0.3.2"
 ---
 
 # Build a full-stack app on OCI
@@ -42,10 +42,11 @@ its README before changing it.
    [HTTPS/OIDC/Vault configuration](../../blueprints/fullstack-container/PRODUCTION.md).
    Other apps keep their own validated configuration contract.
 3. **Test locally.** The app's own tests must pass before any image is built.
-4. **Image.** Build and test it. Create the empty private registry, then enable
-   immutable tags in a separately approved update through
+4. **Image.** Build and test it. Create the empty private registry through
    `oci-deploy`, then follow [gated image publication](../oci-deploy/references/image-publication.md)
-   to prepare and approve the exact image upload. Never use a direct push as a
+   to prepare a private image layout and approve the exact digest upload without
+   assigning a remote tag. Pin the deployment to the verified receipt's digest.
+   Legacy tag mode requires verified registry immutability. Never use a direct push as a
    substitute. Use existing private registry authentication; creating an auth
    token is a separate IAM change, not implied by this workflow.
 5. **Variables.** Copy `terraform.tfvars.example` to a `.tfvars` file that
@@ -65,6 +66,9 @@ reference implements HTTPS, OIDC ownership checks, Vault retrieval and backup
 configuration; configure protected remote state and verify the deployed controls
 and recovery before real users. Use `--require-backend oci` with the gate for
 that reference. Keep the default sandbox reachable only from approved addresses.
+Its optional API Gateway rehearsal uses a managed HTTPS hostname and requires
+the same hardened OIDC/Vault app controls; follow the blueprint's staged hostname
+bootstrap before configuring the callback. Default ingress remains the load balancer.
 
 ## Rules
 

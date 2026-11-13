@@ -15,12 +15,15 @@ instance; it does not provide horizontal scaling or an availability SLA.
 
 Before planning, an authorized administrator prepares or selects:
 
-1. A domain and an OCI Certificates certificate valid for it in the load balancer
-   region. Review the [certificate access requirements](https://docs.oracle.com/en-us/iaas/Content/Balance/Tasks/managingcertificates.htm).
+1. For default load-balancer ingress, a domain and an OCI Certificates certificate
+   valid for it in that region. Review the [certificate access requirements](https://docs.oracle.com/en-us/iaas/Content/Balance/Tasks/managingcertificates.htm).
    DNS changes are a separate approved operation after the load balancer IP exists.
+   The [optional API Gateway rehearsal](#optional-api-gateway-rehearsal) obtains
+   an OCI-managed hostname/certificate through a separate bootstrap plan.
 2. An OIDC confidential web client at the chosen provider, with authorization-code
    flow, PKCE, `client_secret_post` token authentication and an exact callback of
-   `https://app.example.com/auth/callback`. All discovery, authorization, token
+   `https://<actual-app-hostname>/auth/callback`. For the gateway, register this
+   only after its actual hostname exists. All discovery, authorization, token
    and signing-key endpoints must support HTTPS and be reachable from the app
    or browser as appropriate. Other client authentication methods need an
    explicitly implemented and tested adapter.
@@ -40,8 +43,34 @@ Before planning, an authorized administrator prepares or selects:
 The app policy grants its resource principal read access to only the three named
 secret bundles. The deploying identity still needs reviewed permissions to create
 the listed resources and policies. Do not grant tenancy-wide management to fix an
-access failure. Certificate, identity client, secret creation and state-bucket
-creation are not silently performed by this stack.
+access failure. Load-balancer certificate, identity client, secret creation and
+state-bucket creation are not silently performed by this stack.
+
+## Configure identity discovery
+
+`production.oidc_issuer` is the expected token issuer. Normally the app discovers
+metadata from that issuer. Some providers, including OCI IAM identity domains,
+serve a domain-specific discovery document whose issuer identifier differs from
+its host. [Oracle discovery API](https://docs.oracle.com/en/cloud/paas/iam-domains-rest-api/op-well-known-openid-configuration-get.html).
+
+For that case, also set `production.oidc_discovery_url` to the reviewed domain's
+exact HTTPS `/.well-known/openid-configuration` URL. Keep `oidc_issuer` equal to
+the issuer in that document. The app refuses a discovered issuer that differs
+from the configured value; ID-token signature, issuer, audience, state and nonce
+checks remain enabled. This adds an explicit issuer check to the pinned client's
+[direct-document discovery option](https://github.com/panva/openid-client/blob/v6.8.9/docs/functions/discovery.md).
+
+For OCI IAM, the corresponding runtime settings are:
+
+```text
+OIDC_ISSUER=https://identity.oraclecloud.com/
+OIDC_DISCOVERY_URL=https://<identity-domain-host>/.well-known/openid-configuration
+```
+
+Verify the selected document's issuer and authorization, token and signing-key
+endpoints against the intended identity domain. Discovery locations come from
+operator configuration, never request parameters. Other providers can leave the
+optional discovery URL unset and retain their normal issuer discovery.
 
 ## Configure state before the first plan
 
@@ -77,10 +106,14 @@ the deploy gate only checks the initialized backend type.
 
 Run app tests and build the image. Use the
 [image publication gate](../../skills/oci-deploy/references/image-publication.md)
-to review and approve upload to a private, immutable-tag registry. Pin `app_image`
+to prepare a private layout and approve an exact digest upload to the private
+registry, without assigning a remote tag. Keep its original creation receipt;
+`immutable_tags = false` is compatible with digest publication. Live OCI digest
+publication remains unverified until the actual attempt passes its checks. Pin `app_image`
 to the verified receipt's immutable `@sha256:` digest; production rejects mutable
-tags. Fill `production.tfvars` with the certificate, public origin,
-OIDC client identifier and secret references, never their values.
+tags. For default load-balancer ingress, fill `production.tfvars` with the
+certificate, public origin, OIDC client identifier and secret references, never
+their values. For the gateway, complete the staged procedure below first.
 
 ```sh
 python3 ../../skills/oci-deploy/scripts/deploy_gate.py plan \
@@ -92,12 +125,82 @@ Review the exact plan, scoped IAM statements, DNS/certificate dependencies and
 dated cost estimate. Obtain approval of its hash before invoking the matching
 gate apply command. The required backend is checked again before apply.
 
-The load balancer accepts only HTTPS from the chosen CIDRs; port 80 is closed.
-TLS terminates there. The private app connection uses HTTP on port 8080 restricted
-to the load balancer NSG; workloads requiring encrypted internal transport must
+The selected hardened entry point accepts only HTTPS from the chosen CIDRs;
+port 80 is closed. TLS terminates there. The private app connection uses HTTP on
+port 8080 restricted to that entry point's NSG; workloads requiring encrypted internal transport must
 add and verify it. Database TLS verifies the service CA. Outbound production
 traffic permits DNS, the database port and HTTPS; HTTPS egress is not a domain
 allowlist. Narrow it further if your policy requires that control.
+
+## Optional API Gateway rehearsal
+
+The default remains `ingress_mode = "load_balancer"`. For a restricted rehearsal
+in the commercial OC1 realm, `ingress_mode = "api_gateway"` uses OCI's generated
+HTTPS hostname and default certificate. This avoids a custom DNS/certificate
+prerequisite for the rehearsal. Oracle recommends default certificates for
+private or nonproduction systems; use a reviewed custom-certificate design for
+public production use. See [Oracle's certificate guidance](https://docs.oracle.com/en-us/iaas/Content/APIGateway/Tasks/apigatewaysettingupcustomdomainscerts.htm).
+
+This option changes only ingress. The app still runs in `APP_MODE=production`
+with server-side OIDC, PostgreSQL sessions, ownership checks, CSRF, Vault retrieval
+and verified database TLS. It does not enable the unauthenticated sandbox app.
+The generated hostname flow is locally schema/mock tested; live OCI gateway,
+OIDC, cookie and attachment behavior remains unverified.
+
+1. Configure the protected OCI backend and common variables above. Choose the
+   actual tester/browser IPv4 `/32` addresses for `allowed_ingress_cidrs`; do not
+   assume the coding agent's egress address is the browser's. The dedicated
+   regional gateway subnet must have at least 32 free addresses; the default
+   VCN produces a `/24` gateway subnet.
+2. Create an ignored `terraform/gateway-bootstrap.tfvars` with only:
+
+   ```hcl
+   ingress_mode = "api_gateway"
+   production   = null
+   ```
+
+   Prepare the exceptional gateway-only plan from this blueprint directory:
+
+   ```sh
+   python3 ../../skills/oci-deploy/scripts/deploy_gate.py plan \
+     --dir terraform --var-file production-common.tfvars \
+     --var-file gateway-bootstrap.tfvars --require-backend oci \
+     --target 'oci_apigateway_gateway.web[0]'
+   ```
+
+   A target includes dependencies. Review every actual change: the intended
+   fresh-stack bootstrap contains the gateway, VCN, internet gateway, public
+   route table, empty security list, gateway subnet, gateway/app NSGs and three
+   restrictive rules. It must not create the app, database, API deployment,
+   IAM policies, bucket or secrets. Obtain approval of that exact plan before
+   the matching gate apply. Existing stacks can have different changes; do not
+   treat this list as approval or switch a running ingress without review.
+3. Read only `api_gateway_hostname` from the resulting Terraform outputs. Verify
+   the hostname and certificate, then register the confidential client's callback
+   as `https://<actual-gateway-hostname>/auth/callback` through the separately
+   approved identity workflow. Keep inherited sign-on/MFA controls and restrict
+   client membership. Prepare the three Vault secrets privately.
+4. Complete `production.tfvars`: set top-level `ingress_mode = "api_gateway"`,
+   fill the OIDC and secret reference fields, and **omit** `public_origin` and
+   `certificate_ocid` from `production`. Terraform derives PUBLIC_ORIGIN from
+   the actual gateway. Use `oidc_discovery_url` only as described above. Do not
+   pass `gateway-bootstrap.tfvars` to the full plan.
+5. Run and review the **full**, untargeted deployment plan from the preceding
+   section. It creates the authenticated app and its root API deployment only
+   after complete production inputs are present. Obtain a separate exact-plan
+   approval, apply through the gate, and perform the acceptance checks below.
+
+The root route forwards nested paths and callback queries to the fixed private
+app. It overwrites `X-Forwarded-Proto` to `https`; the app trusts only the dedicated
+gateway subnet. No response caching, query rewriting or callback logging is
+configured. Production uploads and downloads stay behind the authenticated app;
+this flow creates no public pre-authenticated object URLs.
+
+The gateway option does not create the load-balancer alarm. Prepare reviewed
+availability/health checks without logging callback codes, session cookies or
+tokens. Test the workload against [API Gateway limits](https://docs.oracle.com/en-us/iaas/Content/APIGateway/Reference/apigatewaylimits.htm)
+and timeouts, including the app's 10 MiB upload limit. Replacing the gateway can
+change its hostname and therefore requires a new exact callback registration.
 
 ## Validate the running application
 
@@ -105,6 +208,10 @@ Use synthetic data and two independently signed-in test users. Record each resul
 in the [progress record](../../docs/PROGRESS.md), keeping raw account details private.
 
 - Verify the hostname, certificate chain, HTTPS-only entry point and `/readyz`.
+- For the gateway, verify `/`, nested assets, callback query parameters, redirects
+  and Secure/HttpOnly/SameSite cookies. Spoofed forwarded-protocol headers must
+  not weaken HTTPS behavior; unapproved client IPs and direct backend access
+  must fail. Verify binary upload/download hashes and oversize rejection.
 - A signed-out request to task or attachment APIs must return 401.
 - User A creates a task and file; user B cannot list, modify, delete or download
   them, even with a copied identifier. Production downloads proxy through the
@@ -144,5 +251,8 @@ their own rehearsed procedure.
 
 Plan cleanup of rehearsal resources through the same gate with `--require-backend
 oci`. Inventory retained versions/backups and shared resources before deletion.
+The separate registry, previous image digests, state bucket, identity resources
+and Vault secrets remain until their individual retention/cleanup plans are
+approved; destroying the app stack does not establish that they were removed.
 An empty resource-search result is **unknown**, not evidence that cleanup finished.
 Publish only a redacted result summary, with unverified items left explicit.

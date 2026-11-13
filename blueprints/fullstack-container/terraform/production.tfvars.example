@@ -3,6 +3,8 @@
 production = {
   public_origin             = "https://app.example.com"
   oidc_issuer               = "https://identity.example.com"
+  # Optional: a trusted discovery document hosted separately from the issuer.
+  # oidc_discovery_url       = "https://domain.example.com/.well-known/openid-configuration"
   oidc_client_id            = "<registered-oidc-client-id>"
   certificate_ocid          = "ocid1.certificate.oc1..<managed-certificate>"
   security_compartment_ocid = "ocid1.compartment.oc1..<security-compartment>"
@@ -12,3 +14,9 @@ production = {
   session_secret_ocid       = "ocid1.vaultsecret.oc1..<session-signing-secret>"
 }
 app_image = "<region-key>.ocir.io/<namespace>/taskboard@sha256:<verified-image-digest>"
+
+# Optional restricted rehearsal using OCI's managed HTTPS hostname:
+# ingress_mode = "api_gateway"
+# Omit public_origin and certificate_ocid above in that mode. Bootstrap the
+# gateway through the reviewed target plan in PRODUCTION.md, then register its
+# actual /auth/callback URI with your identity provider before the full app plan.

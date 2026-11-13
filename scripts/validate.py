@@ -15,6 +15,8 @@ import re
 import sys
 from pathlib import Path
 
+import blueprint
+
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
 MANIFESTS = ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json")
@@ -29,7 +31,7 @@ SECRET_RES = (
 )
 MAX_DESCRIPTION = 1024
 MAX_BODY_LINES = 500
-SKIP_DIRS = {".git", "__pycache__", "node_modules", ".terraform", ".gate"}
+SKIP_DIRS = {".git", "__pycache__", "node_modules", ".terraform", ".gate", ".local-preview"}
 
 
 def parse_frontmatter(text: str) -> tuple[dict, str] | None:
@@ -172,6 +174,10 @@ def main() -> int:
     check_links(problems)
     check_secrets(problems)
     check_example(problems)
+    try:
+        blueprint.catalog(ROOT)
+    except (ValueError, OSError, UnicodeError, RecursionError):
+        problems.append("blueprints: invalid metadata or required local path")
     for problem in problems:
         sys.stdout.write(problem + "\n")
     sys.stdout.write(f"{'FAIL' if problems else 'OK'}: {len(problems)} problem(s)\n")

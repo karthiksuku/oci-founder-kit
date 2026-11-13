@@ -1,6 +1,8 @@
 """Exact-image publication for deploy_gate; no login, token creation or shell commands.
 
-Only existing, immutable, private commercial-realm OCIR repositories are supported.
+Only existing private commercial-realm OCIR repositories are supported. Digest
+publication never assigns a remote tag. Legacy tag publication requires a
+verified immutable repository (not supported in every service deployment).
 The receipt and CLI are trusted local inputs, not proof of human approval. The
 owner must approve the displayed hash in the conversation. Same-user tampering,
 changes to Docker's daemon or installed libraries, and external IAM changes are
@@ -10,8 +12,10 @@ outside this local gate's isolation boundary. Raw client output is never saved.
 from __future__ import annotations
 
 import contextlib
+import base64
 import datetime as dt
 import fcntl
+import gzip
 import hashlib
 import json
 import math
@@ -25,6 +29,7 @@ import stat
 import subprocess
 import sys
 import time
+import zlib
 from pathlib import Path
 
 PLAN = "image-plan.json"
@@ -188,16 +193,19 @@ def fingerprint(name: str) -> dict:
     return {"path": str(path), "sha256": digest.hexdigest()}
 
 
-def run(binary: dict, arguments: list[str], timeout: int = 45) -> bytes:
+def run(binary: dict, arguments: list[str], timeout: int = 45,
+        environment: dict | None = None, pass_fds: tuple = ()) -> bytes:
     """Bound output and time; discard stderr and never interpolate shell text."""
     env = {k: v for k, v in os.environ.items() if k not in {
         "OCI_CLI_ENDPOINT", "OCI_CLI_DEFAULTS_FILE", "OCI_CLI_RC_FILE", "OCI_CLI_QUERY",
         "OCI_CLI_DEBUG", "OCI_CLI_AUTO_PROMPT", "OCI_CLI_FEDERATION_ENDPOINT",
         "OCI_CLI_REALM_SPECIFIC_ENDPOINT", "OCI_REGION_METADATA"}}
+    if environment is not None:
+        env = environment
     output = bytearray()
     process = subprocess.Popen([binary["path"], *arguments], stdin=subprocess.DEVNULL,
                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                               env=env, start_new_session=True)
+                               env=env, start_new_session=True, pass_fds=pass_fds)
     try:
         with selectors.DefaultSelector() as selector:
             selector.register(process.stdout, selectors.EVENT_READ)
@@ -230,10 +238,19 @@ def oci(binary: dict, target: dict, arguments: list[str]):
                        "--no-retry", "--connection-timeout", "10", "--read-timeout", "30"])
     payload = parse(raw)
     require(isinstance(payload, dict) and "data" in payload, "OCI returned an unrecognized response.")
+    if "--all" in arguments:
+        require(payload.get("opc-next-page") in (None, ""), "OCI returned an incomplete paginated response.")
     return payload["data"]
 
 
 def ocid(value, kind: str) -> bool:
+    if kind in {"containerrepo", "containerimage"}:
+        # Container Registry uses a service-specific 0.namespace.unique suffix;
+        # its repository and image docs both show this seven-segment form.
+        # Retain simple regional IDs, without widening tenancy/compartment IDs.
+        return (isinstance(value, str) and len(value) <= 256
+                and re.fullmatch(r"ocid1\." + kind + r"\.oc1\.[a-z][a-z0-9-]{0,62}\."
+                                 r"(?:0\.[a-z0-9]{1,63}\.)?[a-z0-9]{1,128}", value) is not None)
     return isinstance(value, str) and re.fullmatch(r"ocid1\." + kind + r"\.oc1\.[a-z0-9-]*\.[a-z0-9]+", value) is not None
 
 
@@ -267,16 +284,17 @@ def registry_receipt(path: Path, repository_id: str) -> tuple[dict, str]:
     return target, sha(raw)
 
 
-def verify_registry(binary: dict, target: dict) -> dict:
+def verify_registry(binary: dict, target: dict, immutable: bool = True) -> dict:
     repository = oci(binary, target, ["artifacts", "container", "repository", "get", "--repository-id", target["repository_id"]])
     require(isinstance(repository, dict) and repository.get("id") == target["repository_id"]
             and repository.get("compartment-id") == target["compartment_ocid"]
             and repository.get("display-name") == target["repository_name"]
-            and repository.get("is-public") is False and repository.get("is-immutable") is True
+            and repository.get("is-public") is False
+            and (not immutable or repository.get("is-immutable") is True)
             and repository.get("lifecycle-state") == "AVAILABLE"
             and repository.get("repository-type") in (None, "STANDARD")
             and repository.get("is-top-level") in (None, False),
-            "Cannot confirm the exact available, private, immutable standard repository.")
+            "Cannot confirm the exact available private standard repository and required immutability.")
     namespace = oci(binary, target, ["os", "ns", "get", "--compartment-id", target["tenancy_ocid"]])
     require(isinstance(namespace, str) and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", namespace)
             and repository.get("namespace") == namespace, "The repository namespace does not match the expected tenancy.")
@@ -323,6 +341,9 @@ def timestamp() -> str:
 
 
 def plan(args, gate: int) -> int:
+    if args.layout is not None:
+        return plan_digest(args, gate)
+    require(args.registry_auth_file is None, "Registry auth files are only used with digest publication.")
     require(1 <= args.max_age_minutes <= 1440, "Approval expiry must be between 1 and 1440 minutes.")
     require(1 <= args.max_image_bytes <= MAX_IMAGE_BYTES, "Image limit must be positive and at most 10 GiB.")
     require(TAG.fullmatch(args.tag) is not None, "Unsupported destination tag.")
@@ -358,21 +379,45 @@ def validate_time(value: dict) -> None:
             "The image approval expired or has invalid timestamps; re-plan.")
 
 
-def verify_remote(binary: dict, target: dict, tag: str, digest: str) -> dict:
+def verify_image_identity(data: dict, target: dict) -> None:
+    require(isinstance(data, dict) and ocid(data.get("id"), "containerimage")
+            and data.get("repository-id") == target["repository_id"]
+            and data.get("repository-name") == target["repository_name"]
+            and data.get("compartment-id") == target["compartment_ocid"]
+            and data.get("lifecycle-state") == "AVAILABLE"
+            and isinstance(data.get("digest"), str) and DIGEST.fullmatch(data["digest"]),
+            "An image response has an unknown identity, digest or lifecycle state.")
+
+
+def repository_images(binary: dict, target: dict) -> list[dict]:
+    # Older supported CLI versions have neither --image-digest nor image lookup.
+    # --all must succeed completely; run() bounds time/output and discards errors.
+    data = oci(binary, target, ["artifacts", "container", "image", "list", "--compartment-id", target["compartment_ocid"],
+                               "--repository-id", target["repository_id"], "--all"])
+    require(isinstance(data, dict) and isinstance(data.get("items"), list)
+            and type(data.get("remaining-items-count", 0)) is int
+            and data.get("remaining-items-count", 0) == 0,
+            "Cannot confirm a complete repository image listing.")
+    for item in data["items"]:
+        verify_image_identity(item, target)
+    return data["items"]
+
+
+def verify_remote(binary: dict, target: dict, tag: str | None, digest: str) -> dict:
     base = target["namespace"] + "/" + target["repository_name"]
-    result = None
-    # Look up both the tag and immutable digest; a successful push alone is not verification.
-    for uri in (base + ":" + tag, base + "@" + digest):
-        data = oci(binary, target, ["artifacts", "container", "image", "lookup", "--image-uri", uri])
-        require(isinstance(data, dict) and ocid(data.get("id"), "containerimage")
-                and data.get("repository-id") == target["repository_id"]
-                and data.get("repository-name") == target["repository_name"]
-                and data.get("compartment-id") == target["compartment_ocid"]
-                and data.get("lifecycle-state") == "AVAILABLE" and data.get("digest") == digest,
-                "Published image identity could not be verified.")
-        if result is not None:
-            require(data["id"] == result["id"], "Tag and immutable image lookups disagree.")
-        result = data
+    matches = {item["id"] for item in repository_images(binary, target) if item["digest"] == digest}
+    require(len(matches) == 1, "Published digest does not identify exactly one image in the repository.")
+    image_id = matches.pop()
+    result = oci(binary, target, ["artifacts", "container", "image", "get", "--image-id", image_id])
+    verify_image_identity(result, target)
+    require(result["id"] == image_id and result["digest"] == digest,
+            "Published image identity changed between listing and retrieval.")
+    if tag is not None:
+        versions = result.get("versions")
+        require(isinstance(versions, list) and all(isinstance(item, dict)
+                and isinstance(item.get("version"), str) and TAG.fullmatch(item["version"]) for item in versions)
+                and any(item["version"] == tag for item in versions),
+                "The approved tag is not bound to the verified image digest.")
     return {"id": result["id"], "digest": digest,
             "immutable_uri": target["registry_host"] + "/" + base + "@" + digest}
 
@@ -396,6 +441,8 @@ def push(args, gate: int) -> int:
     require(re.fullmatch(r"[0-9a-f]{64}", args.approve) is not None, "Approval must be the exact plan SHA-256.")
     envelope = parse(read_at(gate, PLAN))
     value = envelope["plan"]
+    if value.get("schema") == "oci-image-plan/2":
+        return push_digest(args, gate, envelope)
     require(value.get("schema") == "oci-image-plan/1" and sha(canonical(value)) == args.approve
             and envelope.get("plan_sha256") == args.approve, "The image plan does not match the approved hash.")
     require(value["stack_path"] == str(args.dir.absolute()), "Use the original image gate workspace.")
@@ -457,6 +504,283 @@ def push(args, gate: int) -> int:
     return 0
 
 
+def layout_artifact(path: Path, source: dict, limit: int, copy_to: int | None = None) -> dict:
+    """Validate a single v2s2 image, including compressed blobs and rootfs diff IDs.
+
+    No archive extraction, foreign URLs, signatures, extra files or manifest lists.
+    Optional copying pins the bytes used by the client inside a private snapshot.
+    """
+    with directory(path) as folder:
+        meta = os.fstat(folder)
+        require(meta.st_uid == os.getuid() and not meta.st_mode & 0o077, "Layout directory must be private (0700).")
+        raw = read_at(folder, "manifest.json")
+        manifest = parse(raw)
+        require(isinstance(manifest, dict) and set(manifest) == {"schemaVersion", "mediaType", "config", "layers"}
+                and manifest["schemaVersion"] == 2
+                and manifest["mediaType"] == "application/vnd.docker.distribution.manifest.v2+json",
+                "Use one prepared Docker v2s2 manifest without extra fields.")
+        config, layers = manifest["config"], manifest["layers"]
+        require(isinstance(config, dict) and isinstance(layers, list) and 1 <= len(layers) <= 128,
+                "A bounded single-platform image with layers is required.")
+        descriptors = [config, *layers]
+        for index, item in enumerate(descriptors):
+            media = "application/vnd.docker.container.image.v1+json" if index == 0 else "application/vnd.docker.image.rootfs.diff.tar.gzip"
+            require(isinstance(item, dict) and set(item) == {"digest", "size", "mediaType"}
+                    and isinstance(item["digest"], str) and DIGEST.fullmatch(item["digest"])
+                    and type(item["size"]) is int and 0 < item["size"] <= limit and item["mediaType"] == media,
+                    "Unsupported image descriptor, size, compression or external reference.")
+        require(config["digest"] == source["id"], "Prepared configuration does not match the tested local image ID.")
+        config_raw = read_at(folder, config["digest"][7:])
+        require(len(config_raw) == config["size"] and "sha256:" + sha(config_raw) == config["digest"],
+                "Prepared image configuration bytes do not match their descriptor.")
+        config_data = parse(config_raw)
+        require(isinstance(config_data, dict) and config_data.get("os") == source["os"]
+                and config_data.get("architecture") == source["architecture"]
+                and (config_data.get("variant") or "") == source["variant"], "Prepared image platform differs from the local image.")
+        rootfs = config_data.get("rootfs")
+        require(isinstance(rootfs, dict) and rootfs.get("type") == "layers"
+                and isinstance(rootfs.get("diff_ids"), list) and len(rootfs["diff_ids"]) == len(layers)
+                and all(isinstance(d, str) and DIGEST.fullmatch(d) for d in rootfs["diff_ids"]),
+                "Prepared configuration must bind every uncompressed layer.")
+        names = {"manifest.json", "version", *(d["digest"][7:] for d in descriptors)}
+        actual_names = set()
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                require(entry.name in names, "Layout contains an additional file; signatures and extra artifacts are unsupported.")
+                actual_names.add(entry.name)
+        require(actual_names == names, "Layout has missing files.")
+        version = read_at(folder, "version")
+        require(version == b"Directory Transport Version: 1.1\n", "Unsupported prepared directory format.")
+        files = {"manifest.json": {"sha256": sha(raw), "bytes": len(raw)},
+                 "version": {"sha256": sha(version), "bytes": len(version)}}
+        uncompressed, total = 0, len(raw) + len(version)
+        diff_by_digest, layer_sizes = {}, {}
+        for item in descriptors:
+            name = item["digest"][7:]
+            if name in files:
+                require(files[name]["bytes"] == item["size"], "Repeated blob descriptors disagree.")
+                continue
+            total += item["size"]
+            require(total <= limit, "Prepared artifact exceeds the approved storage/transfer limit.")
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=folder)
+            with os.fdopen(fd, "rb") as stream:
+                regular(stream.fileno())
+                require(os.fstat(stream.fileno()).st_size == item["size"], "Prepared blob size changed.")
+                digest, size = hashlib.sha256(), 0
+                output = None
+                try:
+                    if copy_to is not None:
+                        output = os.fdopen(os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                                                   0o600, dir_fd=copy_to), "wb")
+                    while block := stream.read(1024 * 1024):
+                        size += len(block)
+                        require(size <= item["size"], "Prepared blob exceeds its declared size.")
+                        digest.update(block)
+                        if output is not None:
+                            output.write(block)
+                    require(size == item["size"] and digest.hexdigest() == name, "Prepared blob digest changed.")
+                finally:
+                    if output is not None:
+                        output.close()
+                if item is not config:
+                    stream.seek(0)
+                    unpacked, diff = 0, hashlib.sha256()
+                    with gzip.GzipFile(fileobj=stream) as content:
+                        while block := content.read(1024 * 1024):
+                            unpacked += len(block)
+                            require(uncompressed + unpacked <= limit, "Uncompressed layers exceed the approved limit.")
+                            diff.update(block)
+                    uncompressed += unpacked
+                    diff_by_digest[item["digest"]] = "sha256:" + diff.hexdigest()
+                    layer_sizes[item["digest"]] = unpacked
+            files[name] = {"sha256": name, "bytes": item["size"]}
+        require([diff_by_digest.get(d["digest"]) for d in layers] == rootfs["diff_ids"],
+                "Compressed layers do not match the tested image's rootfs.")
+        # A shared compressed blob occupies storage once but can occur more than
+        # once in rootfs. Charge each occurrence against the unpacked byte bound.
+        uncompressed = sum(layer_sizes[d["digest"]] for d in layers)
+        require(uncompressed <= limit, "Uncompressed layer occurrences exceed the approved limit.")
+        if copy_to is not None:
+            for name, content in (("manifest.json", raw), ("version", version)):
+                fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=copy_to)
+                with os.fdopen(fd, "wb") as output:
+                    output.write(content)
+        return {"format": "skopeo-dir-v2s2", "manifest_digest": "sha256:" + sha(raw),
+                "config": config, "layers": layers, "files": files,
+                "stored_bytes": total, "uncompressed_layer_bytes": uncompressed}
+
+
+def registry_auth(path: Path, target: dict) -> tuple[dict, str]:
+    raw = read_private(path)
+    data = parse(raw)
+    require(isinstance(data, dict) and not data.get("credsStore") and not data.get("credHelpers")
+            and isinstance(data.get("auths"), dict), "Use existing private exact-host registry auth without credential helpers.")
+    entry = data["auths"].get(target["registry_host"])
+    require(isinstance(entry, dict) and set(entry) == {"auth"} and isinstance(entry["auth"], str)
+            and len(entry["auth"]) <= 16384, "Existing authentication for the exact registry host is required.")
+    decoded = base64.b64decode(entry["auth"], validate=True)
+    username, separator, password = decoded.partition(b":")
+    require(separator == b":" and username.startswith((target["namespace"] + "/").encode())
+            and password and not any(c < 32 or c == 127 for c in decoded), "Unsupported private registry authentication.")
+    return {"auths": {target["registry_host"]: entry}}, sha(raw)
+
+
+def absent_digest(binary: dict, target: dict, digest: str) -> None:
+    require(isinstance(digest, str) and DIGEST.fullmatch(digest), "Invalid manifest digest.")
+    require(not any(item["digest"] == digest for item in repository_images(binary, target)),
+            "Destination digest exists or cannot be confirmed absent; inspect privately before re-planning.")
+
+
+def digest_destination(target: dict, digest: str) -> str:
+    require(DIGEST.fullmatch(digest) is not None, "Invalid manifest digest.")
+    return f"{target['registry_host']}/{target['namespace']}/{target['repository_name']}@{digest}"
+
+
+def plan_digest(args, gate: int) -> int:
+    require(sys.platform == "linux" and Path("/proc/self/fd").is_dir(),
+            "Digest publication requires Linux with /proc/self/fd for its isolated runtime.")
+    require(args.registry_auth_file is not None, "Digest publication requires an existing private --registry-auth-file.")
+    require(1 <= args.max_age_minutes <= 1440, "Approval expiry must be between 1 and 1440 minutes.")
+    require(1 <= args.max_image_bytes <= MAX_IMAGE_BYTES, "Image limit must be positive and at most 10 GiB.")
+    target, receipt_hash = registry_receipt(args.registry_receipt, args.repository_id)
+    binaries = {name: fingerprint(name) for name in ("docker", "oci", "skopeo")}
+    source = image(binaries["docker"], args.image)
+    require(source["size"] <= args.max_image_bytes, "Local image exceeds the approved size limit.")
+    artifact = layout_artifact(args.layout, source, args.max_image_bytes)
+    target = verify_registry(binaries["oci"], target, immutable=False)
+    _, auth_hash = registry_auth(args.registry_auth_file, target)
+    absent_digest(binaries["oci"], target, artifact["manifest_digest"])
+    now = time.time()
+    value = {"schema": "oci-image-plan/2", "publication_mode": "digest-only", "stack_path": str(args.dir.absolute()),
+             "source_receipt": {"path": str(args.registry_receipt.absolute()), "sha256": receipt_hash},
+             "source_image": source, "target": target, "artifact": artifact, "layout_path": str(args.layout.absolute()),
+             "registry_auth": {"path": str(args.registry_auth_file.absolute()), "sha256": auth_hash},
+             "destination": digest_destination(target, artifact["manifest_digest"]),
+             "binaries": binaries, "max_image_bytes": args.max_image_bytes,
+             "created_at_epoch": now, "expires_at_epoch": now + args.max_age_minutes * 60}
+    digest = sha(canonical(value))
+    write_at(gate, PLAN, {"plan": value, "plan_sha256": digest})
+    sys.stdout.write(f"Digest-only image publication plan (no remote tag assignment)\nDestination: {value['destination']}\n"
+                     f"Region: {target['region']}\nTenancy: {target['tenancy_ocid']}\nCompartment: {target['compartment_ocid']}\n"
+                     f"Repository: {target['repository_id']}\nProfile/auth: {target['profile']} / {target['auth']}\n"
+                     f"Local image/config: {source['id']}\nPlatform: {source['os']}/{source['architecture']} {source['variant']}\n"
+                     f"Prepared bytes: {artifact['stored_bytes']}; uncompressed layer bytes: {artifact['uncompressed_layer_bytes']}\n"
+                     f"Bounded bytes: {args.max_image_bytes}; layers: {len(artifact['layers'])}\n"
+                     f"Approval expires: {dt.datetime.fromtimestamp(value['expires_at_epoch'], dt.timezone.utc).isoformat()}\n"
+                     f"Plan SHA-256: {digest}\nReview exact artifact, storage/transfer cost and retention policy before approval.\n")
+    return 0
+
+
+def remove_private_tree(parent: int, name: str) -> None:
+    """Remove only our newly created private runtime; never follow a child link."""
+    fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+    try:
+        for child in os.listdir(fd):
+            if stat.S_ISDIR(os.stat(child, dir_fd=fd, follow_symlinks=False).st_mode):
+                remove_private_tree(fd, child)
+            else:
+                os.unlink(child, dir_fd=fd)
+    finally:
+        os.close(fd)
+    os.rmdir(name, dir_fd=parent)
+
+
+@contextlib.contextmanager
+def skopeo_runtime(gate: int, value: dict, auth: dict):
+    name = "image-runtime-" + secrets.token_hex(16)
+    os.mkdir(name, mode=0o700, dir_fd=gate)
+    try:
+        with private_directory(gate, name) as runtime, private_directory(runtime, "layout") as layout:
+            artifact = layout_artifact(Path(value["layout_path"]), value["source_image"], value["max_image_bytes"], layout)
+            require(artifact == value["artifact"], "Prepared artifact changed; re-plan.")
+            path = f"/proc/self/fd/{runtime}"
+            # Skopeo resolves the dir transport's policy identity to its real path.
+            layout_identity = os.readlink(f"/proc/self/fd/{layout}")
+            write_at(runtime, "policy.json", {"default": [{"type": "reject"}], "transports": {
+                "dir": {layout_identity: [{"type": "insecureAcceptAnything"}]}}})
+            write_at(runtime, "auth.json", auth)
+            with private_directory(runtime, "home") as home, private_directory(home, ".config") as config, \
+                    private_directory(config, "containers") as containers:
+                # A per-user registries.conf suppresses system-wide drop-in remaps.
+                fd = os.open("registries.conf", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=containers)
+                with os.fdopen(fd, "w") as handle:
+                    handle.write('unqualified-search-registries = []\ncredential-helpers = ["containers-auth.json"]\n')
+            with private_directory(runtime, "registries.d"), private_directory(runtime, "tmp"):
+                environment = {"PATH": "/usr/bin:/bin", "HOME": path + "/home", "XDG_CONFIG_HOME": path + "/home/.config",
+                               "XDG_CACHE_HOME": path + "/home/.cache", "XDG_RUNTIME_DIR": path + "/home",
+                               "TMPDIR": path + "/tmp", "LANG": "C"}
+                globals_ = ["--policy", path + "/policy.json", "--registries.d", path + "/registries.d",
+                            "--tmpdir", path + "/tmp", "--command-timeout", "600s"]
+                yield path, globals_, environment, (runtime,)
+    finally:
+        try:
+            remove_private_tree(gate, name)
+        except OSError:
+            raise ImageGateError("Private runtime cleanup failed; inspect the attempt receipt before any retry.", 5) from None
+
+
+def push_digest(args, gate: int, envelope: dict) -> int:
+    value = envelope["plan"]
+    require(sha(canonical(value)) == args.approve and envelope.get("plan_sha256") == args.approve
+            and value.get("publication_mode") == "digest-only", "The image plan does not match the approved hash.")
+    require(value["stack_path"] == str(args.dir.absolute()), "Use the original image gate workspace.")
+    validate_time(value)
+    binaries = {name: fingerprint(name) for name in ("docker", "oci", "skopeo")}
+    require(binaries == value["binaries"], "A publication client changed; re-plan.")
+    target, receipt_hash = registry_receipt(Path(value["source_receipt"]["path"]), value["target"]["repository_id"])
+    require(receipt_hash == value["source_receipt"]["sha256"], "The registry apply receipt changed; re-plan.")
+    target = verify_registry(binaries["oci"], target, immutable=False)
+    require(target == value["target"], "Registry identity changed; re-plan.")
+    source = image(binaries["docker"], value["source_image"]["id"])
+    require(source == value["source_image"] and source["size"] <= value["max_image_bytes"], "Local image changed; re-plan.")
+    auth, auth_hash = registry_auth(Path(value["registry_auth"]["path"]), target)
+    require(auth_hash == value["registry_auth"]["sha256"], "Registry authentication changed; re-plan.")
+    digest = value["artifact"]["manifest_digest"]
+    require(value["destination"] == digest_destination(target, digest), "The destination differs from the reviewed digest.")
+    absent_digest(binaries["oci"], target, digest)
+    with skopeo_runtime(gate, value, auth) as (path, globals_, environment, inherited):
+        receipt = {"schema": "oci-image-push-receipt/2", "status": "attempted", "publication_mode": "digest-only",
+                   "plan_sha256": args.approve, "target": target, "source_image": source, "artifact": value["artifact"],
+                   "destination": value["destination"], "started_at": timestamp(), "write_may_have_occurred": False}
+        with private_directory(gate, "image-receipts") as receipts:
+            name = args.approve + ".json"
+            write_at(receipts, name, receipt, exclusive=True)
+            os.unlink(PLAN, dir_fd=gate)
+            os.fsync(gate)
+            stage = "final-check"
+            try:
+                require(all(fingerprint(n) == binaries[n] for n in binaries), "A publication client changed.")
+                require(verify_registry(binaries["oci"], target, immutable=False) == target, "Registry identity changed.")
+                absent_digest(binaries["oci"], target, digest)
+                require(image(binaries["docker"], source["id"]) == source, "Local source identity changed.")
+                validate_time(value)
+                stage = "push"
+                receipt["write_may_have_occurred"] = True
+                write_at(receipts, name, receipt)
+                validate_time(value)
+                run(binaries["skopeo"], [*globals_, "copy", "--preserve-digests", "--dest-tls-verify=true",
+                    "--dest-authfile", path + "/auth.json", "--retry-times", "0", "dir:" + path + "/layout",
+                    "docker://" + value["destination"]], timeout=620, environment=environment, pass_fds=inherited)
+                stage = "remote-verification"
+                remote = verify_remote(binaries["oci"], target, None, digest)
+                raw = run(binaries["skopeo"], [*globals_, "inspect", "--raw", "--tls-verify=true", "--authfile",
+                    path + "/auth.json", "docker://" + remote["immutable_uri"]], environment=environment, pass_fds=inherited)
+                require("sha256:" + sha(raw) == digest, "Remote manifest bytes differ from the approved artifact.")
+                receipt.update(remote_image=remote, status="verified", finished_at=timestamp())
+                write_at(receipts, name, receipt)
+            except (ImageGateError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+                receipt.update(status="unverified" if receipt["write_may_have_occurred"] else "failed",
+                               failure_stage=stage, finished_at=timestamp())
+                try:
+                    write_at(receipts, name, receipt)
+                except (ImageGateError, OSError, ValueError):
+                    raise ImageGateError("Attempt may have written remote data; receipt update failed. Inspect privately; do not retry.", 5) from None
+                raise ImageGateError("Publication attempt did not verify. Approval is consumed; inspect its private receipt before re-planning.",
+                                     5 if receipt["write_may_have_occurred"] else 1) from None
+    sys.stdout.write(f"Verified image: {receipt['remote_image']['immutable_uri']}\nPrivate receipt: .gate/image-receipts/{name}\n")
+    return 0
+
+
 def dispatch(args) -> int:
     try:
         with workspace(args.dir) as gate:
@@ -464,6 +788,6 @@ def dispatch(args) -> int:
     except ImageGateError as exc:
         sys.stderr.write(f"image gate: {exc}\n")
         return exc.code
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError, subprocess.SubprocessError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError, EOFError, zlib.error, subprocess.SubprocessError):
         sys.stderr.write("image gate: invalid or unavailable private input/client response; no raw output is disclosed.\n")
         return 2

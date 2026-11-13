@@ -1,12 +1,13 @@
 # Opt-in hardened configuration. These are identifiers and public URLs, never
 # secret values. Prepare them privately before planning; see ../PRODUCTION.md.
 variable "production" {
-  description = "Explicit HTTPS/OIDC/Vault inputs. Null keeps the restricted sandbox. Secrets and certificate must exist in the selected security compartment."
+  description = "Explicit HTTPS/OIDC/Vault inputs. Null keeps the restricted load-balancer sandbox. API Gateway derives its origin and certificate; its app still requires OIDC and Vault inputs."
   type = object({
-    public_origin             = string
+    public_origin             = optional(string)
     oidc_issuer               = string
+    oidc_discovery_url        = optional(string)
     oidc_client_id            = string
-    certificate_ocid          = string
+    certificate_ocid          = optional(string)
     security_compartment_ocid = string
     database_secret_ocid      = string
     database_secret_version   = number
@@ -16,21 +17,27 @@ variable "production" {
   default = null
   validation {
     condition = var.production == null ? true : (
-      can(regex("^https://[A-Za-z0-9.-]+(:443)?$", var.production.public_origin)) &&
+      (var.production.public_origin == null ? true : can(regex("^https://[A-Za-z0-9.-]+(:443)?$", var.production.public_origin))) &&
+      (var.production.certificate_ocid == null ? true : can(regex("^ocid1\\.certificate\\.", var.production.certificate_ocid))) &&
       can(regex("^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[^?#]*)?$", var.production.oidc_issuer)) &&
+      (var.production.oidc_discovery_url == null ? true : can(regex("^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[^?#]*)?$", var.production.oidc_discovery_url))) &&
       length(trimspace(var.production.oidc_client_id)) > 0 &&
-      can(regex("^ocid1\\.certificate\\.", var.production.certificate_ocid)) &&
       can(regex("^ocid1\\.compartment\\.", var.production.security_compartment_ocid)) &&
       alltrue([for id in [var.production.database_secret_ocid, var.production.oidc_client_secret_ocid, var.production.session_secret_ocid] : can(regex("^ocid1\\.vaultsecret\\.", id))]) &&
       length(distinct([var.production.database_secret_ocid, var.production.oidc_client_secret_ocid, var.production.session_secret_ocid])) == 3 &&
       var.production.database_secret_version >= 1 && floor(var.production.database_secret_version) == var.production.database_secret_version
     )
-    error_message = "Production requires an HTTPS origin on port 443, an HTTPS OIDC issuer and client, a certificate, non-root security compartment, three distinct Vault secret IDs and a positive integer database secret version."
+    error_message = "Production requires an HTTPS OIDC issuer and client, non-root security compartment, three distinct Vault secret IDs and a positive integer database secret version. Load-balancer mode also requires an HTTPS origin on port 443 and certificate; omit both in API Gateway mode, which derives them."
   }
 }
 
 locals {
-  production_enabled = var.production != null
+  production_enabled    = var.production != null
+  api_gateway_enabled   = var.ingress_mode == "api_gateway"
+  load_balancer_enabled = !local.api_gateway_enabled
+  public_origin = local.api_gateway_enabled ? "https://${oci_apigateway_gateway.web[0].hostname}" : (
+    var.production == null ? null : var.production.public_origin
+  )
   production_secrets = var.production == null ? [] : [
     var.production.database_secret_ocid,
     var.production.oidc_client_secret_ocid,

@@ -118,6 +118,28 @@ class GateTestCase(unittest.TestCase):
         folder = self.gate_dir / "receipts"
         return sorted(folder.glob(f"*-{kind}-*.json")) if folder.exists() else []
 
+    def test_explicit_resource_targets_are_passed_and_recorded(self):
+        targets = ["module.network.oci_core_vcn.main", 'oci_apigateway_gateway.app["bootstrap"]']
+        summary, out = self.plan("--target", targets[0], "--target", targets[1])
+        self.assertEqual(summary["resource_targets"], targets)
+        self.assertIn("Targeted plan", out)
+        for target in targets:
+            self.assertIn("-target=" + target, self.log.read_text())
+        code, _, err = self.apply(summary["plan_sha256"])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(self.receipts()[0].read_text())["resource_targets"], targets)
+
+    def test_targeted_destroy_and_invalid_target_syntax(self):
+        self.write_json("plan.json", DESTROY_PLAN)
+        code, _, err = self.run_gate("destroy-plan", "--dir", str(self.stack),
+                                     "--target", "oci_core_vcn.main[0]")
+        self.assertEqual(code, 0, err)
+        self.assertIn("-target=oci_core_vcn.main[0]", self.log.read_text())
+        for target in ("module.whole", "-destroy", "oci_core_vcn.main;true", "oci_core_vcn.*",
+                       'oci_core_vcn.main["bad\\nkey"]', "oci_core_vcn.main\n", "data.oci_core_vcn.main"):
+            with self.subTest(target=target):
+                self.assertEqual(self.run_gate("plan", "--dir", str(self.stack), "--target=" + target)[0], 2)
+
 
 class ProtectedBackend(GateTestCase):
     def backend(self, kind="oci"):

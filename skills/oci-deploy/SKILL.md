@@ -4,7 +4,7 @@ description: Deploy, change or tear down infrastructure on Oracle Cloud Infrastr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.1"
+  version: "0.3.2"
 ---
 
 # Approval-gated deploys on OCI
@@ -30,6 +30,10 @@ already-used plan, and records what it created.
    For the hardened reference, initialize the private OCI state backend first
    and add `--require-backend oci` to plan/destroy-plan. The gate rechecks backend
    type before apply; bucket IAM, versioning and recovery still need verification.
+   For an exceptional bootstrap, an explicit `--target RESOURCE_ADDRESS` may
+   select a managed resource and its dependencies. Targets appear in the summary
+   and receipt. Inspect every resulting change and run a full plan afterward;
+   a targeted plan does not establish the state of the whole application.
 3. **Estimate the cost.** Map the planned resource types to price-list parts
    and run `founder-value`'s `price_lookup.py` and `value_model.py`, or state
    plainly that the estimate is missing. Never type prices from memory.
@@ -64,9 +68,10 @@ already-used plan, and records what it created.
 For OCI Container Registry image uploads, follow
 [gated image publication](references/image-publication.md). Registry creation,
 image upload and workload deployment are separate requests and approvals.
-The image gate binds the local image and exact immutable-tag destination,
-records attempts and verifies the resulting remote image. A direct Docker push
-is not a substitute for that reviewed operation.
+The primary image gate binds the tested local image, prepared content and exact
+digest destination without assigning a tag. It records attempts and verifies the
+remote manifest. The legacy tagged path still requires verified immutable tags.
+A direct Docker or Skopeo push is not a substitute for that reviewed operation.
 
 It guarantees, for any apply that goes through it:
 

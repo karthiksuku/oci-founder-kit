@@ -42,7 +42,7 @@ variable "name" {
 }
 
 variable "immutable_tags" {
-  description = "Create empty with false, then separately plan/apply true before publishing. OCI does not support setting immutability at creation."
+  description = "Leave false for digest-only publication. Legacy tagged publication requires verified immutable tags; support for enabling this flag is service-dependent."
   type        = bool
   default     = false
 }
@@ -61,12 +61,12 @@ resource "oci_artifacts_container_repository" "app" {
   compartment_id = var.compartment_ocid
   display_name   = var.name
   is_public      = false
-  # Enable in a separately approved update; image publication refuses false.
+  # Digest-only publication does not assign or overwrite a tag.
   is_immutable = var.immutable_tags
 }
 
 output "image_repository" {
-  description = "Tag and push the app image here, for example <repository>:0.1.0."
+  description = "Destination for the image approval gate. Deploy only its verified <repository>@sha256:<digest> receipt."
   value       = "${local.region_key}.ocir.io/${data.oci_objectstorage_namespace.ns.namespace}/${oci_artifacts_container_repository.app.display_name}"
 }
 

@@ -1,6 +1,7 @@
 locals {
   public_cidr    = cidrsubnet(var.vcn_cidr, 8, 1)
   private_cidr   = cidrsubnet(var.vcn_cidr, 8, 2)
+  gateway_cidr   = cidrsubnet(var.vcn_cidr, 8, 3)
   app_private_ip = cidrhost(local.private_cidr, 10)
   app_port       = 8080
 }
@@ -77,6 +78,7 @@ resource "oci_core_security_list" "none" {
 }
 
 resource "oci_core_subnet" "public" {
+  count             = local.load_balancer_enabled ? 1 : 0
   compartment_id    = var.compartment_ocid
   vcn_id            = oci_core_vcn.main.id
   cidr_block        = local.public_cidr
@@ -84,6 +86,20 @@ resource "oci_core_subnet" "public" {
   dns_label         = "pub"
   route_table_id    = oci_core_route_table.public.id
   security_list_ids = [oci_core_security_list.none.id]
+}
+
+# A dedicated regional subnet keeps the trusted gateway proxy range separate
+# from the load-balancer and application subnets.
+resource "oci_core_subnet" "gateway" {
+  count                      = local.api_gateway_enabled ? 1 : 0
+  compartment_id             = var.compartment_ocid
+  vcn_id                     = oci_core_vcn.main.id
+  cidr_block                 = local.gateway_cidr
+  display_name               = "${var.name}-gateway"
+  dns_label                  = "gateway"
+  route_table_id             = oci_core_route_table.public.id
+  security_list_ids          = [oci_core_security_list.none.id]
+  prohibit_public_ip_on_vnic = false
 }
 
 resource "oci_core_subnet" "private" {
@@ -98,9 +114,17 @@ resource "oci_core_subnet" "private" {
 }
 
 resource "oci_core_network_security_group" "lb" {
+  count          = local.load_balancer_enabled ? 1 : 0
   compartment_id = var.compartment_ocid
   vcn_id         = oci_core_vcn.main.id
   display_name   = "${var.name}-lb"
+}
+
+resource "oci_core_network_security_group" "gateway" {
+  count          = local.api_gateway_enabled ? 1 : 0
+  compartment_id = var.compartment_ocid
+  vcn_id         = oci_core_vcn.main.id
+  display_name   = "${var.name}-gateway"
 }
 
 resource "oci_core_network_security_group" "app" {
@@ -116,8 +140,8 @@ resource "oci_core_network_security_group" "db" {
 }
 
 resource "oci_core_network_security_group_security_rule" "lb_in_http" {
-  for_each                  = local.production_enabled ? toset([]) : toset(var.allowed_ingress_cidrs)
-  network_security_group_id = oci_core_network_security_group.lb.id
+  for_each                  = local.load_balancer_enabled && !local.production_enabled ? toset(var.allowed_ingress_cidrs) : toset([])
+  network_security_group_id = oci_core_network_security_group.lb[0].id
   direction                 = "INGRESS"
   protocol                  = "6"
   source                    = each.value
@@ -132,8 +156,8 @@ resource "oci_core_network_security_group_security_rule" "lb_in_http" {
 }
 
 resource "oci_core_network_security_group_security_rule" "lb_in_https" {
-  for_each                  = local.production_enabled ? toset(var.allowed_ingress_cidrs) : toset([])
-  network_security_group_id = oci_core_network_security_group.lb.id
+  for_each                  = local.load_balancer_enabled && local.production_enabled ? toset(var.allowed_ingress_cidrs) : toset([])
+  network_security_group_id = oci_core_network_security_group.lb[0].id
   direction                 = "INGRESS"
   protocol                  = "6"
   source                    = each.value
@@ -148,7 +172,8 @@ resource "oci_core_network_security_group_security_rule" "lb_in_https" {
 }
 
 resource "oci_core_network_security_group_security_rule" "lb_out_app" {
-  network_security_group_id = oci_core_network_security_group.lb.id
+  count                     = local.load_balancer_enabled ? 1 : 0
+  network_security_group_id = oci_core_network_security_group.lb[0].id
   direction                 = "EGRESS"
   protocol                  = "6"
   destination               = oci_core_network_security_group.app.id
@@ -163,12 +188,61 @@ resource "oci_core_network_security_group_security_rule" "lb_out_app" {
 }
 
 resource "oci_core_network_security_group_security_rule" "app_in_lb" {
+  count                     = local.load_balancer_enabled ? 1 : 0
   network_security_group_id = oci_core_network_security_group.app.id
   direction                 = "INGRESS"
   protocol                  = "6"
-  source                    = oci_core_network_security_group.lb.id
+  source                    = oci_core_network_security_group.lb[0].id
   source_type               = "NETWORK_SECURITY_GROUP"
   description               = "App traffic from the load balancer only"
+  tcp_options {
+    destination_port_range {
+      min = local.app_port
+      max = local.app_port
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "gateway_in_https" {
+  for_each                  = local.api_gateway_enabled ? toset(var.allowed_ingress_cidrs) : toset([])
+  network_security_group_id = oci_core_network_security_group.gateway[0].id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = each.value
+  source_type               = "CIDR_BLOCK"
+  description               = "HTTPS from an explicitly selected tester IPv4 address"
+  tcp_options {
+    destination_port_range {
+      min = 443
+      max = 443
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "gateway_out_app" {
+  count                     = local.api_gateway_enabled ? 1 : 0
+  network_security_group_id = oci_core_network_security_group.gateway[0].id
+  direction                 = "EGRESS"
+  protocol                  = "6"
+  destination               = oci_core_network_security_group.app.id
+  destination_type          = "NETWORK_SECURITY_GROUP"
+  description               = "Gateway to the private app only"
+  tcp_options {
+    destination_port_range {
+      min = local.app_port
+      max = local.app_port
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "app_in_gateway" {
+  count                     = local.api_gateway_enabled ? 1 : 0
+  network_security_group_id = oci_core_network_security_group.app.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.gateway[0].id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  description               = "App traffic from the gateway only"
   tcp_options {
     destination_port_range {
       min = local.app_port

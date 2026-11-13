@@ -25,6 +25,13 @@ Start with a short [project brief](PROJECT-BRIEF.md) and keep a
 useful local workflow. The [optional hooks](HOOKS.md) can help catch accidental
 secret publication and skipped checks without changing the basic installation.
 
+For a working starting point, use the [local Taskboard preview](../blueprints/fullstack-container/LOCAL.md).
+It starts the app and PostgreSQL without OCI credentials. From the kit root,
+`python3 scripts/blueprint.py inspect fullstack-container` shows its paths,
+requirements, commands and remaining acceptance checks; `check` validates the
+metadata and files offline. Neither command runs the listed commands or proves
+cloud readiness. In an installed bundle, these helpers live under `.oci-founder-kit`.
+
 ## Existing Vercel or Netlify application
 
 ```text

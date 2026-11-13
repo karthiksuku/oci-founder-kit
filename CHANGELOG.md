@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.2 - 2026-11-13
+
+- Local Taskboard/PostgreSQL preview with persistent data, private generated
+  configuration and separate start/status/stop commands.
+- Offline blueprint metadata inspection, informed by public AWS, Azure and
+  Google Cloud starter patterns, with pinned references and license provenance.
+- Digest-only image publication with validated content and no remote tag
+  assignment. Corrected OCI registry identifier handling and service-dependent
+  immutability guidance; legacy tagged publication still requires immutability.
+- Optional restricted API Gateway managed-hostname rehearsal, explicit resource
+  targets in reviewed plans, and OIDC discovery with a separately pinned issuer.
+- Installer and staged-content guards exclude private preview files. Runtime,
+  restore and public-content evidence is recorded in
+  [0.3.2 evidence](docs/RELEASE-0.3.2.md).
+
 ## 0.3.1 - 2026-11-13
 
 - Separate approval gate for publishing a tested image to an existing private
