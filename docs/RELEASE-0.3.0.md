@@ -17,6 +17,8 @@ and live **read-only** OCI planning results remain in
 | Website | Static build; 12 unit/link tests and 11 browser tests passed, including mobile/keyboard, copy fallback, no-JS and privacy behavior | Automated accessibility checks do not replace a full assistive-technology audit |
 | Dependencies | Website and reference app npm advisory audits reported zero known vulnerabilities at review time | A dated advisory result is not a security guarantee |
 | Optional hooks | 49 tests passed; actual Claude SessionStart and PreToolUse behavior exercised | Codex parsed all four event definitions but workspace trust prevented runtime execution; no trust bypass was used |
+| Fresh installations | Codex, Claude and combined installs passed; each self-contained bundle contains 194 files, with 12 entry skills per agent | Tested on Linux; additional operating systems remain unverified |
+| Public publication | Main source and all 11 live website files verified anonymously against audited local bytes; live desktop/mobile/no-JS browser checks passed over HTTPS | GitHub's guide HTML was rate-limited during one extra link probe; its public raw source returned 200. Pages publication does not establish kit-validation CI or OCI deployment |
 
 The site uses Node 22.23.4 and locked dependencies. Infrastructure checks use
 Terraform 1.16.6 with committed provider lockfiles. See
@@ -38,6 +40,36 @@ carry pinned revisions and license information. Original artwork and the
 self-hosted font's license are included. Existing public author attribution and
 Git contact metadata remain; this is not an anonymized repository. Pattern scans
 cannot prove the absence of every secret or proprietary passage.
+
+The final indexed scan checked 211 files with no findings or incomplete coverage.
+GitHub secret scanning and push protection were enabled and verified; the alert
+API returned no alerts at that time. These complement review and do not detect
+every proprietary passage or possible credential format.
+
+## Fresh agent trials
+
+An actual Claude Code consumer built a synthetic Python/SQLite feedback board
+from the functional development snapshot before its manifest version was bumped
+from 0.2.1 to 0.3.0. The exact installed snapshot was retained for evaluation;
+separate final 0.3.0 installs passed the checks above. Independent testing found
+cross-origin mutation acceptance and CSS visibility defects in the generated app.
+The same normal consumer repaired them. Independent follow-up checks passed
+80 generated tests, 47 HTTP assertions and 16 browser assertions, including
+cross-origin rejection, restart persistence, retry recovery and mobile layout.
+This is a local-only prototype trial, not production identity or cloud evidence.
+
+An actual Codex 0.162.1 consumer used an installed 0.3.0 snapshot to migrate a
+synthetic Next.js application locally. Its production build, standalone package
+and seven generated tests passed. Independent source and isolated-target probes
+passed 26 and 31 checks, covering routes/assets, authorization denial, headers,
+synthetic data checksums, retained source data and restart persistence.
+
+The generated HTTP harness initially chose an invalid ephemeral-port strategy.
+A second normal Codex turn repaired that harness; an independent run passed
+32 checks. The initial failure remains in private evaluation evidence. The
+prototype's existing JSON-store concurrency failure and shared-token identity
+model remain explicit limits. No real identity provider, tenant isolation,
+production-data transfer, Docker runtime, OCI deployment or cutover was claimed.
 
 ## Deployment and operating limits
 
