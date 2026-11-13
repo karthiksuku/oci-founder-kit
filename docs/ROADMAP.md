@@ -4,7 +4,7 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.3.3 preview
+## 0.3.4 preview
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ establish a completed migration or a production deployment.
 | Web migration | Vercel/Netlify/Next.js static scanner, source adaptation and staged cutover workflow | Fictional fixtures and security/behavior tests; arbitrary apps need their own build, data rehearsal and target verification |
 | Other clouds | IaC/SDK scanner and OCI mapping for AWS, Azure and Google Cloud | Provider-type fixture tests; map documentation freshness remains dated in the source |
 | Infrastructure approval | Hash-bound saved plan, expiry, one attempt, Terraform binary check, IAM summary, private receipts and cleanup checks | Fake Terraform regression tests; actual human approval remains a conversation/harness control |
-| OCI backend operations | Offline preparation and separate exact approvals for initialization and planning; backend/source/environment binding at apply | Configuration and fake-client tests; live IAM isolation, lock contention, state recovery and retained-version cleanup remain pending |
+| OCI backend operations | Approved initialization/planning, fixed synthetic lock/overwrite/recovery rehearsal and separate exact-version cleanup | Real local lock/recovery and fake-client orchestration; read-only OCI metadata verified. Live writes, isolation and retained-version cleanup remain pending |
 | Image publication | Exact digest-only destination, private registry, validated image content, one-use receipt and remote manifest verification | Fake-client regressions, a local TLS registry probe and live OCI digest publication with independent content readback. Legacy tags require verified immutability |
 | Managed hostname rehearsal | Optional API Gateway HTTPS entry point with restricted ingress and separate hostname bootstrap | Provider validation and mocked plans; live routing, hosted identity and gateway recovery remain unverified |
 | Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
@@ -25,7 +25,7 @@ establish a completed migration or a production deployment.
 | Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | Current unit/adapter tests and earlier Claude runtime evidence; the changed hook has not been retested in a trusted host runtime. Codex trusted runtime remains unverified |
 
 Actual results and skipped checks for this release are in
-[RELEASE-0.3.3.md](RELEASE-0.3.3.md).
+[RELEASE-0.3.4.md](RELEASE-0.3.4.md).
 
 An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
 installed as an Actions workflow because the publication credential lacks that

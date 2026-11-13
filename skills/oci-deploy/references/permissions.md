@@ -3,7 +3,8 @@
 The gate checks the saved plan hash, expiry and one-attempt use. It cannot
 prove a person approved a hash that the agent can also read. Explicit owner
 approval in the conversation and an independent coding-agent permission prompt
-are required before apply, destroy, image publication or `backend-run`.
+are required before apply, destroy, image publication, `backend-run`,
+`backend-rehearsal-run` or `backend-cleanup-run`.
 `backend-plan` prepares its packet offline; `backend-run` can initialize a remote
 backend or create/delete lock objects while generating a resource plan. Approval
 of that backend operation does not approve the resulting resource apply.
@@ -20,6 +21,8 @@ Add to the project's `.claude/settings.json` (or the user settings):
       "Bash(python3 *deploy_gate.py destroy *)",
       "Bash(python3 *deploy_gate.py image-push*)",
       "Bash(python3 *deploy_gate.py backend-run*)",
+      "Bash(python3 *deploy_gate.py backend-rehearsal-run*)",
+      "Bash(python3 *deploy_gate.py backend-cleanup-run*)",
       "Bash(terraform apply*)",
       "Bash(terraform destroy*)",
       "Bash(terraform init*)",
@@ -40,7 +43,8 @@ to run direct remote Terraform operations instead of the gate.
 ## Codex
 
 Run Codex with an approval policy that asks before running commands that
-change state, and do not add the gate's apply, destroy, backend-run or image-push commands to any
+change state, and do not add the gate's apply, destroy, backend-run, image-push,
+backend-rehearsal-run or backend-cleanup-run commands to any
 trusted command list.
 
 ## What this does not replace
@@ -48,6 +52,7 @@ trusted command list.
 The owner still needs to read the plan summary. A permission prompt shows the
 command; the summary shows what the command will do.
 Review [backend destination, inherited IAM and retention](backend-state.md)
-separately. The kit does not provide gated state migration, state push, workspace
-changes, force-unlock or version cleanup; a permission prompt does not add that
-missing implementation or establish a safe operation scope.
+separately. The fixed [synthetic rehearsal](backend-rehearsal.md) supports its own
+generated state and separately approved exact-version cleanup. It does not
+provide arbitrary state push, application-state repair, migration, workspace
+changes or force-unlock. A permission prompt does not establish that scope.

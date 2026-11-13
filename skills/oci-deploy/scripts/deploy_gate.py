@@ -595,6 +595,24 @@ def cmd_status(stack: Path) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Approval-gated Terraform and image publication for OCI.")
     sub = parser.add_subparsers(dest="command", required=True)
+    for name in ("backend-cleanup-plan", "backend-cleanup-run"):
+        p = sub.add_parser(name)
+        p.add_argument("--dir", type=Path, required=True)
+        if name == "backend-cleanup-plan":
+            p.add_argument("--receipt", type=Path, required=True)
+            p.add_argument("--max-age-minutes", type=int, default=120)
+        else:
+            p.add_argument("--approve", required=True)
+    for name in ("backend-rehearsal-plan", "backend-rehearsal-run"):
+        p = sub.add_parser(name)
+        p.add_argument("--dir", type=Path, required=True, help="Fresh private rehearsal directory (0700)")
+        if name == "backend-rehearsal-plan":
+            p.add_argument("--target", type=Path, required=True, help="Private exact-target JSON")
+            p.add_argument("--bucket-receipt", type=Path, required=True)
+            p.add_argument("--profile", default="DEFAULT")
+            p.add_argument("--max-age-minutes", type=int, default=120)
+        else:
+            p.add_argument("--approve", required=True)
     for name in ("backend-plan", "backend-run"):
         p = sub.add_parser(name)
         p.add_argument("--dir", type=Path, required=True)
@@ -638,6 +656,9 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--profile")
     v.add_argument("--region")
     args = parser.parse_args(argv)
+    if args.command in ("backend-rehearsal-plan", "backend-rehearsal-run", "backend-cleanup-plan", "backend-cleanup-run"):
+        import backend_rehearsal
+        return backend_rehearsal.dispatch(args)
     if args.command in ("backend-plan", "backend-run"):
         import backend_ops
         return backend_ops.dispatch(args)

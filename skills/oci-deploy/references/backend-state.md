@@ -11,6 +11,11 @@ successful backend operation is not proof of least privilege, lock contention,
 state recovery or production readiness. The full live lock/version/recovery
 acceptance remains pending.
 
+The optional [synthetic backend rehearsal](backend-rehearsal.md) provides a
+separately approved fixed lock/overwrite/version-recovery test and exact-version
+cleanup. Local native behavior and fake-client orchestration have been tested;
+live OCI write/recovery acceptance remains pending.
+
 ## Establish the storage boundary
 
 Select an existing private, versioned state bucket separately from application

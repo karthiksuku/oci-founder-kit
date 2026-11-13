@@ -4,7 +4,7 @@ description: Assess and prepare a startup's go-to-market with Oracle - fit again
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.3"
+  version: "0.3.4"
 ---
 
 # Go to market with Oracle
