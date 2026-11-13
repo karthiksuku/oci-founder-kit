@@ -4,7 +4,7 @@ description: Build the business case for running a startup on Oracle Cloud Infra
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Founder Value Kit for OCI

@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Start building on OCI
@@ -57,7 +57,9 @@ test does not mean an arbitrary application has already migrated successfully.
   decommissioning each need explicit scope and approval. Keep the source working
   until the target and rollback are accepted.
 - Use the foundation's five-pillar Well-Architected review proportionate to the
-  workload. Do not label a sandbox blueprint production-ready.
+  workload. Read its [canonical review](../oci-foundation/references/well-architected.md)
+  before naming pillars or claiming a review, including during a source-only
+  migration assessment. Do not label a sandbox blueprint production-ready.
 - This is an independent project, not an Oracle product or certification.
 
 ## Finish with evidence

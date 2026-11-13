@@ -93,13 +93,13 @@ For migration, the agent edits and tests your actual app. Discovery is a static
 assessment, not proof of runtime compatibility. Source-provider services,
 production data movement, DNS cutover and decommissioning require separate review.
 
-## Current release: 0.2.0 preview
+## Current release: 0.2.1 preview
 
 Local tools, installation and safety contracts are tested. The reference
 `fullstack-container` remains a **sandbox**: HTTPS, application sign-in, production
 secret handling and remote state must be implemented and verified for your
 workload before real users. No live deployment or universal Vercel migration is
-claimed by this release. See the [release evidence](docs/RELEASE-0.2.0.md).
+claimed by this release. See the [release evidence](docs/RELEASE-0.2.1.md).
 
 The optional [Launchpad Studio handoff](skills/oci-build/references/app-workflow.md)
 uses your build brief and templates. Launchpad is not required. Its browser

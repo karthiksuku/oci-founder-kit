@@ -1,6 +1,7 @@
 """Project-local installation preserves source paths and existing app files."""
 
 import importlib.util
+import os
 import tempfile
 import unittest
 import subprocess
@@ -37,6 +38,17 @@ class Installation(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             installer.install(Path(tmp), "codex", True)
             self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    @unittest.skipIf(os.name == "nt", "POSIX executable mode contract")
+    def test_installed_deploy_gate_fixture_executes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            installer.install(project, "codex")
+            fixture = project / ".oci-founder-kit/tests/fixtures/fake_terraform.py"
+            result = subprocess.run([str(fixture), "version"],
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("terraform_version", result.stdout)
 
     def test_existing_skill_refuses_before_bundle_write(self):
         with tempfile.TemporaryDirectory() as tmp:

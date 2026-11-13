@@ -4,7 +4,7 @@ description: Build and deploy a full-stack application on Oracle Cloud Infrastru
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Build a full-stack app on OCI

@@ -93,6 +93,8 @@ def install(project: Path, agent: str, dry_run: bool = False) -> dict:
             destination = staged / source.relative_to(ROOT)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
+            # Keep executable helpers usable while dropping special permission bits.
+            destination.chmod(0o755 if source.stat().st_mode & 0o111 else 0o644)
         # There is no force mode: existing configuration and skills are preserved.
         if bundle.exists() or bundle.is_symlink():
             raise ValueError("Installation destination appeared during setup; refusing overwrite.")
