@@ -119,4 +119,4 @@ template.
 | Output | Architecture plan, account setup, deployment gates | Verdict, value case, model report, application draft, board brief |
 | Prices | Cost drivers kept unpriced by design | Priced from the public list with dates; unknowns marked |
 | Executable parts | Container API blueprint, local backend lab | Value calculator, price list lookup |
-| Hand-off | Planning to deployment | Value to `oci-founder` for the technical plan |
+| Hand-off | Planning to deployment | Value case to [oci-kit](../skills/oci-kit/SKILL.md) for the technical plan |

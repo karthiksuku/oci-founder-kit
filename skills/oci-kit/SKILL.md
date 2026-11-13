@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Start building on OCI
@@ -27,6 +27,7 @@ Continue authorized local implementation and testing without asking at every ste
 | Other cloud infrastructure inventory | [oci-migrate-assess](../oci-migrate-assess/SKILL.md) |
 | Costs, credits, business case | [founder-value](../founder-value/SKILL.md) |
 | Reviewed infrastructure plan, apply, cleanup | [oci-deploy](../oci-deploy/SKILL.md) |
+| Failed setup, image, network or health checks | [Read-only troubleshooting](../oci-ready/references/troubleshooting.md) |
 
 For a new app: understand the useful outcome, build/test locally, check OCI access,
 prepare the required foundation, adapt the existing blueprint, review the design,
@@ -38,6 +39,11 @@ Read [the start guide](../../docs/START-HERE.md) for setup and prompts, and the
 [capability and evidence status](../../docs/ROADMAP.md) before making a claim.
 Agent workflows guide actual implementation; a scanner report or passing unit
 test does not mean an arbitrary application has already migrated successfully.
+
+Keep the founder's [project brief](../../docs/PROJECT-BRIEF.md) and a short
+[progress record](../../docs/PROGRESS.md) in their app, using actual results.
+The public start page generates a prompt; it does not inspect their repository
+or establish OCI access. Local development remains useful before cloud setup.
 
 ## Authorization and security
 

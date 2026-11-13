@@ -4,7 +4,7 @@ description: Migrate an existing Vercel or Netlify web application to Oracle Clo
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Migrate a web app to OCI
@@ -89,6 +89,11 @@ restart, uploads, background work, logs, backup/restore and update/rollback.
 Keep the original deployment and data intact during verification. Present the
 traffic-switch plan and rollback conditions; switch only after approval.
 Source shutdown and deletion require a separate explicit decision.
+
+Use the [migration acceptance record](../../docs/MIGRATION-ACCEPTANCE.md) to
+capture source/target behavior, retained providers, data rehearsal and rollback.
+Keep evidence for local adaptation, staging and traffic cutover separate in the
+[progress record](../../docs/PROGRESS.md).
 
 Finish with changed files, actual test results, target URL if deployed, receipts,
 known gaps, cost basis and the exact next step. Mark assessment, local adaptation,

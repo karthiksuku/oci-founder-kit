@@ -63,4 +63,16 @@ export class OciAttachmentStore {
   async createDownloadUrl(objectName) {
     return (await this.#par(objectName, "ObjectRead", DOWNLOAD_MINUTES)).url;
   }
+
+  async put(objectName, body) {
+    await this.client.putObject({ namespaceName: this.settings.namespace, bucketName: this.settings.bucket,
+      objectName, putObjectBody: body, contentLength: body.length, contentType: "application/octet-stream" });
+  }
+
+  async get(objectName) {
+    const result = await this.client.getObject({ namespaceName: this.settings.namespace,
+      bucketName: this.settings.bucket, objectName });
+    return result.value;
+  }
+
 }

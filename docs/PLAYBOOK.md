@@ -69,10 +69,10 @@ and without credits, and a risk register. Mark any assumed inputs.
 
 | Verdict | Next |
 |---|---|
-| Go | Hand the value case to `oci-founder` (Founder Toolkit for OCI) for the technical plan |
+| Go | Hand the value case to [oci-kit](../skills/oci-kit/SKILL.md) for the technical plan |
 | Pilot | Run the one experiment the verdict names, with its threshold, stop date and cost ceiling |
 | Not now | Note the condition that would change the answer and a date to recheck |
-| Build here | Start with `oci-founder-start` for a minimal architecture |
+| Build here | Start with [oci-build](../skills/oci-build/SKILL.md) for local implementation and the matching deployment path |
 
 ## Good habits
 

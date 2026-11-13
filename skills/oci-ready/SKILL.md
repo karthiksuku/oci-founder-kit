@@ -4,7 +4,7 @@ description: Set up and diagnose OCI access before building or migrating an appl
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Prepare OCI access
@@ -48,3 +48,7 @@ available capacity, service quotas, production security or a working app.
 
 Finish with the useful next step and remaining blockers. Do not print account
 identifiers or raw credential/CLI error output in shared reports.
+
+For failed build, image, network or runtime checks, follow the read-only
+[troubleshooting guide](references/troubleshooting.md). Diagnose first; a
+repair that changes IAM, resources or data needs its own reviewed plan.

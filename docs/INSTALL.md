@@ -81,6 +81,15 @@ configure the plugin marketplace.
 The installed bundle is a snapshot. Updating the original Git checkout does
 not update an application that already has `.oci-founder-kit/`.
 
+Inspect its version and entry skills without changing anything:
+
+```sh
+python3 .oci-founder-kit/scripts/install.py --project . --status
+```
+
+The manifest fingerprint identifies public release metadata; it is not proof
+of publisher authenticity or an integrity check of every installed file.
+
 1. Review the new [release notes](https://github.com/karthiksuku/oci-founder-kit/releases).
    Check your app's version-control status and preserve any changes you made
    inside the installed bundle or generated skill entries.
@@ -89,13 +98,21 @@ not update an application that already has `.oci-founder-kit/`.
 3. Preserve any private Terraform state, working plans and receipts before
    replacing the bundle. Removing the kit does not destroy cloud resources;
    teardown is a separate approved operation.
-4. Remove only this kit's bundle and its matching generated skill folders,
+4. If you enabled [optional hooks](HOOKS.md), use their uninstall command first.
+   Remove only this kit's bundle and its matching generated skill folders,
    then run the installer from the reviewed new checkout. Do not delete the
    whole `.agents/`, `.claude/` or `skills/` directory.
 5. Open a fresh agent session and confirm the expected skill is available.
 
 To uninstall, follow the same review and preservation steps and omit the final
 reinstall. There is no force-overwrite or automatic uninstall command.
+
+## Optional local hooks
+
+The basic installation does not change agent settings or enable hooks. See the
+[hook guide](HOOKS.md) for staged secret checks, offline readiness, targeted
+validation and cloud-operation reminders. Review the commands and use your
+agent's normal trust flow before enabling them. Existing hooks are preserved.
 
 ## Platform and troubleshooting notes
 

@@ -27,6 +27,7 @@ import deploy_gate as gate  # noqa: E402
 FAKE_TF = ROOT / "tests" / "fixtures" / "fake_terraform.py"
 REGION_OCID = "ocid1.vcn.oc1.ap-melbourne-1.aaa"
 DB_OCID = "ocid1.postgresqldbsystem.oc1.ap-melbourne-1.bbb"
+SYNTHETIC_VALUE = "do-not-print-me"
 
 PLAN = {
     "format_version": "1.2",
@@ -53,7 +54,7 @@ STATE = {"values": {"root_module": {"resources": [
      "sensitive_values": {}},
     {"address": "oci_psql_db_system.db", "type": "oci_psql_db_system", "name": "db", "mode": "managed",
      "values": {"id": DB_OCID, "display_name": "SENSITIVE-DISPLAY", "compartment_id": "ocid1.compartment.oc1..sandbox",
-                "credentials": [{"password_details": [{"password": "do-not-print-me"}]}]},
+                "credentials": [{"password_details": [{"password": SYNTHETIC_VALUE}]}]},
      "sensitive_values": {"display_name": True}},
     {"address": "random_password.db", "type": "random_password", "name": "db", "mode": "managed",
      "values": {"id": "none", "result": "do-not-print-me"}, "sensitive_values": {"result": True}},
@@ -116,6 +117,48 @@ class GateTestCase(unittest.TestCase):
     def receipts(self, kind="apply"):
         folder = self.gate_dir / "receipts"
         return sorted(folder.glob(f"*-{kind}-*.json")) if folder.exists() else []
+
+
+class ProtectedBackend(GateTestCase):
+    def backend(self, kind="oci"):
+        directory = self.stack / ".terraform"
+        directory.mkdir(exist_ok=True)
+        path = directory / "terraform.tfstate"
+        path.write_text(json.dumps({"backend": {"type": kind, "config": {"key": "private-fixture"}}}))
+        return path
+
+    def test_local_backend_is_refused_before_plan(self):
+        self.backend("local")
+        code, out, err = self.run_gate("plan", "--dir", str(self.stack), "--require-backend", "oci")
+        self.assertEqual(code, 3)
+        self.assertNotIn("private-fixture", out + err)
+        self.assertFalse((self.gate_dir / "tfplan").exists())
+
+    def test_required_backend_is_rechecked_before_apply(self):
+        self.backend()
+        summary, _ = self.plan("--require-backend", "oci")
+        self.assertEqual(summary["required_backend"], "oci")
+        self.backend("local")
+        code, _, _ = self.apply(summary["plan_sha256"])
+        self.assertEqual(code, 3)
+        self.assertEqual(self.applied(), [])
+
+    def test_remote_backend_allows_exact_plan_apply(self):
+        self.backend()
+        summary, _ = self.plan("--require-backend", "oci")
+        code, _, err = self.apply(summary["plan_sha256"])
+        self.assertEqual(code, 0, err)
+
+    def test_unsafe_backend_metadata_is_refused(self):
+        path = self.backend()
+        path.unlink()
+        path.symlink_to(self.tmp / "plan.json")
+        with self.assertRaises(gate.GateRefused):
+            gate.require_backend(self.stack, "oci")
+        path.unlink()
+        os.mkfifo(path)
+        with self.assertRaises(gate.GateRefused):
+            gate.require_backend(self.stack, "oci")
 
 
 class Plan(GateTestCase):
@@ -408,8 +451,9 @@ class Teardown(GateTestCase):
         self.assertEqual(result["remaining"][0]["state"], "INVALID_OCID")
 
     def test_oci_cli_checker(self):
-        found = mock.Mock(returncode=0, stdout=json.dumps({"data": {"items": [{"lifecycle-state": "ACTIVE"}]}}))
-        stateless = mock.Mock(returncode=0, stdout=json.dumps({"data": {"items": [{}]}}))
+        found = mock.Mock(returncode=0, stdout=json.dumps({"data": {"items": [
+            {"identifier": REGION_OCID, "lifecycle-state": "ACTIVE"}]}}))
+        stateless = mock.Mock(returncode=0, stdout=json.dumps({"data": {"items": [{"identifier": DB_OCID}]}}))
         empty = mock.Mock(returncode=0, stdout=json.dumps({"data": {"items": []}}))
         with mock.patch.object(gate.subprocess, "run", side_effect=[found, stateless, empty]) as run:
             check = gate.oci_cli_state("DEFAULT", "us-ashburn-1")
@@ -425,7 +469,11 @@ class Teardown(GateTestCase):
         receipt = self.receipt()
         with mock.patch.object(gate, "oci_cli_state", return_value=lambda ocid: None):
             code, out, _ = self.run_gate("verify-teardown", "--receipt", str(receipt))
-        self.assertEqual((code, "Teardown verified" in out), (0, True))
+        self.assertEqual((code, "Teardown incomplete" in out), (4, True))
+        self.assertNotIn("Teardown verified", out)
+        with mock.patch.object(gate, "oci_cli_state", return_value=lambda ocid: "TERMINATED"):
+            code, out, _ = self.run_gate("verify-teardown", "--receipt", str(receipt))
+        self.assertEqual((code, "terminal states" in out), (0, True))
         with mock.patch.object(gate, "oci_cli_state", return_value=lambda ocid: "AVAILABLE"):
             code, out, _ = self.run_gate("verify-teardown", "--receipt", str(receipt))
         self.assertEqual((code, "Teardown incomplete" in out), (4, True))
@@ -455,8 +503,60 @@ class Teardown(GateTestCase):
         self.assertIn("oci search failed", err)
         self.assertNotIn("secret-ish", err)
 
+    def test_missing_oci_identifier_keeps_mixed_receipt_incomplete(self):
+        receipt = {"kind": "apply", "resources": [
+            {"type": "oci_core_vcn", "address": "vcn", "id": REGION_OCID},
+            {"type": "oci_objectstorage_object", "address": "object", "id": None},
+            {"type": "random_password", "address": "password", "id": None}]}
+        result = gate.verify_teardown(receipt, lambda ocid: "TERMINATED")
+        self.assertFalse(result["clean"])
+        self.assertEqual(result["remaining"][0]["state"], "UNVERIFIABLE_ID")
+        self.assertEqual(result["remaining"][0]["address"], "object")
+        self.assertEqual(result["ignored_local"], 1)
+
+    def test_absent_search_results_are_unknown(self):
+        result = gate.verify_teardown({"kind": "apply", "resources": [
+            {"type": "oci_core_vcn", "address": "vcn", "id": REGION_OCID}]}, lambda ocid: None)
+        self.assertFalse(result["clean"])
+        self.assertEqual(result["remaining"][0]["state"], "NOT_VISIBLE")
+
+    def test_profile_and_region_override_cannot_change_receipt_target(self):
+        receipt = self.receipt()
+        for flags in (("--profile", "OTHER"), ("--region", "us-ashburn-1")):
+            with mock.patch.object(gate, "oci_cli_state") as checker:
+                code, _, _ = self.run_gate("verify-teardown", "--receipt", str(receipt), *flags)
+            self.assertEqual(code, 3)
+            checker.assert_not_called()
+
+    def test_malformed_search_payload_is_unknown_not_gone(self):
+        for payload in ({}, {"data": {}}, {"data": {"items": "wrong"}}, {"data": {"items": [None]}},
+                        {"data": {"items": [{"identifier": DB_OCID, "lifecycle-state": "TERMINATED"}]}},
+                        {"data": {"items": [{"lifecycle-state": "TERMINATED"}]}}):
+            response = mock.Mock(returncode=0, stdout=json.dumps(payload))
+            with self.subTest(payload=payload), mock.patch.object(gate.subprocess, "run", return_value=response):
+                self.assertEqual(gate.oci_cli_state("DEFAULT", "ap-melbourne-1")(REGION_OCID), "UNKNOWN")
+
 
 class Status(GateTestCase):
+    def test_status_refuses_symlinked_summary_without_reading_target(self):
+        self.gate_dir.mkdir()
+        target = self.tmp / "private"
+        target.write_text("synthetic-private-sentinel")
+        (self.gate_dir / "plan-summary.md").symlink_to(target)
+        code, out, err = self.run_gate("status", "--dir", str(self.stack))
+        self.assertEqual(code, 3)
+        self.assertNotIn("synthetic-private-sentinel", out + err)
+
+    def test_status_refuses_symlinked_receipt_directory(self):
+        self.gate_dir.mkdir()
+        outside = self.tmp / "private-receipts"
+        outside.mkdir()
+        (outside / "synthetic-private-name.json").write_text("{}")
+        (self.gate_dir / "receipts").symlink_to(outside, target_is_directory=True)
+        code, out, err = self.run_gate("status", "--dir", str(self.stack))
+        self.assertEqual(code, 3)
+        self.assertNotIn("synthetic-private-name", out + err)
+
     def test_status_without_and_with_a_plan(self):
         code, out, _ = self.run_gate("status", "--dir", str(self.stack))
         self.assertEqual((code, "No plan" in out), (0, True))

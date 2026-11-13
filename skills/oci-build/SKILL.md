@@ -1,17 +1,17 @@
 ---
 name: oci-build
-description: Build and deploy a full-stack application on Oracle Cloud Infrastructure (OCI) from a tested golden path - web UI and API in a container, OCI Database with PostgreSQL, Object Storage uploads through a resource principal, load balancer, private networking, alarms - with Terraform that is applied only through the oci-deploy approval gate. Use when someone wants to build a new app on OCI, deploy an existing containerised app to OCI, or turn an idea into a running OCI stack, as a developer or technical founder.
+description: Build and test a useful application locally, preserve its chosen framework and services, then prepare and verify an owner-approved OCI deployment. Includes an optional container/PostgreSQL/Object Storage reference. Use for a new app, an existing containerised app or the implementation stage of an OCI web migration.
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Build a full-stack app on OCI
 
-Start from a golden path that has been validated, adapt it to the app, and
-deploy through the approval gate. Do not hand-write a new architecture when a
-golden path fits.
+Start with the founder's useful outcome and the application's existing stack.
+Reuse a reference when it fits, and deploy through the approval gate. A reference
+is not a reason to replace working database, storage or identity services.
 
 ## Choose the path
 
@@ -34,10 +34,13 @@ its README before changing it.
    for read-only credential and target checks. For missing compartments or scoped
    permissions use [oci-foundation](../oci-foundation/SKILL.md), including its
    Well-Architected review. Missing OCI access does not block local development.
-2. **Fit the app to the path.** The app must listen on the address in `HOST`
-   and `PORT`, take `DATABASE_URL` and `DATABASE_CA_CERT`, and use
-   `OCI_BUCKET`, `OCI_NAMESPACE` and `OCI_REGION` with a resource principal
-   for files. Use the reference app's adapters as the pattern.
+2. **Fit the app to the path.** Document its bind address, port, health endpoints,
+   environment variable names and retained external services. Keep existing
+   database and identity choices unless migration of them was requested.
+   Only the supplied Taskboard requires its documented `APP_MODE` and adapter
+   contract: sandbox `DATABASE_URL`, or the hardened
+   [HTTPS/OIDC/Vault configuration](../../blueprints/fullstack-container/PRODUCTION.md).
+   Other apps keep their own validated configuration contract.
 3. **Test locally.** The app's own tests must pass before any image is built.
 4. **Image.** Build it, and push to OCI Container Registry. Creating an auth
    token for the registry is an IAM change: it needs the owner's approval,
@@ -47,22 +50,27 @@ its README before changing it.
    open default.
 6. **Plan, cost, approve, apply** with `oci-deploy`. The plan includes IAM
    changes (a dynamic group and a policy); the gate lists them separately.
-7. **Smoke test.** `app_url` from an allowed address: `/healthz`, `/readyz`,
-   create a task, upload and download a file.
+7. **Smoke test.** From an allowed address, check the app's actual health and
+   primary user workflow. For Taskboard: `/healthz`, `/readyz`, create a task,
+   upload and download a file when storage is enabled. Use a second user to
+   verify authorization when identity is enabled.
 8. **Hand over** the receipt, verified URL, dated monthly cost basis, update,
    rollback, backup/restore and teardown instructions. Report unfinished checks.
 
-The existing fullstack-container is a sandbox reference, not a universal app
-converter. For real users, implement and test HTTPS, server-verified identity,
-authorization, proper secret retrieval, durable protected state and recovery first.
-Keep the default sandbox reachable only from approved restricted addresses.
+The fullstack-container defaults to a restricted sandbox. Its opt-in hardened
+reference implements HTTPS, OIDC ownership checks, Vault retrieval and backup
+configuration; configure protected remote state and verify the deployed controls
+and recovery before real users. Use `--require-backend oci` with the gate for
+that reference. Keep the default sandbox reachable only from approved addresses.
 
 ## Rules
 
 - Never apply outside `oci-deploy`. Never widen `allowed_ingress_cidrs` to
   `0.0.0.0/0` without the owner choosing it explicitly.
-- Before real users: HTTPS, sign-in through an OCI identity domain, secrets
-  in OCI Vault, remote Terraform state. Say so in the hand-over.
+- Before real users: HTTPS, server-verified sign-in through the explicitly chosen
+  identity provider, resource ownership checks, approved secret retrieval and
+  protected remote Terraform state. OCI identity domains and OCI Vault are
+  supported choices; preserve an existing provider when that is the agreed scope.
 - Keep IAM policies scoped to the compartment and the resources the app uses.
 
 ## Finish with

@@ -60,8 +60,13 @@ plan.
 
 ## Prepare, plan and review
 
-From the kit root, copy `terraform/terraform.tfvars.example` to an ignored
-local `.tfvars` file and replace placeholders. Do not put real targets in
+From the kit root, copy the example to an ignored local `.tfvars` file:
+
+```sh
+cp blueprints/foundation/terraform/terraform.tfvars.example blueprints/foundation/terraform/foundation.tfvars
+```
+
+Edit that private copy and replace its placeholders. Do not put real targets in
 the committed example. Backend selection and sensitive state protection are
 owner decisions; this minimal stack uses Terraform's local backend until
 the operator configures a protected backend. Keep the working directory
