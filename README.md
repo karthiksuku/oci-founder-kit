@@ -1,34 +1,37 @@
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="docs/assets/hero-mobile.svg" />
+    <img src="docs/assets/hero.svg" alt="OCI Founder Kit — build on OCI with Claude Code or Codex. You approve cloud changes before they run." width="1280" />
+  </picture>
+</p>
+
 # OCI Founder Kit
 
-**Point Claude Code or Codex at your app. Set up OCI, build it, or migrate it.**
+**An open source starting point for building and migrating apps on Oracle Cloud Infrastructure—with Claude Code or Codex.**
 
-An installable agent toolkit for founders and developers. It helps your coding
-agent inspect the project, configure OCI access, prepare compartments and scoped
-IAM, build or adapt the application, and plan a deployment using OCI
-Well-Architected guidance. Cloud changes happen only after you approve the exact
-plan and its costs. Independent project; not an Oracle product.
+Work in your own project. Get help with credentials, compartments, security and deployment, using OCI Well-Architected guidance. Review the exact plan and costs before cloud changes run.
 
-## Start with your coding agent
+[**Get started →**](#get-started) · [Choose your task](#choose-your-task) · [How it works](#how-it-works) · [What is tested](#what-is-tested)
 
-Paste this into Claude Code or Codex in your application project:
+## Get started
 
-> Read https://github.com/karthiksuku/oci-founder-kit and its README. Install the
-> kit into this project with scripts/install.py. Use oci-kit to build my app on
-> OCI. Inspect the project, guide any credential setup, prepare the compartment
-> and security foundation, and test locally. Show the exact infrastructure plan
-> and costs before making cloud changes. Never ask me to paste private keys.
+Already using Claude Code or Codex? Open your app's project folder and paste this:
 
-For an existing hosted app, replace the goal with:
+```text
+Read https://github.com/karthiksuku/oci-founder-kit and follow its README
+installation instructions. Use oci-kit to build my app on OCI.
+Inspect this project, help me set up access and a dedicated compartment,
+and implement and test locally. Use OCI Well-Architected guidance.
+Show the exact cloud plan and costs before making changes.
+Never ask me to paste private keys or passwords.
+```
 
-> Migrate this Vercel application to OCI. Inventory its platform dependencies,
-> implement and test the required changes, prepare the OCI foundation, and show
-> the deployment and cutover plans. Keep the source running until I approve cutover.
+Change “build my app” to **“migrate this Vercel app”** or **“set up my OCI foundation”** for your task. Bring your own coding-tool account; OCI access is needed for cloud steps. You can start local development first.
 
-## Install in an application project
+<details>
+<summary><strong>Prefer terminal setup? Install into your project</strong></summary>
 
-Requires Git, Python 3.11+ and your own Claude Code or Codex installation/account.
-Clone the kit outside the application directory; choose an existing app directory
-(or create an empty one for a new app).
+Requires Git and Python 3.11+. Run from a directory outside your application:
 
 ```sh
 git clone https://github.com/karthiksuku/oci-founder-kit.git
@@ -36,104 +39,69 @@ python3 oci-founder-kit/scripts/install.py --project /absolute/path/to/my-app --
 cd /absolute/path/to/my-app
 ```
 
-Choose `--agent codex` or `--agent claude` to install for one tool. Windows users
-can use `py -3` with Python 3.11+. The installer copies a self-contained kit into
-`.oci-founder-kit/` and adds local skill entries to `.agents/skills/` and/or
-`.claude/skills/`. No symlinks, global settings, network calls or cloud operations;
-existing skills and files are never overwritten. `--dry-run` previews the install.
-Open a fresh coding-agent session after installing if skills do not appear.
+The application directory must already exist; it can be empty for a new app. The installer preserves existing files and skills. Choose `--agent codex` or `--agent claude` to install for one tool.
 
-**Codex:**
+Then start your coding agent inside that project:
 
-```text
-$oci-kit Build my app on OCI. Help me set up access and the required foundation.
-```
+| Codex | Claude Code |
+| --- | --- |
+| `$oci-kit Build my app on OCI.` | `/oci-kit Build my app on OCI.` |
 
-**Claude Code:**
+[Full installation guide](docs/INSTALL.md) · [Claude plugin option](docs/INSTALL.md#claude-code-plugin-alternative) · [Updates and troubleshooting](docs/INSTALL.md#update-or-remove-a-project-installation)
 
-```text
-/oci-kit Migrate this Vercel app to OCI, starting with a repository assessment.
-```
+</details>
 
-Alternatively, install the complete Claude Code plugin:
+## Choose your task
 
-```sh
-claude plugin marketplace add karthiksuku/oci-founder-kit
-claude plugin install oci-founder-kit@oci-founder-kit-marketplace
-```
+### Set up OCI
 
-Then use `/oci-founder-kit:oci-kit`. Do not install both delivery methods in the
-same scope unless you want duplicate entries. No OCI credentials are bundled.
+Credentials, access checks and a reviewed compartment/IAM plan. Say **“Use oci-kit to prepare my OCI foundation.”** [Setup guide →](docs/START-HERE.md#oci-credentials-and-initial-setup)
 
-[Start guide and troubleshooting](docs/START-HERE.md) ·
-[Capabilities and validation status](docs/ROADMAP.md) ·
-[Prompts and business case](docs/PLAYBOOK.md)
+### Build an app
 
-## What the agent can do
+Local implementation, tests and a deployment plan matched to your app. Say **“Use oci-kit to build this app on OCI.”** [Build guide →](docs/START-HERE.md#new-application)
 
-| Workflow | Entry skill | What is included |
-| --- | --- | --- |
-| Start or continue a project | [oci-kit](skills/oci-kit/SKILL.md) | Route the request, continue local work, preserve approval boundaries |
-| Set up credentials and diagnose access | [oci-ready](skills/oci-ready/SKILL.md) | Credential guide, offline tool checks, opt-in read-only live diagnostics |
-| Prepare compartments and security | [oci-foundation](skills/oci-foundation/SKILL.md) | Dedicated compartment/scoped policy Terraform and five-pillar design review |
-| Build an application | [oci-build](skills/oci-build/SKILL.md) | App implementation workflow and container/PostgreSQL/storage reference |
-| Migrate Vercel or Netlify workloads | [oci-migrate-web](skills/oci-migrate-web/SKILL.md) | Static repository scan, platform dependency report, adaptation/test/cutover workflow |
-| Assess other cloud infrastructure | [oci-migrate-assess](skills/oci-migrate-assess/SKILL.md) | Terraform, CloudFormation, ARM/Bicep, Kubernetes, Compose and SDK discovery |
-| Review/apply infrastructure | [oci-deploy](skills/oci-deploy/SKILL.md) | Saved-plan hash, expiry, one-use apply, IAM summary, receipts and cleanup checks |
-| Evaluate OCI economics | [founder-value](skills/founder-value/SKILL.md) | Dated price lookup, cost scenarios, AI unit economics and board brief |
+### Migrate an app
 
-The agent guides account signup, MFA, local CLI authentication and public-key
-registration. Those steps use your account or an authorized administrator;
-private keys stay on your machine. It does not bypass identity verification or
-silently grant itself administrator access. The foundation uses an existing
-approved parent compartment and developer group; its guide covers initial
-administrator bootstrap when those do not exist.
+Dependency discovery, code adaptation, staging and a cutover/rollback plan. Say **“Use oci-kit to migrate this Vercel app to OCI.”** [Migration guide →](docs/START-HERE.md#existing-vercel-or-netlify-application)
 
-For migration, the agent edits and tests your actual app. Discovery is a static
-assessment, not proof of runtime compatibility. Source-provider services,
-production data movement, DNS cutover and decommissioning require separate review.
+Other cloud workloads are covered by the [AWS, Azure and Google Cloud assessment](skills/oci-migrate-assess/SKILL.md). For a business case, use [OCI economics and AI unit costs](docs/BUSINESS-VALUE.md).
 
-## Current release: 0.2.1 preview
+## How it works
 
-Local tools, installation and safety contracts are tested. The reference
-`fullstack-container` remains a **sandbox**: HTTPS, application sign-in, production
-secret handling and remote state must be implemented and verified for your
-workload before real users. No live deployment or universal Vercel migration is
-claimed by this release. See the [release evidence](docs/RELEASE-0.2.1.md).
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/assets/workflow-mobile.png" />
+  <img src="docs/assets/workflow.png" alt="Choose an agent, build or adapt your app, test locally, prepare the OCI foundation, approve the plan and costs, then deploy and verify." width="1280" />
+</picture>
 
-The optional [Launchpad Studio handoff](skills/oci-build/references/app-workflow.md)
-uses your build brief and templates. Launchpad is not required. Its browser
-learning starters and platform-dependent exports are not independent OCI apps.
+[Diagram source and licensing](docs/assets/README.md) · Public exports; no Figma account needed to view.
 
-## Security and operation
+The agent works on your application source. OCI setup uses your own account and permissions. Account enrollment and administrator-only steps stay with you or your administrator; every cloud write waits for approval.
 
-- The agent shows the target, resources, IAM changes, cost basis and saved plan
-  before asking to apply. A plan hash alone is not evidence of human consent.
-- Credential files, environment values, Terraform state and plan receipts stay
-  outside Git. Use workload principals instead of distributing user API keys.
-- Least privilege, private network boundaries, HTTPS, authorization, backups,
-  monitoring and recovery are workload acceptance checks, not automatic claims.
-- Budgets alert on soft spending limits; they are not hard cost caps. Region,
-  service access and capacity must be checked for your account.
-- Keep a rollback path and verify cleanup. A failed apply can leave resources;
-  inspect its private receipt before planning recovery.
+**A foundation is the beginning.** The supplied foundation creates a child compartment and inspection policy under an existing approved parent/group. The agent guides additional workload permissions, networking, HTTPS, secrets, backups and monitoring as separate reviewed changes.
 
-## Develop and validate the kit
+## Designed around OCI Well-Architected guidance
 
-```sh
-python3 scripts/validate.py
-python3 -m unittest discover -s tests -v
-claude plugin validate .
-terraform fmt -check -recursive blueprints
-```
+The workflow follows the five OCI pillars: **Security and compliance**, **Reliability and resilience**, **Performance and cost optimization**, **Operational efficiency**, and **Distributed cloud**. Decisions carry evidence, remaining risks and validation steps. [See the review guide →](skills/oci-foundation/references/well-architected.md)
 
-The [reference app](blueprints/fullstack-container/README.md) has its own locked
-Node dependencies and tests. The [curated references](docs/ECOSYSTEM.md) distinguish
-source review from verified deployment. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md).
+Credentials stay out of chat and Git. Budgets provide alerts rather than hard spending caps. Migration preserves the source while you validate the target and agree rollback. [Security model →](SECURITY.md)
 
-## License
+## What is tested
 
-[UPL-1.0](LICENSE). Oracle and OCI are trademarks of Oracle and/or its affiliates.
-Vercel, Netlify, AWS, Azure and Google Cloud are named factually as migration
-sources. No endorsement, guaranteed credits, compatibility, pricing or compliance
-certification is implied.
+**0.2.1 preview.** Real Claude Code and Codex consumer runs, local app builds, persistence checks and live read-only OCI planning have been exercised.
+
+| Verified | Still requires workload-specific validation |
+| --- | --- |
+| Project installation, local app behavior, migration packaging and read-only OCI plans | Live OCI application deployment, production identity, HTTPS, cloud recovery and traffic cutover |
+
+The container reference remains a restricted sandbox. Production controls must be implemented and verified before real users. [Read the test evidence →](docs/RELEASE-0.2.1.md)
+
+## Go deeper
+
+[Start guide](docs/START-HERE.md) · [Architecture and capability status](docs/ROADMAP.md) · [Example prompts](docs/PLAYBOOK.md) · [Reference projects](docs/ECOSYSTEM.md) · [Maintain the kit](docs/MAINTAINING.md) · [Contribute](CONTRIBUTING.md)
+
+Launchpad Studio build briefs can feed the [optional app workflow](skills/oci-build/references/app-workflow.md). Launchpad is not required to use the kit.
+
+---
+
+[UPL-1.0](LICENSE) · Independent project by Karthik Sukumar. Not an Oracle product or endorsement. Product names describe supported tooling and migration sources; no guaranteed credits, compatibility, pricing or certification is implied.

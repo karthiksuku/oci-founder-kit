@@ -1,0 +1,17 @@
+flowchart LR
+  subgraph projectSpace["Your project"]
+    direction TB
+    agent["01 Choose Claude Code or Codex"] --> build["02 Build or adapt your app"]
+    build --> testLocal["03 Run local tests"]
+  end
+  subgraph cloudSpace["Your OCI account"]
+    direction TB
+    foundation["04 Prepare access and foundation"] --> approval{"05 Approve the plan and costs"}
+    approval --> deploy["06 Deploy and verify"]
+  end
+  testLocal --> foundation
+  style projectSpace fill:#F1F7F5,stroke:#CADDD6
+  style cloudSpace fill:#F5F7FA,stroke:#D4DCE5
+  style agent fill:#D7F1E6,stroke:#60A88B
+  style approval fill:#FFF1D8,stroke:#D9A44F
+  style deploy fill:#D7F1E6,stroke:#60A88B
