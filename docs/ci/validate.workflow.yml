@@ -1,0 +1,38 @@
+name: Validate kit
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  local-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 scripts/validate.py
+      - run: python3 -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: blueprints/fullstack-container/app/package-lock.json
+      - run: npm ci --ignore-scripts
+        working-directory: blueprints/fullstack-container/app
+      - run: npm test
+        working-directory: blueprints/fullstack-container/app
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.16.6'
+      - run: terraform fmt -check -recursive blueprints
+      - run: terraform -chdir=blueprints/foundation/terraform init -backend=false -lockfile=readonly
+      - run: terraform -chdir=blueprints/foundation/terraform validate
+      - run: terraform -chdir=blueprints/fullstack-container/registry init -backend=false -lockfile=readonly
+      - run: terraform -chdir=blueprints/fullstack-container/registry validate
+      - run: terraform -chdir=blueprints/fullstack-container/terraform init -backend=false -lockfile=readonly
+      - run: terraform -chdir=blueprints/fullstack-container/terraform validate

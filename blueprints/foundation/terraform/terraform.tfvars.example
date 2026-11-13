@@ -1,0 +1,9 @@
+# Copy to foundation.tfvars here (ignored by Git), replace every placeholder.
+# For this IAM-only stack, region MUST be the tenancy home region.
+tenancy_ocid          = "ocid1.tenancy.oc1..<expected-tenancy>"
+compartment_ocid      = "ocid1.compartment.oc1..<existing-parent-compartment>"
+developer_group_ocid  = "ocid1.group.oc1..<existing-developer-group>"
+workload_name         = "my-app-dev"
+region                = "<tenancy-home-region>"
+config_file_profile   = "DEFAULT"
+auth                  = "APIKey"

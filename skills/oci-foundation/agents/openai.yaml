@@ -1,0 +1,6 @@
+interface:
+  display_name: "Set up the OCI foundation"
+  short_description: "Compartment, scoped access and architecture review"
+  default_prompt: "Use $oci-foundation to prepare OCI compartments and scoped access for this app, review the Well-Architected decisions and show the exact plan before any cloud change."
+policy:
+  allow_implicit_invocation: true

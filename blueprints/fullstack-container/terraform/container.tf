@@ -11,7 +11,7 @@ locals {
 
 resource "oci_container_instances_container_instance" "app" {
   compartment_id           = var.compartment_ocid
-  availability_domain      = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  availability_domain      = local.ads[0].name
   display_name             = "${var.name}-app"
   shape                    = "CI.Standard.E4.Flex"
   container_restart_policy = "ALWAYS"

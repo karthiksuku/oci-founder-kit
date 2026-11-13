@@ -1,50 +1,40 @@
-# Roadmap
+# Capabilities and evidence
 
-Each item is done only when its evidence exists in the repository: tests,
-a validated plan, or a live deploy and teardown receipt.
+This is an agent toolkit: deterministic local helpers support a coding agent that
+implements and validates the user's application. Workflow instructions do not
+establish a completed migration or a production deployment.
 
-## Phase 0: foundation
+## 0.2.0 preview
 
-| Item | Evidence of done |
-|---|---|
-| Decide track (five `founder-value` skills, value model, price lookup) | Unit tests, worked example, headless agent smoke test |
-| One plugin for Claude Code and Codex, single-plugin marketplace | `claude plugin validate .`, isolated install |
-| Router skill `oci-kit` and the approval-gate contract | Skill contract tests, eval prompts |
-| `oci-ready` and a read-only `oci_doctor.py` | Unit tests with recorded CLI output; one read-only run against a real tenancy |
+| Capability | Included | Evidence boundary |
+| --- | --- | --- |
+| Claude Code/Codex installation | Project-local installer, source bundle, discoverable entry skills; Claude plugin alternative | Installer tests and plugin validation; coding agents require their own account |
+| OCI access | Credential setup guide, offline doctor and opt-in IAM read probes | Unit tests with recorded/mocked responses; no real user credentials in fixtures; no live access verified for this release |
+| Compartment foundation | Terraform child compartment and inspection policy for an existing developer group | Provider validation and scoped-policy tests; no cloud apply performed; workload provisioning grants remain a separate reviewed plan |
+| Well-Architected design | Source-backed five-pillar review with evidence and risk decisions | Agent guidance, not Oracle certification or an automatic deployed-control audit |
+| Build | Local app implementation workflow, container/PostgreSQL/storage sandbox reference, private image registry stage | App/unit/infrastructure checks; production hardening and live deploy/recovery/teardown remain workload acceptance |
+| Web migration | Vercel/Netlify/Next.js static scanner, source adaptation and staged cutover workflow | Fictional fixtures and security/behavior tests; arbitrary apps need their own build, data rehearsal and target verification |
+| Other clouds | IaC/SDK scanner and OCI mapping for AWS, Azure and Google Cloud | Provider-type fixture tests; map documentation freshness remains dated in the source |
+| Infrastructure approval | Hash-bound saved plan, expiry, one attempt, Terraform binary check, IAM summary, private receipts and cleanup checks | Fake Terraform regression tests; actual human approval remains a conversation/harness control |
+| Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
 
-## Phase 1: migrate discovery
+Actual results and skipped checks for this release are in
+[RELEASE-0.2.0.md](RELEASE-0.2.0.md).
 
-| Item | State | Evidence |
-|---|---|---|
-| Service map: AWS, Azure and Google Cloud to OCI with fit, differences, migration method and docs | **Done** | `tests/test_service_map.py`: OCI types against oracle/oci 9.10.0; source types against aws 6.69.1, azurerm 5.10.0, google 8.7.0 and CloudFormation spec 268.0.0; 52 doc links checked live 2026-10-21 |
-| `iac_scan.py`: Terraform, modules, CloudFormation/SAM, ARM/Bicep, Deployment Manager, Kubernetes, Compose, SDK manifests | **Done** | `tests/test_iac_scan.py` over fixtures for AWS, Azure, Google Cloud and Kubernetes |
-| `oci-migrate-assess` skill | **Done** | Headless session with explicit invocation on the AWS fixture: ran the scanner, correct fits and CDN mapping, assessment written, source untouched |
-| `oci-kit` router and safety contract | **Done** | Skill validation |
-| Implicit triggering | Open | Two plain-language sessions on a machine with about 190 other skills answered without invoking the kit; measure again in a clean profile |
-| Eval suite for the Migrate skills | Next | Scored headless sessions per release |
+An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
+installed as an Actions workflow because the publication credential lacks that
+permission; there is no GitHub CI result for this release.
 
-## Phase 2: build with approval gates
+## Follow-on work
 
-| Item | Evidence of done |
-|---|---|
-| `deploy_gate.py`: Terraform plan summary with a plan hash, apply only with the approved hash, receipts, destroy and teardown verification | **Built.** 34 tests with a fake Terraform, including nine findings from an adversarial review. Live run pending |
-| `oci-deploy` skill | **Built.** States what the gate guarantees and what it cannot. Eval prompts pending |
-| Golden path `fullstack-container`: web frontend and API on Container Instances behind a load balancer, PostgreSQL, Object Storage through a resource principal, alarms | **Built.** `terraform validate` against oracle/oci 9.10.0; security properties pinned in `tests/test_blueprint_fullstack.py`; a read-only plan of 29 resources against the sandbox. Live deploy, smoke test and teardown receipt pending approval. Still to add: HTTPS, OIDC sign-in, Vault-held secrets, remote state |
-| Sample full-stack application used by both Build and Migrate | **Built.** 17 unit tests; a PostgreSQL integration test that runs when `TEST_DATABASE_URL` is set |
-| `oci-build` skill | **Built.** Eval prompts and the live receipt pending |
-
-## Phase 3: migrate execution
-
-| Item | Evidence of done |
-|---|---|
-| `oci-migrate-plan`: waves, target architecture, data strategy, cutover and rollback criteria | Eval prompts on the fixtures |
-| `oci-migrate-data` runbooks: PostgreSQL, MySQL, object storage, key-value and document stores | Each runbook rehearsed on sample data |
-| `oci-migrate-cutover`: DNS, traffic switch, validation, rollback, decommission | A rehearsed cutover of the sample app from a source cloud |
-
-## Phase 4: more paths and proof
-
-| Item | Evidence of done |
-|---|---|
-| Golden paths on OKE and OCI Functions, routed to `oracle/skills` where it covers the procedure | Live receipts |
-| An eval suite that runs headless agent sessions against the skills and scores them | Results recorded per release |
-| Continuous integration: tests, validators, `terraform fmt` and `validate` | Green runs on the repository |
+- Rehearse foundation, container deployment, partial failure, backup recovery and
+  cleanup in an owner-selected sandbox after approval of the exact cloud plans.
+- Complete and verify a production application path: HTTPS, server-validated
+  identity/authorization, secret retrieval, protected remote state and recovery.
+- Rehearse a representative Vercel application migration, including relevant
+  caching, scheduled work, data synchronization, traffic switch and rollback.
+- Test fresh-user setup on additional operating systems and coding-agent versions.
+- Add example apps only with source licenses, supported versions, dated costs,
+  explicit external dependencies and evidence appropriate to their verification label.
+- Add more runtime paths by composing relevant Oracle Skills where available;
+  expand only with workload-specific tests and receipts.

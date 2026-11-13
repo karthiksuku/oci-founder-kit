@@ -47,7 +47,9 @@ ERROR_LOG = "last-error.log"
 DEFAULT_MAX_AGE_MINUTES = 120
 CLOCK_SKEW_SECONDS = 300
 TARGET_KEYS = {"region": ("region",), "compartment_ocid": ("compartment_ocid", "compartment_id"),
-               "profile": ("config_file_profile", "profile", "oci_profile")}
+               "profile": ("config_file_profile", "profile", "oci_profile"),
+               "tenancy_ocid": ("tenancy_ocid",), "home_region": ("home_region",),
+               "auth": ("auth",)}
 GONE_STATES = {"TERMINATED", "DELETED"}
 OCID = re.compile(r"^ocid1\.[a-z0-9_-]+\.[a-z0-9_-]+\.([a-z0-9_-]*)\.[a-z0-9]+$")
 REGION = re.compile(r"^[a-z]+-[a-z]+-\d+$")
@@ -134,13 +136,12 @@ def run_terraform(binary: dict, args: list[str], stack: Path, gate: Path | None)
     result = subprocess.run([binary["path"]] + args, cwd=stack, capture_output=True, text=True,
                             errors="replace", env=_child_env(), check=False)
     if result.returncode != 0:
-        first = next((line.strip() for line in (result.stderr or "").splitlines() if line.strip()), "no message")
         where = ""
         if gate is not None:
             _write_private(gate / ERROR_LOG, f"$ terraform {' '.join(args)}\n--- stdout\n{result.stdout}\n"
                                              f"--- stderr\n{result.stderr}\n")
             where = f" Full output is in {GATE_DIR}/{ERROR_LOG} (it may contain sensitive values)."
-        raise TerraformError(f"terraform {args[0]} failed (exit {result.returncode}): {first[:200]}.{where}")
+        raise TerraformError(f"terraform {args[0]} failed (exit {result.returncode}).{where}")
     return result.stdout
 
 
@@ -193,6 +194,9 @@ def render_summary(summary: dict, stack: Path) -> str:
     if summary["access_changes"]:
         lines += ["ACCESS CHANGES (IAM): " + ", ".join(f"`{a}`" for a in summary["access_changes"])
                   + ". These widen what identities can do; review them on their own.", ""]
+    lines += [f"Account: {target.get('tenancy_ocid', 'not declared — verify privately')}; "
+              f"authentication: {target.get('auth', 'provider default')}; "
+              f"IAM home region: {target.get('home_region', 'same as target or separately verified')}.", ""]
     lines += ["| Action | Resource | Type |", "|---|---|---|"]
     lines += [f"| {r['action']} | `{r['address']}` | {r['type']} |" for r in summary["resources"]]
     expires = dt.datetime.fromtimestamp(summary["expires_at_epoch"], dt.timezone.utc)
@@ -255,6 +259,17 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int) -> int:
     _no_symlink(plan_path).chmod(0o600)
     plan_bytes = plan_path.read_bytes()
     described = describe_plan(json.loads(run_terraform(binary, ["show", "-json", str(plan_path)], stack, gate)))
+    target = described["target"]
+    if not re.fullmatch(r"ocid1\.compartment\.[a-z0-9_-]+\.[a-z0-9_-]*\.[a-z0-9]+", target.get("compartment_ocid", "")):
+        raise GateRefused("A dedicated non-root compartment must be declared in the plan variables.")
+    if not REGION.fullmatch(target.get("region", "")) or not target.get("profile"):
+        raise GateRefused("Declare the selected region and OCI profile in the plan variables.")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", target["profile"]):
+        raise GateRefused("The selected OCI profile has an invalid format.")
+    if "tenancy_ocid" in target and not re.fullmatch(r"ocid1\.tenancy\.[a-z0-9_-]+\.\.[a-z0-9]+", target["tenancy_ocid"]):
+        raise GateRefused("The expected tenancy identifier is invalid.")
+    if "auth" in target and target["auth"] not in {"APIKey", "SecurityToken", "InstancePrincipal", "ResourcePrincipal"}:
+        raise GateRefused("The declared authentication mode is invalid.")
     if kind == "destroy" and (described["changes"]["create"] or described["changes"]["update"]):
         raise GateRefused("A destroy plan must only delete resources.")
     created_at, epoch = _now()
@@ -329,6 +344,10 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
         run_terraform(binary, ["apply", "-input=false", "-no-color", str(applying)], stack, gate)
     except TerraformError as exc:
         receipt["status"] = "failed"
+        try:  # a partial apply leaves resources behind; record whatever state reports
+            receipt["resources"] = _read_state(binary, stack, gate)
+        except (TerraformError, ValueError, json.JSONDecodeError):
+            receipt["resources_unreadable"] = True
         _write_private(receipt_path, json.dumps(receipt, indent=2) + "\n")
         raise TerraformError(f"{exc} Resources may have been created or changed before the failure; "
                              f"see {receipt_path.name} and run plan to see the current state.") from exc
@@ -351,20 +370,25 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     return 0
 
 
-def oci_cli_state(profile: str | None, region: str | None) -> Callable[[str], str | None]:
+def oci_cli_state(profile: str | None, region: str | None, auth: str | None = None) -> Callable[[str], str | None]:
     """Return a read-only checker: the lifecycle state of an OCID, None if search finds nothing."""
+    auth_modes = {"APIKey": "api_key", "SecurityToken": "security_token",
+                  "InstancePrincipal": "instance_principal", "ResourcePrincipal": "resource_principal"}
+    if auth is not None and auth not in auth_modes:
+        raise GateInputError("The receipt authentication mode is invalid.")
     def check(ocid: str) -> str | None:
         match = OCID.match(ocid)
         ocid_region = match.group(1) if match else ""
         command = ["oci", "search", "resource", "structured-search", "--query-text",
                    f"query all resources where identifier = '{ocid}'", "--output", "json"]
         command += ["--profile", profile] if profile else []
+        command += ["--auth", auth_modes[auth]] if auth else []
         use_region = ocid_region if REGION.match(ocid_region) else region
         command += ["--region", use_region] if use_region else []
         result = subprocess.run(command, capture_output=True, text=True, errors="replace", check=False)
         if result.returncode != 0:
-            first = next((line.strip() for line in result.stderr.splitlines() if line.strip()), "no message")
-            raise TerraformError(f"oci search failed: {first[:200]}")
+            raise TerraformError(f"oci search failed (exit {result.returncode}); "
+                                 "check authentication, permissions and network access privately.")
         items = (json.loads(result.stdout or "{}").get("data") or {}).get("items") or []
         if not items:
             return None
@@ -392,7 +416,8 @@ def verify_teardown(receipt: dict, check: Callable[[str], str | None]) -> dict:
 def cmd_verify(receipt_path: Path, profile: str | None, region: str | None) -> int:
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     target = receipt.get("target") or {}
-    result = verify_teardown(receipt, oci_cli_state(profile or target.get("profile"), region or target.get("region")))
+    result = verify_teardown(receipt, oci_cli_state(profile or target.get("profile"),
+                                                  region or target.get("region"), target.get("auth")))
     if result["checked"] == 0:
         raise GateInputError("The receipt lists no OCIDs: nothing to verify. Use the apply receipt, or a destroy "
                              "receipt that recorded the destroyed resources.")

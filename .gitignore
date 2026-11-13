@@ -15,6 +15,16 @@ tfplan*
 .terraform.lock.hcl.bak
 crash.log
 *.tfvars
+*.tfvars.json
 !*.tfvars.example
 /receipts/
 .gate/
+
+# Never distribute local credentials or generated app workspaces
+.env
+.env.*
+*.pem
+*.key
+*.p12
+.oci/
+.oci-founder-kit/

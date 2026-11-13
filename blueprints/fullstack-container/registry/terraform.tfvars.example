@@ -1,0 +1,7 @@
+# Copy to an ignored local .tfvars file; never commit real targets.
+tenancy_ocid        = "ocid1.tenancy.oc1..<expected-tenancy>"
+compartment_ocid    = "ocid1.compartment.oc1..<workload-compartment>"
+region              = "<workload-region>"
+config_file_profile = "DEFAULT"
+auth                = "APIKey"
+name                = "taskboard"

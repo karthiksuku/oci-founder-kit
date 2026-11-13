@@ -159,6 +159,26 @@ class Plan(GateTestCase):
         self.assertEqual(stat.S_IMODE(self.gate_dir.stat().st_mode), 0o700)
         self.assertEqual(stat.S_IMODE((self.gate_dir / "tfplan").stat().st_mode), 0o600)
 
+    def test_plan_refuses_root_or_undeclared_compartment(self):
+        for value in ["ocid1.tenancy.oc1..example", "", "invalid"]:
+            data = json.loads(json.dumps(PLAN))
+            data["variables"]["compartment_ocid"]["value"] = value
+            self.write_json("plan.json", data)
+            code, _, _ = self.run_gate("plan", "--dir", str(self.stack))
+            self.assertEqual(code, 3)
+            self.assertFalse((self.gate_dir / "plan-summary.json").exists())
+            self.assertEqual(self.applied(), [])
+
+    def test_account_and_authentication_are_visible_for_review(self):
+        data = json.loads(json.dumps(PLAN))
+        data["variables"].update({"tenancy_ocid": {"value": "ocid1.tenancy.oc1..example"},
+                                  "auth": {"value": "SecurityToken"}})
+        self.write_json("plan.json", data)
+        summary, output = self.plan()
+        self.assertEqual(summary["target"]["auth"], "SecurityToken")
+        self.assertIn("ocid1.tenancy.oc1..example", output)
+        self.assertIn("SecurityToken", output)
+
     def test_bad_max_age_and_bad_tf_bin_are_input_errors(self):
         self.assertEqual(self.run_gate("plan", "--dir", str(self.stack), "--max-age-minutes", "0")[0], 2)
         os.environ["TF_BIN"] = f"{sys.executable} {FAKE_TF}"
@@ -176,6 +196,16 @@ class Plan(GateTestCase):
         log = self.gate_dir / "last-error.log"
         self.assertIn("hunter2", log.read_text())
         self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
+
+    def test_provider_stderr_is_kept_out_of_public_errors(self):
+        result = mock.Mock(returncode=1, stdout="", stderr="PRIVATE_PROVIDER_SENTINEL")
+        with mock.patch.object(gate.subprocess, "run", return_value=result):
+            with self.assertRaises(gate.TerraformError) as error:
+                gate.run_terraform({"path": "/fake/terraform"}, ["plan"], self.stack, None)
+            self.assertNotIn("PRIVATE_PROVIDER_SENTINEL", str(error.exception))
+            with self.assertRaises(gate.TerraformError) as error:
+                gate.oci_cli_state("DEFAULT", "ap-melbourne-1")(REGION_OCID)
+            self.assertNotIn("PRIVATE_PROVIDER_SENTINEL", str(error.exception))
 
     def test_tf_cli_args_are_not_passed_to_terraform(self):
         os.environ["TF_CLI_ARGS_apply"] = "-auto-approve"
@@ -318,7 +348,10 @@ class Apply(GateTestCase):
         self.assertEqual(code, 1)
         self.assertIn("terraform apply failed", err)
         self.assertIn("may have been created", err)
-        self.assertEqual(json.loads(self.receipts()[0].read_text())["status"], "failed")
+        receipt = json.loads(self.receipts()[0].read_text())
+        self.assertEqual(receipt["status"], "failed")
+        # Found in a live run: a partial apply leaves resources; the receipt must list them.
+        self.assertIn(REGION_OCID, {r["id"] for r in receipt["resources"]})
         self.assertEqual(self.apply(summary["plan_sha256"])[0], 3)
 
     def test_apply_that_cannot_be_recorded_exits_5(self):
@@ -396,6 +429,15 @@ class Teardown(GateTestCase):
         with mock.patch.object(gate, "oci_cli_state", return_value=lambda ocid: "AVAILABLE"):
             code, out, _ = self.run_gate("verify-teardown", "--receipt", str(receipt))
         self.assertEqual((code, "Teardown incomplete" in out), (4, True))
+
+    def test_teardown_checker_preserves_nondefault_authentication(self):
+        response = mock.Mock(returncode=0, stdout='{"data":{"items":[]}}', stderr="")
+        with mock.patch.object(gate.subprocess, "run", return_value=response) as run:
+            gate.oci_cli_state("SESSION", "ap-melbourne-1", "SecurityToken")(REGION_OCID)
+        command = run.call_args[0][0]
+        self.assertEqual(command[command.index("--auth") + 1], "security_token")
+        with self.assertRaises(gate.GateInputError):
+            gate.oci_cli_state("DEFAULT", "ap-melbourne-1", "untrusted-mode")
 
     def test_nothing_to_verify_is_not_success(self):
         empty = self.tmp / "empty-receipt.json"
