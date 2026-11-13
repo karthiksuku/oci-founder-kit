@@ -4,13 +4,13 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.2.0 preview
+## 0.2.1 preview
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
 | Claude Code/Codex installation | Project-local installer, source bundle, discoverable entry skills; Claude plugin alternative | Installer tests and plugin validation; coding agents require their own account |
-| OCI access | Credential setup guide, offline doctor and opt-in IAM read probes | Unit tests with recorded/mocked responses; no real user credentials in fixtures; no live access verified for this release |
-| Compartment foundation | Terraform child compartment and inspection policy for an existing developer group | Provider validation and scoped-policy tests; no cloud apply performed; workload provisioning grants remain a separate reviewed plan |
+| OCI access | Credential setup guide, offline doctor and opt-in IAM read probes | Unit tests with recorded/mocked responses; no real user credentials in fixtures; live read-only region/compartment access verified against the configured sandbox |
+| Compartment foundation | Terraform child compartment and inspection policy for an existing developer group | Provider validation, scoped-policy tests and live read-only plan; no cloud apply performed; workload provisioning grants remain a separate reviewed plan |
 | Well-Architected design | Source-backed five-pillar review with evidence and risk decisions | Agent guidance, not Oracle certification or an automatic deployed-control audit |
 | Build | Local app implementation workflow, container/PostgreSQL/storage sandbox reference, private image registry stage | App/unit/infrastructure checks; production hardening and live deploy/recovery/teardown remain workload acceptance |
 | Web migration | Vercel/Netlify/Next.js static scanner, source adaptation and staged cutover workflow | Fictional fixtures and security/behavior tests; arbitrary apps need their own build, data rehearsal and target verification |
@@ -19,7 +19,7 @@ establish a completed migration or a production deployment.
 | Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
 
 Actual results and skipped checks for this release are in
-[RELEASE-0.2.0.md](RELEASE-0.2.0.md).
+[RELEASE-0.2.1.md](RELEASE-0.2.1.md).
 
 An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
 installed as an Actions workflow because the publication credential lacks that

@@ -4,7 +4,7 @@ description: Migration assessment for moving an application from AWS, Azure or G
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Migration assessment

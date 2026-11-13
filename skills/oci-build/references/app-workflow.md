@@ -13,6 +13,10 @@ it is a starting point, not a requirement to rewrite a Next.js app.
 3. Run the app's local tests and start it on loopback. Exercise its primary action.
    Use a local development database or an explicitly selected test database;
    never point development migrations at a production connection by inference.
+   Use a uniquely created app-owned temporary directory and retain each child
+   process handle for cleanup. Avoid shared `/tmp` log/PID names, broad process
+   matching or killing a process from an unverified stale PID file. Stop only
+   the test processes this run started, and verify they exited.
 4. Add a non-root container, explicit port/bind configuration and health checks.
    Keep credentials out of images/build arguments and public client bundles.
 5. Check OCI readiness and select a workload design with the foundation review.

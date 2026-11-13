@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 - 2026-11-13
+
+- Preserve executable helpers during project-local installation; the installed
+  deployment-gate tests now run successfully. Special permission bits are not copied.
+- Route named Well-Architected reviews to the canonical reference during web
+  migration and scope Git inspection to the selected workload.
+- Record fresh public-install, real PostgreSQL/runtime, agent-consumer and
+  read-only OCI readiness/plan rehearsals with explicit live-deployment limits.
+
 ## 0.2.0 - 2026-11-13
 
 - Project-local installer for Claude Code and Codex, with self-contained source
