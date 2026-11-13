@@ -6,12 +6,14 @@ cloud would define it. Nothing here touches a network or a cloud account.
 
 import io
 import json
+import os
 import shutil
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "skills" / "oci-migrate-assess" / "scripts"))
@@ -45,7 +47,7 @@ class Terraform(unittest.TestCase):
 
     def test_engine_comes_from_the_top_level_attribute_not_a_nested_block(self):
         [db] = by_type(self.inv, "aws_db_instance")
-        self.assertEqual(db["attributes"]["engine"], "postgres")
+        self.assertEqual(db["attributes"], {})
         self.assertEqual(db["service"], "managed-postgres")
 
     def test_registry_module_is_recognised(self):
@@ -205,6 +207,132 @@ class MoreFormats(unittest.TestCase):
 
 
 class Safety(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="iac-safety-"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def test_resource_attributes_never_enter_reports(self):
+        sentinel = "synthetic-private-value"
+        credential_attribute = "password"
+        (self.tmp / "main.tf").write_text(
+            'resource "aws_db_instance" "db" {\n  engine = "postgres"\n'
+            f'  {credential_attribute} = "{sentinel}"\n}}\n')
+        (self.tmp / "stack.json").write_text(json.dumps({"Resources": {
+            "Db": {"Type": "AWS::RDS::DBInstance", "Properties": {
+                "Engine": "postgres", "MasterUserPassword": sentinel}}}}))
+        inv = scan.scan_path(self.tmp)
+        self.assertEqual(len(by_type(inv, "aws_db_instance")), 1)
+        self.assertEqual(len(by_type(inv, "AWS::RDS::DBInstance")), 1)
+        self.assertNotIn(sentinel, json.dumps(inv) + scan.render_markdown(inv))
+        self.assertTrue(all(f["attributes"] == {} for f in inv["findings"]))
+
+    def test_nonregistry_module_source_values_are_not_reported(self):
+        (self.tmp / "main.tf").write_text('module "network" {\n'
+            '  source = "git::https://synthetic-private-value@example.invalid/vpc/aws"\n}\n')
+        inv = scan.scan_path(self.tmp)
+        self.assertNotIn("synthetic-private-value", json.dumps(inv) + scan.render_markdown(inv))
+        self.assertEqual(inv["unmapped"][0]["type"], "non-registry-module")
+
+    def test_oversized_and_growing_candidates_do_not_exhaust_read_budget(self):
+        path = self.tmp / "main.tf"
+        path.write_text('resource "aws_s3_bucket" "x" {}\n')
+        with mock.patch.object(scan, "MAX_BYTES", 10):
+            inv = scan.scan_path(self.tmp)
+        self.assertEqual(inv["files_scanned"], 0)
+        self.assertEqual(inv["coverage"]["bytes_read"], 0)
+        self.assertEqual(inv["coverage"]["status"], "incomplete")
+        real_fstat = scan.os.fstat
+        def stale_size(fd):
+            values = list(real_fstat(fd))
+            values[6] = 1
+            return os.stat_result(values)
+        with mock.patch.object(scan.os, "fstat", side_effect=stale_size):
+            inv = scan.scan_path(self.tmp, max_bytes=4)
+        self.assertEqual(inv["files_scanned"], 0)
+        self.assertLessEqual(inv["coverage"]["bytes_read"], 4)
+        self.assertEqual(inv["coverage"]["status"], "incomplete")
+
+    def test_deep_json_and_source_root_symlink_fail_safely(self):
+        (self.tmp / "stack.json").write_text("[" * 2000 + "0" + "]" * 2000)
+        inv = scan.scan_path(self.tmp)
+        self.assertEqual(inv["coverage"]["status"], "incomplete")
+        with tempfile.TemporaryDirectory() as outside:
+            link = Path(outside) / "app"
+            link.symlink_to(self.tmp, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                scan.scan_path(link)
+
+    def test_credential_files_and_directories_are_never_opened(self):
+        for rel in ("private.auto.tfvars.json", "terraform.tfstate.backup", "plan.json", "infra.tfplan.json",
+                    "credentials/stack.json", "keys/main.tf", ".oci/config.json", "notes.txt"):
+            path = self.tmp / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("must not open")
+        with mock.patch.object(scan, "_read", side_effect=AssertionError("private file opened")):
+            inv = scan.scan_path(self.tmp)
+        self.assertEqual(inv["files_scanned"], 0)
+
+    def test_skipped_trees_are_pruned_before_enumeration(self):
+        excluded = self.tmp / "node_modules"
+        excluded.mkdir()
+        (excluded / "main.tf").write_text("must not read")
+        original = os.scandir
+        def checked(path):
+            self.assertNotEqual(Path(path), excluded)
+            return original(path)
+        with mock.patch.object(scan.os, "scandir", side_effect=checked):
+            scan.scan_path(self.tmp)
+
+    def test_scan_limits_report_incomplete_coverage(self):
+        block = 'resource "aws_s3_bucket" "x" {}\n'
+        for name in ("a.tf", "b.tf", "c.tf"):
+            (self.tmp / name).write_text(block)
+        for options in ({"max_files": 1}, {"max_bytes": len(block)}, {"max_entries": 1}):
+            with self.subTest(options=options):
+                inv = scan.scan_path(self.tmp, **options)
+                self.assertEqual(inv["coverage"]["status"], "incomplete")
+                self.assertLessEqual(inv["files_scanned"], 1)
+                self.assertTrue(inv["coverage"]["warnings"])
+        nested = self.tmp / "nested"
+        nested.mkdir()
+        (nested / "main.tf").write_text(block)
+        inv = scan.scan_path(self.tmp, max_depth=0)
+        self.assertEqual(inv["coverage"]["status"], "incomplete")
+        self.assertFalse(any(f["file"].startswith("nested/") for f in inv["findings"]))
+
+    def test_malformed_manifest_shapes_are_incomplete_not_fatal(self):
+        (self.tmp / "main.tf").write_text('resource "aws_s3_bucket" "x" {}\n')
+        for name, content in (("package.json", "[]"), ("package.json", '{"dependencies":[]}'),
+                              ("pyproject.toml", '[project]\ndependencies = [1]\n'),
+                              ("pyproject.toml", 'project = "wrong"\n')):
+            path = self.tmp / name
+            path.write_text(content)
+            with self.subTest(name=name, content=content):
+                inv = scan.scan_path(self.tmp)
+                self.assertEqual(inv["coverage"]["status"], "incomplete")
+                self.assertEqual(by_type(inv, "aws_s3_bucket")[0]["service"], "object-storage")
+            path.unlink()
+
+    def test_output_refuses_existing_files_and_symlinks(self):
+        target = self.tmp / "keep.md"
+        target.write_text("preserve")
+        link = self.tmp / "report.md"
+        link.symlink_to(target)
+        for output in (target, link):
+            with redirect_stderr(io.StringIO()):
+                code = scan.main([str(SOURCES / "gcp"), "--out", str(output)])
+            self.assertEqual(code, 2)
+            self.assertEqual(target.read_text(), "preserve")
+
+    def test_untrusted_path_markup_and_source_symlinks_are_omitted(self):
+        bad = self.tmp / "<script>alert(1)</script>"
+        bad.mkdir(parents=True)
+        (bad / "main.tf").write_text('resource "aws_s3_bucket" "x" {}\n')
+        (self.tmp / "linked.tf").symlink_to(bad / "main.tf")
+        inv = scan.scan_path(self.tmp)
+        self.assertEqual(len(inv["findings"]), 1)
+        self.assertNotIn("<script>", json.dumps(inv) + scan.render_markdown(inv))
+
     def test_skips_dependency_folders_and_never_reads_env_files(self):
         tmp = Path(tempfile.mkdtemp(prefix="iac-scan-"))
         self.addCleanup(shutil.rmtree, tmp, True)

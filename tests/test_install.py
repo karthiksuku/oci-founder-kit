@@ -1,6 +1,7 @@
 """Project-local installation preserves source paths and existing app files."""
 
 import importlib.util
+import json
 import os
 import tempfile
 import unittest
@@ -22,6 +23,7 @@ class Installation(unittest.TestCase):
             (project / "AGENTS.md").write_text("Existing app instructions\n")
             result = installer.install(project, "both")
             self.assertIn("oci-kit", result["skills"])
+            self.assertRegex(result["kit_version"], r"^\d+\.\d+\.\d+")
             self.assertEqual((project / "AGENTS.md").read_text(), "Existing app instructions\n")
             for directory in [".agents", ".claude"]:
                 entry = project / directory / "skills/oci-kit/SKILL.md"
@@ -38,6 +40,35 @@ class Installation(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             installer.install(Path(tmp), "codex", True)
             self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_status_is_read_only_and_reports_missing_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            installer.install(project, "codex")
+            entry = project / ".agents/skills/oci-kit/SKILL.md"
+            entry.unlink()
+            before = {p.relative_to(project): p.read_bytes() for p in project.rglob("*") if p.is_file()}
+            result = installer.status(project)
+            after = {p.relative_to(project): p.read_bytes() for p in project.rglob("*") if p.is_file()}
+            self.assertEqual(before, after)
+            self.assertIn("codex:oci-kit", result["missing_entries"])
+            self.assertTrue(result["installed"])
+
+    def test_status_refuses_symlinked_metadata_and_arbitrary_skill_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            bundle = project / ".oci-founder-kit"
+            bundle.mkdir()
+            metadata = bundle / "installation.json"
+            metadata.write_text(json.dumps({"agents": ["codex"], "skills": ["../../private"]}))
+            with self.assertRaises(ValueError):
+                installer.status(project)
+            metadata.unlink()
+            outside = project / "private.txt"
+            outside.write_text("PRIVATE_SENTINEL")
+            metadata.symlink_to(outside)
+            with self.assertRaises(ValueError):
+                installer.status(project)
 
     @unittest.skipIf(os.name == "nt", "POSIX executable mode contract")
     def test_installed_deploy_gate_fixture_executes(self):
@@ -78,7 +109,7 @@ class Installation(unittest.TestCase):
 
     def test_distribution_excludes_keys_state_and_env(self):
         for name in ["skills/x/.env", "skills/x/.env.local", "blueprints/x/a.tfstate",
-                     "blueprints/x/a.tfvars", "blueprints/x/private.auto.tfvars.json",
+                     "blueprints/x/a.tfvars", "blueprints/x/private.auto.tfvars.json", "blueprints/x/private.tfbackend",
                      "blueprints/x/crash.log", "skills/x/credentials/config.json",
                      "skills/x/key.pem", "skills/x/.gate/report.json"]:
             self.assertFalse(installer.distributable(ROOT / name), name)

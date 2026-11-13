@@ -20,6 +20,11 @@ administrator steps. It chooses a maintainable architecture based on the workloa
 not Kubernetes by default. Expect a working local project, readiness results,
 a deployment plan and explicit unfinished acceptance checks.
 
+Start with a short [project brief](PROJECT-BRIEF.md) and keep a
+[progress record](PROGRESS.md) of actual checks. The first checkpoint is a
+useful local workflow. The [optional hooks](HOOKS.md) can help catch accidental
+secret publication and skipped checks without changing the basic installation.
+
 ## Existing Vercel or Netlify application
 
 ```text
@@ -35,6 +40,9 @@ The scan cannot see console-only settings, provider-managed data, traffic or
 service contracts. The agent must ask for the missing facts without requesting
 secret values. Keeping an external database or identity service can be a valid
 first migration stage; show what remains external and why.
+
+Use the [migration acceptance record](MIGRATION-ACCEPTANCE.md) to compare source
+and target behavior, rehearse data changes and define rollback before cutover.
 
 ## OCI credentials and initial setup
 
@@ -65,8 +73,10 @@ resources. Do not solve insufficient permissions with tenancy-wide administratio
 5. Retain update/rollback and approved cleanup instructions. Check for residual
    resources after partial failures or teardown. Review running costs separately.
 
-The bundled full-stack blueprint is a restricted sandbox. The agent must implement
-and validate the missing production controls before exposing it to real users.
+The bundled full-stack blueprint defaults to a restricted sandbox. Its
+[hardened reference](../blueprints/fullstack-container/PRODUCTION.md) adds
+HTTPS, OIDC sign-in and ownership checks, Vault secrets and backups. Configure
+protected state and validate the running controls and recovery before real users.
 
 ## Troubleshooting and updates
 
@@ -85,3 +95,6 @@ and validate the missing production controls before exposing it to real users.
 
 The installer preserves your existing AGENTS.md, CLAUDE.md, agent settings and
 skills. It does not install either coding tool or connect their accounts.
+
+For specific runtime failures, use [read-only troubleshooting](../skills/oci-ready/references/troubleshooting.md).
+For ownership, recovery and release evidence, use the [operations guide](OPERATIONS.md).

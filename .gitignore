@@ -16,6 +16,7 @@ tfplan*
 crash.log
 *.tfvars
 *.tfvars.json
+*.tfbackend
 !*.tfvars.example
 /receipts/
 .gate/

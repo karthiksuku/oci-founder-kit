@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 - 2026-11-13
+
+- Static founder website with build/migrate/setup prompt builder, light/dark
+  themes, mobile and keyboard support, and public-source examples.
+- Safer IaC inventory output, bounded discovery, malformed-input handling and
+  cleanup verification that preserves unknown results instead of claiming success.
+- Opt-in local hook pack with staged/public content checks, readiness, relevant
+  validation, common cloud-mutation guards and evidence reminders.
+- Explicit hardened container reference: HTTPS, verified OIDC identity,
+  per-user authorization, PostgreSQL sessions, runtime Vault secrets, pinned
+  database secret version, backup policy and remote-state guidance/checks.
+- Project brief, progress, migration acceptance, troubleshooting and operations
+  guides; version/status inspection for project-local installs.
+- Local checks do not establish live OCI deployment, hosted identity, recovery
+  or traffic cutover. See the release evidence for exact coverage and limits.
+
 ## 0.2.1 - 2026-11-13
 
 - Preserve executable helpers during project-local installation; the installed

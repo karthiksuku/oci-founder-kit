@@ -10,10 +10,11 @@
 <body>
   <header class="bar">
     <h1>Taskboard</h1>
+    <nav aria-label="Account"><a id="sign-in" href="/auth/login" hidden>Sign in</a><button id="sign-out" type="button" hidden>Sign out</button><span id="account-state"></span></nav>
     <p class="sub">Reference app for the OCI Founder Kit: API, PostgreSQL and Object Storage on OCI.</p>
   </header>
   <main>
-    <form id="new-task" class="new-task" autocomplete="off">
+    <form hidden id="new-task" class="new-task" autocomplete="off">
       <label for="title" class="visually-hidden">New task</label>
       <input id="title" name="title" maxlength="200" placeholder="Add a task" required>
       <button type="submit">Add</button>

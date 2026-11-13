@@ -116,7 +116,7 @@ resource "oci_core_network_security_group" "db" {
 }
 
 resource "oci_core_network_security_group_security_rule" "lb_in_http" {
-  for_each                  = toset(var.allowed_ingress_cidrs)
+  for_each                  = local.production_enabled ? toset([]) : toset(var.allowed_ingress_cidrs)
   network_security_group_id = oci_core_network_security_group.lb.id
   direction                 = "INGRESS"
   protocol                  = "6"
@@ -127,6 +127,22 @@ resource "oci_core_network_security_group_security_rule" "lb_in_http" {
     destination_port_range {
       min = 80
       max = 80
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "lb_in_https" {
+  for_each                  = local.production_enabled ? toset(var.allowed_ingress_cidrs) : toset([])
+  network_security_group_id = oci_core_network_security_group.lb.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = each.value
+  source_type               = "CIDR_BLOCK"
+  description               = "HTTPS from an allowed client range"
+  tcp_options {
+    destination_port_range {
+      min = 443
+      max = 443
     }
   }
 }
@@ -164,10 +180,67 @@ resource "oci_core_network_security_group_security_rule" "app_in_lb" {
 resource "oci_core_network_security_group_security_rule" "app_out" {
   network_security_group_id = oci_core_network_security_group.app.id
   direction                 = "EGRESS"
-  protocol                  = "all"
+  protocol                  = local.production_enabled ? "6" : "all"
   destination               = "0.0.0.0/0"
   destination_type          = "CIDR_BLOCK"
-  description               = "App to the database, the registry and OCI services"
+  description               = "Sandbox egress; production HTTPS for registry, identity and OCI services"
+  dynamic "tcp_options" {
+    for_each = local.production_enabled ? [1] : []
+    content {
+      destination_port_range {
+        min = 443
+        max = 443
+      }
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "app_out_db" {
+  count                     = local.production_enabled ? 1 : 0
+  network_security_group_id = oci_core_network_security_group.app.id
+  direction                 = "EGRESS"
+  protocol                  = "6"
+  destination               = oci_core_network_security_group.db.id
+  destination_type          = "NETWORK_SECURITY_GROUP"
+  description               = "PostgreSQL to the app database only"
+  tcp_options {
+    destination_port_range {
+      min = 5432
+      max = 5432
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "app_out_dns_udp" {
+  count                     = local.production_enabled ? 1 : 0
+  network_security_group_id = oci_core_network_security_group.app.id
+  direction                 = "EGRESS"
+  protocol                  = "17"
+  destination               = "169.254.169.254/32"
+  destination_type          = "CIDR_BLOCK"
+  description               = "OCI VCN DNS resolver"
+  udp_options {
+    destination_port_range {
+      min = 53
+      max = 53
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "app_out_dns_tcp" {
+  count                     = local.production_enabled ? 1 : 0
+  network_security_group_id = oci_core_network_security_group.app.id
+  direction                 = "EGRESS"
+  protocol                  = "6"
+  destination               = "169.254.169.254/32"
+  destination_type          = "CIDR_BLOCK"
+  description               = "OCI VCN DNS resolver TCP fallback"
+  tcp_options {
+    destination_port_range {
+      min = 53
+      max = 53
+    }
+  }
 }
 
 resource "oci_core_network_security_group_security_rule" "db_in_app" {

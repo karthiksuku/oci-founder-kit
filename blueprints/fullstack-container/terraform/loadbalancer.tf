@@ -32,12 +32,26 @@ resource "oci_load_balancer_backend" "app" {
   port             = local.app_port
 }
 
-# HTTP only in this blueprint: add an HTTPS listener with a certificate from
-# OCI Certificates before real users reach it.
+# HTTP exists only in restricted sandbox mode. Production has no HTTP listener.
 resource "oci_load_balancer_listener" "http" {
+  count                    = local.production_enabled ? 0 : 1
   load_balancer_id         = oci_load_balancer_load_balancer.web.id
   name                     = "http"
   default_backend_set_name = oci_load_balancer_backend_set.app.name
   port                     = 80
   protocol                 = "HTTP"
+}
+
+resource "oci_load_balancer_listener" "https" {
+  count                    = local.production_enabled ? 1 : 0
+  load_balancer_id         = oci_load_balancer_load_balancer.web.id
+  name                     = "https"
+  default_backend_set_name = oci_load_balancer_backend_set.app.name
+  port                     = 443
+  protocol                 = "HTTP"
+  ssl_configuration {
+    certificate_ids   = [var.production.certificate_ocid]
+    protocols         = ["TLSv1.2", "TLSv1.3"]
+    cipher_suite_name = "oci-tls-12-13-ssl-cipher-suite-v3"
+  }
 }

@@ -11,7 +11,8 @@
                    Terraform runs, so an approval is good for one attempt
   destroy-plan     the same, for terraform plan -destroy
   destroy          applies a destroy plan under the same rules
-  verify-teardown  checks that every OCID in a receipt is gone (OCI resource search)
+  verify-teardown  checks recorded resources for terminal states; absent Search
+                   results or unsupported identifiers remain unknown, not success
   status           shows the pending plan and receipts
 
 What this gate does NOT guarantee: the approval is the plan's hash, which the agent
@@ -33,6 +34,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -194,6 +196,8 @@ def render_summary(summary: dict, stack: Path) -> str:
     if summary["access_changes"]:
         lines += ["ACCESS CHANGES (IAM): " + ", ".join(f"`{a}`" for a in summary["access_changes"])
                   + ". These widen what identities can do; review them on their own.", ""]
+    if summary.get("required_backend"):
+        lines += ["Required state backend: OCI. Bucket IAM, versioning and recovery require separate verification.", ""]
     lines += [f"Account: {target.get('tenancy_ocid', 'not declared — verify privately')}; "
               f"authentication: {target.get('auth', 'provider default')}; "
               f"IAM home region: {target.get('home_region', 'same as target or separately verified')}.", ""]
@@ -243,7 +247,40 @@ def _read_state(binary: dict, stack: Path, gate: Path) -> list[dict]:
 # Commands
 # --------------------------------------------------------------------------
 
-def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int) -> int:
+def require_backend(stack: Path, expected: str | None) -> None:
+    """Check initialized backend type without exposing its credential-bearing config.
+
+    This verifies local Terraform metadata, not remote bucket IAM/versioning.
+    Keep those checks in the workload's architecture review.
+    """
+    if expected is None:
+        return
+    if expected != "oci":
+        raise GateRefused("Unsupported required backend; re-plan with a supported backend.")
+    data_dir = Path(os.environ.get("TF_DATA_DIR", ".terraform"))
+    if not data_dir.is_absolute():
+        data_dir = stack / data_dir
+    if data_dir.is_symlink():
+        raise GateRefused("Backend metadata directory is a symlink.")
+    path = _no_symlink(data_dir / "terraform.tfstate")
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(fd, "rb") as handle:
+            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                raise ValueError("not regular")
+            raw = handle.read(1_000_001)
+        if len(raw) > 1_000_000:
+            raise ValueError("too large")
+        metadata = json.loads(raw)
+        backend = metadata.get("backend")
+        if not isinstance(backend, dict) or backend.get("type") != expected:
+            raise ValueError("wrong backend")
+    except (OSError, ValueError, AttributeError):
+        raise GateRefused("An initialized OCI remote backend is required. Configure it privately before planning.") from None
+
+
+def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
+             required_backend: str | None = None) -> int:
     if max_age <= 0:
         raise GateInputError("--max-age-minutes must be positive")
     binary = terraform_binary()
@@ -252,6 +289,7 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int) -> int:
     for stale in (plan_path, gate / SUMMARY_FILE, gate / SUMMARY_MD):
         _no_symlink(stale).unlink(missing_ok=True)
     run_terraform(binary, ["init", "-input=false", "-no-color"], stack, gate)
+    require_backend(stack, required_backend)
     args = ["plan", "-input=false", "-no-color", f"-out={plan_path}"]
     args += ["-destroy"] if kind == "destroy" else []
     args += [f"-var-file={f}" for f in var_files]
@@ -275,7 +313,7 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int) -> int:
     created_at, epoch = _now()
     summary = {"kind": kind, "stack": stack.name, "stack_path": str(stack), "plan_sha256": sha256_bytes(plan_bytes),
                "created_at": created_at, "created_at_epoch": epoch, "expires_at_epoch": epoch + max_age * 60,
-               "terraform": binary, **described}
+               "terraform": binary, "required_backend": required_backend, **described}
     text = render_summary(summary, stack)
     _write_private(gate / SUMMARY_FILE, json.dumps(summary, indent=2) + "\n")
     _write_private(gate / SUMMARY_MD, text)
@@ -309,6 +347,7 @@ def _load_approval(stack: Path, kind: str, approve: str) -> tuple[Path, dict]:
 
 def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     gate, summary = _load_approval(stack, kind, approve)
+    require_backend(stack, summary.get("required_backend"))
     binary = summary["terraform"]
     sha = summary["plan_sha256"]
     applying = gate / f"{PLAN_FILE}.{sha[:12]}.applying"
@@ -371,7 +410,7 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
 
 
 def oci_cli_state(profile: str | None, region: str | None, auth: str | None = None) -> Callable[[str], str | None]:
-    """Return a read-only checker: the lifecycle state of an OCID, None if search finds nothing."""
+    """Return a read-only state check; None means not visible, never proof of deletion."""
     auth_modes = {"APIKey": "api_key", "SecurityToken": "security_token",
                   "InstancePrincipal": "instance_principal", "ResourcePrincipal": "resource_principal"}
     if auth is not None and auth not in auth_modes:
@@ -385,59 +424,87 @@ def oci_cli_state(profile: str | None, region: str | None, auth: str | None = No
         command += ["--auth", auth_modes[auth]] if auth else []
         use_region = ocid_region if REGION.match(ocid_region) else region
         command += ["--region", use_region] if use_region else []
-        result = subprocess.run(command, capture_output=True, text=True, errors="replace", check=False)
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, errors="replace", check=False,
+                                    timeout=30, stdin=subprocess.DEVNULL)
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            raise TerraformError("oci search could not complete; check access and connectivity privately.") from exc
         if result.returncode != 0:
             raise TerraformError(f"oci search failed (exit {result.returncode}); "
                                  "check authentication, permissions and network access privately.")
-        items = (json.loads(result.stdout or "{}").get("data") or {}).get("items") or []
+        try:
+            payload = json.loads(result.stdout)
+        except (ValueError, RecursionError):
+            return "UNKNOWN"
+        data = payload.get("data") if isinstance(payload, dict) else None
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            return "UNKNOWN"
         if not items:
             return None
-        return items[0].get("lifecycle-state") or "UNKNOWN"
+        if len(items) != 1 or not isinstance(items[0], dict) or items[0].get("identifier") != ocid:
+            return "UNKNOWN"
+        state = items[0].get("lifecycle-state")
+        return state if isinstance(state, str) and re.fullmatch(r"[A-Z_]+", state) else "UNKNOWN"
     return check
 
 
 def verify_teardown(receipt: dict, check: Callable[[str], str | None]) -> dict:
     resources = receipt.get("destroyed_resources") if receipt.get("kind") == "destroy" else receipt.get("resources")
-    remaining, checked = [], 0
+    remaining, checked, ignored_local = [], 0, 0
     for resource in resources or []:
         ocid = resource.get("id")
         if not ocid:
+            type_ = resource.get("type") or ""
+            if type_.startswith("random_") or type_ in {"null_resource", "terraform_data"}:
+                ignored_local += 1
+                continue
+            remaining.append({**resource, "state": "UNVERIFIABLE_ID"})
             continue
         checked += 1
-        if not OCID.match(ocid):
+        if not isinstance(ocid, str) or not OCID.fullmatch(ocid):
             remaining.append({**resource, "state": "INVALID_OCID"})
             continue
         state = check(ocid)
-        if state is not None and state.upper() not in GONE_STATES:
-            remaining.append({**resource, "state": state})
-    return {"clean": checked > 0 and not remaining, "checked": checked, "remaining": remaining}
+        if state is None:
+            remaining.append({**resource, "state": "NOT_VISIBLE"})
+        elif not isinstance(state, str) or state.upper() not in GONE_STATES:
+            remaining.append({**resource, "state": state if isinstance(state, str) else "UNKNOWN"})
+    return {"clean": checked > 0 and not remaining, "checked": checked, "remaining": remaining,
+            "ignored_local": ignored_local}
 
 
 def cmd_verify(receipt_path: Path, profile: str | None, region: str | None) -> int:
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     target = receipt.get("target") or {}
+    for field, override in (("profile", profile), ("region", region)):
+        if override is not None and target.get(field) is not None and override != target[field]:
+            raise GateRefused("Verification must use the receipt's profile and region; a different target cannot verify it.")
     result = verify_teardown(receipt, oci_cli_state(profile or target.get("profile"),
                                                   region or target.get("region"), target.get("auth")))
-    if result["checked"] == 0:
+    if result["checked"] == 0 and not result["remaining"]:
         raise GateInputError("The receipt lists no OCIDs: nothing to verify. Use the apply receipt, or a destroy "
                              "receipt that recorded the destroyed resources.")
     if result["clean"]:
-        sys.stdout.write(f"Teardown verified: none of the {result['checked']} recorded OCIDs is still running. "
-                         "Resource search can lag; re-check later for certainty.\n")
+        sys.stdout.write(f"Search reports terminal states for all {result['checked']} checked OCIDs. "
+                         "This is a residual-resource check, not proof of account-wide cleanup.\n")
         return 0
-    sys.stdout.write(f"Teardown incomplete: {len(result['remaining'])} of {result['checked']} still exist or "
-                     "could not be confirmed:\n")
+    sys.stdout.write(f"Teardown incomplete: {len(result['remaining'])} resource(s) still exist or could not be confirmed. "
+                     "An empty Search result can mean missing permissions, an unsupported resource or indexing delay; "
+                     "use authorized service-specific checks before declaring cleanup complete.\n")
     for r in result["remaining"]:
-        sys.stdout.write(f"  {r['state']}: {r['type']} {r['address']} {r['id']}\n")
+        sys.stdout.write(f"  {r['state']}: {r.get('type', 'unknown')} {r.get('address', 'unknown')} "
+                         f"{r.get('id') or '[identifier unavailable]'}\n")
     return 4
 
 
 def cmd_status(stack: Path) -> int:
     gate = _gate(stack, create=False)
-    summary_md = gate / SUMMARY_MD
+    summary_md = _no_symlink(gate / SUMMARY_MD)
     sys.stdout.write(summary_md.read_text(encoding="utf-8") if summary_md.exists()
                      else "No plan is waiting for approval.\n")
-    receipts = sorted((gate / "receipts").glob("*.json")) if (gate / "receipts").is_dir() else []
+    receipts_dir = _no_symlink(gate / "receipts")
+    receipts = sorted(receipts_dir.glob("*.json")) if receipts_dir.is_dir() else []
     if receipts:
         sys.stdout.write("Receipts: " + ", ".join(r.name for r in receipts) + "\n")
     return 0
@@ -451,6 +518,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--dir", type=Path, required=True, help="Terraform stack directory")
         if name in ("plan", "destroy-plan"):
             p.add_argument("--var-file", action="append", default=[])
+            p.add_argument("--require-backend", choices=["oci"],
+                           help="require initialized OCI state backend at plan and apply time")
             p.add_argument("--max-age-minutes", type=int, default=DEFAULT_MAX_AGE_MINUTES,
                            help="how long the approval stays valid (fixed at plan time)")
         if name in ("apply", "destroy"):
@@ -470,7 +539,7 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_status(stack)
         if args.command in ("plan", "destroy-plan"):
             return cmd_plan(stack, "destroy" if args.command == "destroy-plan" else "apply",
-                            args.var_file, args.max_age_minutes)
+                            args.var_file, args.max_age_minutes, args.require_backend)
         return cmd_apply(stack, "destroy" if args.command == "destroy" else "apply", args.approve)
     except GateRefused as exc:
         sys.stderr.write(f"deploy_gate: refused. {exc}\n")

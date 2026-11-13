@@ -17,9 +17,10 @@ Each finding is mapped to an OCI service through assets/service-map.json,
 with the fit (equivalent, partial, gap), what differs and how to migrate.
 Unrecognised cloud resources are reported, never silently dropped.
 
-Safety: never opens .env files, keys or certificates; skips dependency and
-build folders; outputs paths relative to the scanned root. Standard library
-only. Exit codes: 0 ok, 2 bad input.
+Safety: skips credential filenames, hidden/dependency/build trees and symlinks;
+bounds enumeration and reads; omits source attribute values and uses relative
+paths. Exit 0 means a report was produced: inspect its coverage, not just the
+exit status. Standard library only. Exit 2: invalid input or refused output.
 
 Usage:
   python3 iac_scan.py PATH [--format md|json] [--out FILE] [--map FILE]
@@ -29,7 +30,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 import sys
 import tomllib
 from pathlib import Path
@@ -38,8 +41,14 @@ from typing import Any, Iterator
 SCHEMA = "oci-migration-inventory/1"
 DEFAULT_MAP = Path(__file__).resolve().parents[1] / "assets" / "service-map.json"
 SKIP_DIRS = {".git", ".hg", ".svn", "node_modules", ".terraform", "vendor", "venv", ".venv", "env",
-             "__pycache__", "dist", "build", "target", ".next", ".nuxt", "bin", "obj", ".idea", ".vscode"}
+             "__pycache__", "dist", "build", "target", ".next", ".nuxt", "bin", "obj", ".idea", ".vscode",
+             "credentials", "keys", "secrets", "private", "certificates", "coverage", "out"}
 MAX_BYTES = 2 * 1024 * 1024
+MAX_TOTAL_BYTES = 24 * 1024 * 1024
+MAX_FILES = 3000
+MAX_ENTRIES = 20000
+MAX_DEPTH = 30
+SAFE_LABEL = re.compile(r"^[A-Za-z0-9_./@()\[\]+ :,-]{1,240}$")
 FIT_ORDER = {"gap": 0, "partial": 1, "equivalent": 2}
 WEIGHTS = {"low": 1, "medium": 3, "high": 8}
 SIZES = ((12, "S"), (35, "M"), (80, "L"))
@@ -170,7 +179,11 @@ def parse_terraform(text: str) -> Iterator[dict]:
             source = attributes.get("source", "")
             for prefix, cloud in (("/aws", "aws"), ("/azurerm", "azure"), ("/google", "gcp")):
                 if re.search(re.escape(prefix) + r"(//|$)", source):
-                    yield {"cloud": cloud, "kind": "terraform-module", "type": source, "name": first,
+                    # URLs can embed access tokens. Only emit public-registry-shaped identifiers.
+                    public_source = source if re.fullmatch(
+                        r"[A-Za-z0-9_-]+/[A-Za-z0-9_-]+/(?:aws|azurerm|google)(?://[A-Za-z0-9_/.-]+)?", source
+                    ) else "non-registry-module"
+                    yield {"cloud": cloud, "kind": "terraform-module", "type": public_source, "name": first,
                            "line": line, "attributes": attributes}
             continue
         cloud = next((c for p, c in TF_PREFIX.items() if first.startswith(p)), None)
@@ -271,8 +284,13 @@ def parse_dependencies(name: str, text: str) -> Iterator[tuple[str, str]]:
     """Yield (ecosystem, package) pairs from a dependency manifest."""
     if name == "package.json":
         data = json.loads(text)
+        if not isinstance(data, dict):
+            raise ValueError("Expected a package object")
         for section in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
-            for package in sorted((data.get(section) or {})):
+            group = data.get(section, {})
+            if not isinstance(group, dict) or not all(isinstance(value, str) for value in group.values()):
+                raise ValueError("Expected dependency name/version pairs")
+            for package in sorted(group):
                 yield "npm", package
     elif name.startswith("requirements") and name.endswith(".txt"):
         for line in text.splitlines():
@@ -282,11 +300,20 @@ def parse_dependencies(name: str, text: str) -> Iterator[tuple[str, str]]:
                     yield "pypi", match.group(1).lower()
     elif name == "pyproject.toml":
         data = tomllib.loads(text)
-        for dep in (data.get("project") or {}).get("dependencies") or []:
+        project = data.get("project", {})
+        tool = data.get("tool", {})
+        if not isinstance(project, dict) or not isinstance(tool, dict):
+            raise ValueError("Expected project/tool tables")
+        dependencies = project.get("dependencies", [])
+        poetry = tool.get("poetry", {})
+        if (not isinstance(dependencies, list) or not all(isinstance(dep, str) for dep in dependencies)
+                or not isinstance(poetry, dict) or not isinstance(poetry.get("dependencies", {}), dict)):
+            raise ValueError("Expected dependency list/table")
+        for dep in dependencies:
             match = REQ_LINE.match(dep)
             if match:
                 yield "pypi", match.group(1).lower()
-        for package in ((data.get("tool") or {}).get("poetry") or {}).get("dependencies") or {}:
+        for package in poetry.get("dependencies", {}):
             yield "pypi", package.lower()
     elif name == "go.mod":
         for match in GO_REQ.finditer(text):
@@ -312,38 +339,101 @@ DEPENDENCY_FILES = re.compile(r"^(package\.json|requirements[\w.-]*\.txt|pyproje
 
 def _is_sensitive(path: Path) -> bool:
     name = path.name.lower()
-    return (name == ".env" or name.startswith(".env.") or name.endswith((".pem", ".key", ".p12", ".pfx", ".tfstate",
-                                                                        ".tfvars", ".tfstate.backup"))
-            or name in ("id_rsa", "id_ed25519", "credentials"))
+    return (name.startswith(".") or name.endswith((".pem", ".key", ".p12", ".pfx", ".crt", ".cer", ".tfvars",
+                                                  ".tfvars.json", ".tfplan", ".tfplan.json", ".plan.json"))
+            or ".tfstate" in name or name.startswith("tfplan") or name == "crash.log"
+            or name in {"plan.json", "terraform-plan.json"}
+            or any(word in name for word in ("credential", "secret", "private", "certificate"))
+            or name in ("id_rsa", "id_ed25519"))
 
 
-def iter_files(root: Path) -> Iterator[Path]:
-    for path in sorted(root.rglob("*")):
-        rel_parts = path.relative_to(root).parts
-        if any(part in SKIP_DIRS for part in rel_parts[:-1]):
-            continue
-        if path.is_file() and not path.is_symlink() and not _is_sensitive(path):
-            try:
-                if path.stat().st_size <= MAX_BYTES:
-                    yield path
-            except OSError:
+def display_label(value: str) -> str:
+    """Keep source metadata from injecting markup or control characters into reports."""
+    return (value if not value or (SAFE_LABEL.fullmatch(value) and "](" not in value and "://" not in value)
+            else "[unsupported source label omitted]")
+
+
+def _warn(coverage: dict, message: str) -> None:
+    coverage["warnings"].add(message)
+
+
+def _candidate(path: Path) -> bool:
+    return bool(not _is_sensitive(path) and
+            (path.suffix.lower() in {".tf", ".bicep", ".json", ".template", ".yaml", ".yml"}
+             or DEPENDENCY_FILES.fullmatch(path.name) or _dockerfile(path)))
+
+
+def _dockerfile(path: Path) -> bool:
+    return path.name == "Dockerfile" or path.name.endswith(".Dockerfile") or path.name.startswith("Dockerfile.")
+
+
+def iter_files(root: Path, coverage: dict | None = None, *, max_entries: int = MAX_ENTRIES,
+               max_depth: int = MAX_DEPTH) -> Iterator[Path]:
+    """Prune excluded trees before entering them and bound enumeration itself."""
+    coverage = coverage if coverage is not None else {"entries_seen": 0, "warnings": set()}
+    pending = [(root, 0)]
+    exhausted = False
+    while pending and not exhausted:
+        directory, depth = pending.pop()
+        children = []
+        try:
+            if directory.is_symlink():
+                _warn(coverage, "A directory became a symlink; discovery is incomplete.")
                 continue
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    if coverage["entries_seen"] >= max_entries:
+                        _warn(coverage, "Entry limit reached; discovery is incomplete.")
+                        exhausted = True
+                        break
+                    coverage["entries_seen"] += 1
+                    children.append(entry)
+            directories = []
+            for entry in sorted(children, key=lambda item: item.name):
+                if entry.is_symlink():
+                    continue
+                path = Path(entry.path)
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name.lower() in SKIP_DIRS or _is_sensitive(path):
+                        continue
+                    if depth >= max_depth:
+                        _warn(coverage, "Directory depth limit reached; discovery is incomplete.")
+                    else:
+                        directories.append((path, depth + 1))
+                elif entry.is_file(follow_symlinks=False) and _candidate(path):
+                    yield path
+            pending.extend(reversed(directories))
+        except OSError:
+            _warn(coverage, "Unreadable directory skipped; discovery is incomplete.")
 
 
-def _read(path: Path) -> str | None:
+def _read(path: Path, coverage: dict, remaining_bytes: int) -> str | None:
     try:
-        return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(fd, "rb") as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES:
+                _warn(coverage, "Oversized or nonregular candidate skipped; discovery is incomplete.")
+                return None
+            if info.st_size > remaining_bytes:
+                _warn(coverage, "Byte limit reached; discovery is incomplete.")
+                return None
+            # The descriptor can grow after fstat; never read beyond the remaining budget.
+            raw = handle.read(min(MAX_BYTES + 1, remaining_bytes))
+            coverage["bytes_read"] += len(raw)
+            if len(raw) > MAX_BYTES or len(raw) != info.st_size:
+                _warn(coverage, "Changing or oversized candidate skipped; discovery is incomplete.")
+                return None
+        return raw.decode("utf-8")
+    except (OSError, UnicodeError):
+        _warn(coverage, "Unreadable candidate skipped; discovery is incomplete.")
         return None
 
 
-def _scan_file(path: Path, rel: str, smap: dict, inv: dict) -> None:
+def _scan_file(path: Path, rel: str, smap: dict, inv: dict, text: str) -> None:
     name = path.name
-    if name == "Dockerfile" or name.endswith(".Dockerfile") or name.startswith("Dockerfile."):
+    if _dockerfile(path):
         inv["dockerfiles"].append(rel)
-        return
-    text = _read(path)
-    if text is None:
         return
     suffix = path.suffix.lower()
     raw: list[dict] = []
@@ -363,12 +453,9 @@ def _scan_file(path: Path, rel: str, smap: dict, inv: dict) -> None:
 
 
 def _scan_json(text: str) -> list[dict]:
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        return []
+    data = json.loads(text)
     if not isinstance(data, dict):
-        return []
+        raise ValueError("Expected a configuration object")
     if "deploymentTemplate" in str(data.get("$schema", "")):
         return list(parse_arm(data, text))
     if isinstance(data.get("Resources"), dict):
@@ -394,22 +481,21 @@ def _scan_yaml(text: str, rel: str, smap: dict, inv: dict) -> list[dict]:
 
 
 def _scan_dependencies(name: str, text: str, rel: str, smap: dict, inv: dict) -> None:
-    try:
-        pairs = list(parse_dependencies(name, text))
-    except (json.JSONDecodeError, tomllib.TOMLDecodeError):
-        return
+    pairs = list(parse_dependencies(name, text))
     for ecosystem, package in pairs:
         hit = classify_sdk(smap, ecosystem, package)
         if hit:
             cloud, entry = hit
-            inv["findings"].append({"cloud": cloud, "kind": "sdk", "type": package, "name": ecosystem,
+            inv["findings"].append({"cloud": cloud, "kind": "sdk", "type": display_label(package), "name": ecosystem,
                                     "file": rel, "line": _line_of(text, max(text.find(package), 0)),
                                     "attributes": {}, "service": entry["service"]})
 
 
 def _record(item: dict, rel: str, smap: dict, inv: dict) -> None:
     entry = classify(smap, item["cloud"], item["kind"], item["type"], item["attributes"])
-    base = {**item, "file": rel}
+    # Classification can inspect configuration values; the report must never retain them.
+    base = {**item, "attributes": {}, "file": rel,
+            "type": display_label(item["type"]), "name": display_label(item["name"])}
     if entry is None:
         inv["unmapped"].append({k: base[k] for k in ("cloud", "kind", "type", "file", "line")})
         return
@@ -422,8 +508,8 @@ def _record(item: dict, rel: str, smap: dict, inv: dict) -> None:
 def _record_image(image: str, line: int, rel: str, smap: dict, inv: dict) -> None:
     for entry in smap["rules"].get("any", {}).get("image", []):
         if re.search(entry["pattern"], image):
-            inv["findings"].append({"cloud": "any", "kind": "image", "type": image.rsplit("/", 1)[-1]
-                                    if image.startswith(("bitnami/", "docker.elastic.co/")) else image,
+            shown = image.rsplit("/", 1)[-1] if image.startswith(("bitnami/", "docker.elastic.co/")) else image
+            inv["findings"].append({"cloud": "any", "kind": "image", "type": display_label(shown),
                                     "name": "", "file": rel, "line": line, "attributes": {},
                                     "service": entry["service"], "opportunity": entry.get("opportunity")})
             return
@@ -463,20 +549,47 @@ def _summarise(inv: dict, smap: dict) -> None:
                                "coupling; +2 per unrecognised resource. S < 12, M < 35, L < 80, XL above."}
 
 
-def scan_path(root: Path | str, smap: dict | None = None) -> dict:
+def scan_path(root: Path | str, smap: dict | None = None, *, max_files: int = MAX_FILES,
+              max_bytes: int = MAX_TOTAL_BYTES, max_entries: int = MAX_ENTRIES,
+              max_depth: int = MAX_DEPTH) -> dict:
     """Scan a directory tree and return the migration inventory."""
-    root = Path(root).resolve()
+    root = Path(root)
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("Choose a real repository directory")
+    if min(max_files, max_bytes, max_entries) < 1 or max_depth < 0:
+        raise ValueError("Invalid scan limits")
+    root = root.resolve()
     smap = smap or load_map()
-    inv: dict = {"schema": SCHEMA, "root": root.name,
+    coverage = {"entries_seen": 0, "bytes_read": 0, "warnings": set(),
+                "limits": {"files": max_files, "total_bytes": max_bytes, "file_bytes": MAX_BYTES,
+                           "entries": max_entries, "depth": max_depth}}
+    inv: dict = {"schema": SCHEMA, "root": display_label(root.name), "coverage": coverage,
                  "service_map": {"checked_at": smap.get("checked_at"), "oci_provider": smap.get("oci_provider")},
                  "files_scanned": 0, "findings": [], "unmapped": [], "coupling": [], "dockerfiles": []}
-    for path in iter_files(root):
+    for path in iter_files(root, coverage, max_entries=max_entries, max_depth=max_depth):
+        if inv["files_scanned"] >= max_files:
+            _warn(coverage, "File limit reached; discovery is incomplete.")
+            break
+        if coverage["bytes_read"] >= max_bytes:
+            _warn(coverage, "Byte limit reached; discovery is incomplete.")
+            break
+        text = _read(path, coverage, max_bytes - coverage["bytes_read"])
+        if text is None:
+            continue
         inv["files_scanned"] += 1
-        _scan_file(path, path.relative_to(root).as_posix(), smap, inv)
+        try:
+            _scan_file(path, display_label(path.relative_to(root).as_posix()), smap, inv, text)
+        except (ValueError, TypeError, AttributeError, RecursionError):
+            _warn(coverage, "Malformed source candidate skipped; discovery is incomplete.")
     for key in ("findings", "unmapped", "coupling"):
         inv[key].sort(key=lambda f: (f["file"], f["line"], f.get("type", f.get("signal", ""))))
     inv["container_ready"] = bool(inv["dockerfiles"])
     _summarise(inv, smap)
+    coverage["status"] = "incomplete" if coverage["warnings"] else "bounded-static-scan"
+    coverage["warnings"] = sorted(coverage["warnings"])
+    coverage["limitations"] = ["Heuristic discovery only; comments can match and dynamic configuration can be missed.",
+                               "No source execution, credential files, hidden directories or provider APIs are inspected.",
+                               "A bounded scan cannot establish a complete inventory or workload compatibility."]
     return inv
 
 
@@ -493,6 +606,7 @@ def render_markdown(inv: dict) -> str:
     fits = {fit: sum(1 for s in services if s["fit"] == fit) for fit in ("equivalent", "partial", "gap")}
     clouds = ", ".join(f"{c} ({n})" for c, n in inv["source_clouds"].items()) or "none detected"
     out = [f"# Migration assessment: {inv['root']}", "",
+           f"Coverage: {inv['coverage']['status']}. Inspect the limitations below.", "",
            f"Source clouds: {clouds}. Files scanned: {inv['files_scanned']}. "
            f"Findings: {len(inv['findings'])}, mapped to {len(services)} OCI services "
            f"({fits['equivalent']} equivalent, {fits['partial']} partial, {fits['gap']} gap). "
@@ -538,10 +652,12 @@ def render_markdown(inv: dict) -> str:
         out += [f"- `{u['type']}` ({u['kind']}) in {u['file']}:{u['line']}" for u in inv["unmapped"]]
     else:
         out.append("Every cloud resource found was mapped.")
+    out += ["", "## Coverage limitations", ""]
+    out += [f"- {item}" for item in inv["coverage"]["warnings"] + inv["coverage"]["limitations"]]
     out += ["", "## Next steps", "",
             "1. Confirm the inventory with the team: anything created by hand in a console will not appear here.",
             "2. Settle every partial fit and gap above before choosing dates.",
-            "3. Plan the migration with `oci-migrate-plan`, and price both sides with `founder-value`.",
+            "3. Continue with `oci-migrate-assess`'s staged assessment, and price both sides with `founder-value`.",
             "", f"Service map checked {inv['service_map']['checked_at']} against {inv['service_map']['oci_provider']}. "
             "A planning aid, not a guarantee of compatibility."]
     return "\n".join(out).rstrip() + "\n"
@@ -551,22 +667,26 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Inventory a repository's cloud footprint and map it to OCI.")
     parser.add_argument("path", type=Path)
     parser.add_argument("--format", choices=("md", "json"), default="md")
-    parser.add_argument("--out", type=Path)
+    parser.add_argument("--out", type=Path, help="Create a new report; existing files are never overwritten.")
     parser.add_argument("--map", type=Path, default=DEFAULT_MAP)
     args = parser.parse_args(argv)
     if not args.path.is_dir():
-        sys.stderr.write(f"iac_scan: {args.path} is not a directory\n")
+        sys.stderr.write("iac_scan: input is not a directory\n")
         return 2
     try:
+        if args.out and (args.out.exists() or args.out.is_symlink()):
+            raise ValueError("Output already exists")
         inventory = scan_path(args.path, load_map(args.map))
-    except (OSError, json.JSONDecodeError, KeyError) as exc:
-        sys.stderr.write(f"iac_scan: cannot read the service map: {exc}\n")
+        text = json.dumps(inventory, indent=2) + "\n" if args.format == "json" else render_markdown(inventory)
+        if args.out:
+            fd = os.open(args.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(text)
+        else:
+            sys.stdout.write(text)
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
+        sys.stderr.write("iac_scan: cannot scan or create report; use a readable source/map and a new output path.\n")
         return 2
-    text = json.dumps(inventory, indent=2) + "\n" if args.format == "json" else render_markdown(inventory)
-    if args.out:
-        args.out.write_text(text, encoding="utf-8")
-    else:
-        sys.stdout.write(text)
     return 0
 
 

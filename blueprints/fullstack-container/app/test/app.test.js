@@ -11,7 +11,7 @@ import { MemoryTaskStore, FakeAttachmentStore } from "./fakes.js";
 function startServer(overrides = {}) {
   const tasks = overrides.tasks ?? new MemoryTaskStore();
   const attachments = "attachments" in overrides ? overrides.attachments : new FakeAttachmentStore();
-  const app = createApp({ tasks, attachments, config: { maxUploadBytes: 1024, ...overrides.config } });
+  const app = createApp({ tasks, attachments, config: { mode: "sandbox", maxUploadBytes: 1024, ...overrides.config } });
   return new Promise((resolve) => {
     const server = app.listen(0, "127.0.0.1", () => {
       const base = `http://127.0.0.1:${server.address().port}`;
@@ -168,15 +168,15 @@ describe("attachments", () => {
 
 describe("config", () => {
   test("requires a database URL and reads optional storage settings", () => {
-    assert.throws(() => loadConfig({}), /DATABASE_URL/);
-    const config = loadConfig({ DATABASE_URL: "postgres://u:p@db:5432/app", PORT: "9090",
+    assert.throws(() => loadConfig({ APP_MODE: "sandbox" }), /DATABASE_URL/);
+    const config = loadConfig({ APP_MODE: "sandbox", DATABASE_URL: "postgres://u:p@db:5432/app", PORT: "9090",
       OCI_BUCKET: "uploads", OCI_NAMESPACE: "ns", OCI_REGION: "ap-melbourne-1" });
     assert.equal(config.port, 9090);
     assert.deepEqual(config.storage, { bucket: "uploads", namespace: "ns", region: "ap-melbourne-1", auth: "resource-principal" });
   });
 
   test("database TLS verifies certificates, with an optional CA bundle", () => {
-    const base = { DATABASE_URL: "postgres://u:p@db.example/app" };
+    const base = { APP_MODE: "sandbox", DATABASE_URL: "postgres://u:p@db.example/app" };
     assert.deepEqual(loadConfig(base).databaseTls, { rejectUnauthorized: true });
     const ca = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----";
     assert.deepEqual(loadConfig({ ...base, DATABASE_CA_CERT: ca }).databaseTls, { rejectUnauthorized: true, ca });
@@ -184,17 +184,17 @@ describe("config", () => {
   });
 
   test("listens on loopback unless HOST says otherwise", () => {
-    assert.equal(loadConfig({ DATABASE_URL: "postgres://u:p@db/app" }).host, "127.0.0.1");
-    assert.equal(loadConfig({ DATABASE_URL: "postgres://u:p@db/app", HOST: "10.20.2.10" }).host, "10.20.2.10");
+    assert.equal(loadConfig({ APP_MODE: "sandbox", DATABASE_URL: "postgres://u:p@db/app" }).host, "127.0.0.1");
+    assert.equal(loadConfig({ APP_MODE: "sandbox", DATABASE_URL: "postgres://u:p@db/app", HOST: "10.20.2.10" }).host, "10.20.2.10");
   });
 
   test("storage stays off unless bucket and namespace are both set", () => {
-    const config = loadConfig({ DATABASE_URL: "postgres://u:p@db/app", OCI_BUCKET: "uploads" });
+    const config = loadConfig({ APP_MODE: "sandbox", DATABASE_URL: "postgres://u:p@db/app", OCI_BUCKET: "uploads" });
     assert.equal(config.storage, null);
   });
 
   test("rejects a bad port and never echoes the database URL", () => {
-    assert.throws(() => loadConfig({ DATABASE_URL: "postgres://u:secretpw@db/app", PORT: "x" }), (err) => {
+    assert.throws(() => loadConfig({ APP_MODE: "sandbox", DATABASE_URL: "postgres://u:secretpw@db/app", PORT: "x" }), (err) => {
       assert.match(err.message, /PORT/);
       assert.doesNotMatch(err.message, /secretpw/);
       return true;

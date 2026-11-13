@@ -9,7 +9,10 @@ relative references to blueprints, scripts and sibling skills retain their layou
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import re
 import shutil
 import sys
 import tempfile
@@ -31,7 +34,7 @@ def distributable(path: Path) -> bool:
         return False
     if set(rel.parts) & SKIP or any(p.startswith(".env") for p in rel.parts):
         return False
-    return not (path.suffix in {".pem", ".key", ".p12", ".pfx", ".pyc", ".tfvars", ".tfstate", ".tfplan"}
+    return not (path.suffix in {".pem", ".key", ".p12", ".pfx", ".pyc", ".tfvars", ".tfbackend", ".tfstate", ".tfplan"}
                 or path.name.endswith(".tfvars.json") or path.name == "crash.log"
                 or ".tfstate." in path.name or path.name.startswith("tfplan"))
 
@@ -59,6 +62,62 @@ def source_files() -> list[Path]:
     return files
 
 
+def release_metadata(root: Path) -> dict:
+    """Identify this bundle without reading Git configuration or running commands."""
+    path = root / ".claude-plugin" / "plugin.json"
+    if not path.exists():
+        return {"kit_version": None, "manifest_sha256": None}
+    safe_parent(path.parent, root)
+    data = read_json_file(path)
+    version = data.get("version")
+    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?", version):
+        raise ValueError("Invalid release manifest.")
+    # Hash canonical public metadata, not secret-bearing project configuration.
+    digest = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+    return {"kit_version": version, "manifest_sha256": digest}
+
+
+def read_json_file(path: Path) -> dict:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("Metadata must be a regular file.")
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, "rb") as stream:
+        raw = stream.read(65537)
+    if len(raw) > 65536:
+        raise ValueError("Metadata exceeds limit.")
+    result = json.loads(raw)
+    if not isinstance(result, dict):
+        raise ValueError("Metadata must be an object.")
+    return result
+
+
+def status(project: Path) -> dict:
+    project = project.expanduser().resolve(strict=True)
+    bundle = project / ".oci-founder-kit"
+    safe_parent(bundle, project)
+    if not bundle.is_dir():
+        return {"schema": "oci-kit-status/1", "installed": False,
+                "next_action": "Install the kit into this project."}
+    data = read_json_file(bundle / "installation.json")
+    agents = data.get("agents")
+    skills = data.get("skills")
+    if (not isinstance(agents, list) or not all(isinstance(a, str) and a in AGENTS for a in agents)
+            or not isinstance(skills, list)
+            or not all(isinstance(s, str) and re.fullmatch(r"[a-z0-9-]{1,80}", s) for s in skills)):
+        raise ValueError("Invalid installation metadata.")
+    missing = []
+    for agent in agents:
+        for skill in skills:
+            entry = project / AGENTS[agent] / "skills" / skill / "SKILL.md"
+            safe_parent(entry.parent, project)
+            if entry.is_symlink() or not entry.is_file():
+                missing.append(f"{agent}:{skill}")
+    return {"schema": "oci-kit-status/1", "installed": True,
+            **release_metadata(bundle), "agents": agents, "skills": skills,
+            "missing_entries": missing,
+            "next_action": "Review missing entry skills." if missing else "Open your coding agent in this project."}
+
+
 def install(project: Path, agent: str, dry_run: bool = False) -> dict:
     project = project.expanduser().resolve(strict=True)
     if not project.is_dir():
@@ -81,7 +140,7 @@ def install(project: Path, agent: str, dry_run: bool = False) -> dict:
             if destination.exists() or destination.is_symlink():
                 raise ValueError(f"Skill {skill.name} already exists for {name}; nothing overwritten.")
             entries.append((skill, destination))
-    report = {"schema": "oci-kit-install/1", "agents": selected,
+    report = {"schema": "oci-kit-install/1", **release_metadata(ROOT), "agents": selected,
               "skills": [p.name for p in skills], "dry_run": dry_run}
     if dry_run:
         return report
@@ -135,12 +194,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--project", required=True, type=Path)
     parser.add_argument("--agent", choices=["codex", "claude", "both"], default="both")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--status", action="store_true", help="Inspect the installed version and entry skills without writing.")
     args = parser.parse_args(argv)
     try:
-        result = install(args.project, args.agent, args.dry_run)
+        result = status(args.project) if args.status else install(args.project, args.agent, args.dry_run)
     except (ValueError, OSError):
         # Avoid printing path contents or filesystem exceptions from a caller's project.
-        sys.stderr.write("Install refused: project missing, destination occupied, or unsafe path. "
+        sys.stderr.write("Installation check refused: project missing, destination occupied, invalid metadata or unsafe path. "
                          "No existing skill/configuration is overwritten.\n")
         return 2
     print(json.dumps(result, indent=2))

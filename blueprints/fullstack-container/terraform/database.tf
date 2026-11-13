@@ -4,6 +4,7 @@ locals {
 }
 
 resource "random_password" "db" {
+  count            = local.production_enabled ? 0 : 1
   length           = 24
   special          = true
   override_special = "#%+-=_"
@@ -35,13 +36,25 @@ resource "oci_psql_db_system" "main" {
     nsg_ids   = [oci_core_network_security_group.db.id]
   }
 
-  # Sandbox default: the password is generated here and kept in Terraform state.
-  # For production, store it in OCI Vault and use password_type = "VAULT_SECRET".
+  # Production uses an existing Vault secret without reading its value into state.
   credentials {
     username = "taskboard"
     password_details {
-      password_type = "PLAIN_TEXT"
-      password      = random_password.db.result
+      password_type  = local.production_enabled ? "VAULT_SECRET" : "PLAIN_TEXT"
+      password       = local.production_enabled ? null : random_password.db[0].result
+      secret_id      = var.production == null ? null : var.production.database_secret_ocid
+      secret_version = var.production == null ? null : tostring(var.production.database_secret_version)
+    }
+  }
+
+  dynamic "management_policy" {
+    for_each = local.production_enabled ? [1] : []
+    content {
+      backup_policy {
+        kind           = "DAILY"
+        backup_start   = "03:00"
+        retention_days = 7
+      }
     }
   }
 }

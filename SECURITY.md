@@ -26,6 +26,12 @@ are bundled or collected by a hosted kit service.
   running application builds. Preserve the original service and rollback path.
 - Sandbox blueprints do not establish production security. Validate identity,
   authorization, HTTPS, secret handling, state, backups and recovery per workload.
+- Public releases use synthetic examples and public, licensed sources. Internal
+  research and workplace conversations stay outside the repository. Run the
+  [public-content check](docs/HOOKS.md#use-the-checks-without-lifecycle-hooks)
+  against the staged release; review history and binary metadata separately.
+  Pattern scans support human review and cannot prove that every secret or
+  proprietary passage has been detected.
 
 Report a vulnerability privately through the maintainer's GitHub profile contact
 or GitHub private vulnerability reporting if enabled. Do not open an issue

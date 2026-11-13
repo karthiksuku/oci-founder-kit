@@ -1,0 +1,22 @@
+---
+interface Props { name: string; size?: number; class?: string }
+const { name, size = 20, class: className = '' } = Astro.props;
+const paths: Record<string, string> = {
+  arrow: 'M5 12h14M13 6l6 6-6 6',
+  diagonal: 'M6 18 18 6M6 6h12v12',
+  code: 'm8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18',
+  copy: 'M9 9h11v11H9zM15 9V4H4v11h5',
+  check: 'm5 12 4 4L19 6',
+  layers: 'm12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5',
+  migrate: 'M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4',
+  shield: 'M12 3 3 7v6c0 4 5 7 9 9 4-2 9-5 9-9V7ZM8 12l3 3 5-6',
+  terminal: 'm4 6 6 6-6 6m10 0h6',
+  sun: 'M12 3V1m0 22v-2M3 12H1m22 0h-2M5.6 5.6 4.2 4.2m15.6 15.6-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+  moon: 'M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z',
+  menu: 'M4 6h16M4 12h16M4 18h16',
+  book: 'M12 5c-3-3-7-3-10-2v16c3-1 7-1 10 2m0-16c3-3 7-3 10-2v16c-3-1-7-1-10 2Zm0 0v16',
+  cloud: 'M6 18h12a4 4 0 0 0 .7-7.9A7 7 0 0 0 5 8.3 5 5 0 0 0 6 18Z',
+  spark: 'm12 2 2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6Z',
+};
+---
+<svg class={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={paths[name] || paths.arrow} /></svg>

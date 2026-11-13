@@ -19,3 +19,21 @@ replacement. See the [handoff](../skills/oci-build/references/app-workflow.md).
 
 Retain original licenses and attribution when reusing code. Listed capabilities
 are maintainer-documented behavior, not independent operational verification.
+
+## Public skills worth composing
+
+The following exact public sources were inspected on 13 November 2026. These are
+optional references, not silently installed dependencies or permission to run
+their mutating commands. Inspect the selected revision and preserve the kit's
+approval, credential and data boundaries when composing a workflow.
+
+| Public source | Useful fit | Reuse boundary |
+|---|---|---|
+| [Functions troubleshooting](https://github.com/oracle/skills/blob/0779f030fdee393ee418a3a76f6a4b09bf1408db/oci/functions/oci-functions-troubleshoot/SKILL.md) | Read-only classification of setup, deployment, invocation and observability failures | UPL-1.0; follow its linked references, redact logs and do not treat diagnosis as repair authorization |
+| [Functions deployment](https://github.com/oracle/skills/blob/0779f030fdee393ee418a3a76f6a4b09bf1408db/oci/functions/oci-functions-deploy/SKILL.md) | Local Java/Python/Node prerequisites and staged function delivery | UPL-1.0; its documented local macOS/Linux scope does not establish Windows or Cloud Shell support. Keep tokens out of chat/arguments and review each deployment operation |
+| [OKE cluster generation](https://github.com/oracle/skills/blob/0779f030fdee393ee418a3a76f6a4b09bf1408db/oci/oke/skills/oke-cluster-generator/SKILL.md) | Kubernetes design when the workload needs it | UPL-1.0; review generated infrastructure, IAM and cost. A generated stack is not verified production infrastructure |
+| [OCI Agent Shipyard](https://github.com/luigisaetta/codex-4-oci-enterprise-ai-deployment/tree/f07d32d9f4fcf312fe4f0142e387114287ecd588) | Manifest-driven build, publish, deploy and verification of hosted AI agents | MIT; its target is OCI Enterprise AI Hosted Applications. Review the selected scripts and approvals before use; no runtime validation is claimed here |
+
+Public license sources: [Oracle Skills UPL](https://github.com/oracle/skills/blob/0779f030fdee393ee418a3a76f6a4b09bf1408db/LICENSE.txt)
+and [Agent Shipyard MIT](https://github.com/luigisaetta/codex-4-oci-enterprise-ai-deployment/blob/f07d32d9f4fcf312fe4f0142e387114287ecd588/LICENSE).
+This kit links these projects; it does not vendor their implementations.

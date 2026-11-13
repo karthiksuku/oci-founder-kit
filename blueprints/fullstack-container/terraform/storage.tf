@@ -7,5 +7,5 @@ resource "oci_objectstorage_bucket" "uploads" {
   namespace      = data.oci_objectstorage_namespace.ns.namespace
   name           = "${var.name}-uploads"
   access_type    = "NoPublicAccess"
-  versioning     = "Disabled"
+  versioning     = local.production_enabled ? "Enabled" : "Disabled"
 }

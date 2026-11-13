@@ -1,10 +1,10 @@
 ---
 name: founder-value
-description: Build the business case for running a startup on Oracle Cloud Infrastructure (OCI) - what it is worth in gross margin, runway, AI unit cost and revenue access, what moving costs, and whether to go now, pilot or wait. Use when a founder asks whether OCI is worth it, wants a cloud cost or margin comparison, a value case, a credits or Oracle Startup Growth Engine decision, or numbers for a board. Hands AI cost work to founder-value-ai, Oracle go-to-market to founder-value-gtm, investor material to founder-value-brief, and technical migration planning to oci-founder when installed.
+description: Build the business case for running a startup on Oracle Cloud Infrastructure (OCI) - what it is worth in gross margin, runway, AI unit cost and revenue access, what moving costs, and whether to go now, pilot or wait. Use when a founder asks whether OCI is worth it, wants a cloud cost or margin comparison, a value case, a credits or Oracle Startup Growth Engine decision, or numbers for a board. Hands AI cost work to founder-value-ai, Oracle go-to-market to founder-value-gtm, investor material to founder-value-brief, and technical implementation to oci-kit.
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Founder Value Kit for OCI
@@ -150,7 +150,7 @@ detail this skill supports.
 | Invoice mapping, sizing, sensitivity ranges, cost per customer | `founder-value-economics` |
 | Startup Growth Engine fit, Marketplace and enterprise-buyer readiness | `founder-value-gtm` |
 | Board or investor brief, margin bridge, risk register | `founder-value-brief` |
-| Architecture, account setup and migration mechanics on OCI | `oci-founder` from the Founder Toolkit for OCI, or an OCI architect skill |
+| Architecture, account setup and migration mechanics on OCI | [oci-kit](../oci-kit/SKILL.md), which routes to the build, setup and migration workflows |
 
 Routing never widens what the founder has authorized.
 

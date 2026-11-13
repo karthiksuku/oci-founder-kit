@@ -4,7 +4,7 @@ description: Migration assessment for moving an application from AWS, Azure or G
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Migration assessment
@@ -26,9 +26,13 @@ or an OCI account from this skill.
    python3 scripts/iac_scan.py /path/to/repo --out migration-scan.md
    python3 scripts/iac_scan.py /path/to/repo --format json --out inventory.json
    ```
-   The scanner skips dependency and build folders and never opens `.env`
-   files, keys, certificates, Terraform state or `.tfvars`. Paths in its
-   output are relative.
+   The scanner prunes dependency, build, hidden and credential folders and
+   skips `.env` files, keys, certificates, Terraform state/plans and `.tfvars`
+   including JSON variants. It bounds entries, files, depth and bytes read.
+   Inspect the report's coverage status and warnings: unreadable, malformed or
+   over-limit inputs mean an incomplete inventory. Paths are relative and
+   configuration attribute values are omitted from reports. Existing report
+   files and symlink outputs are refused; choose a new output path.
 3. **Fill what code cannot show** with
    [references/interview.md](references/interview.md): data volumes, traffic,
    recovery targets, residency, identity provider, third-party services, CI/CD,

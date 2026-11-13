@@ -6,9 +6,15 @@ Taskboard provides Express, PostgreSQL and optional OCI file storage adapters;
 it is a starting point, not a requirement to rewrite a Next.js app.
 
 1. Establish the primary user action, identity/data boundaries and acceptance
-   check. Save a short implementation brief in the app's documentation.
+   check. Save a short implementation brief in the app's documentation using
+   the [project brief](../../../docs/PROJECT-BRIEF.md). Reuse facts already in
+   the repository or Launchpad export; ask only for decisions that affect work.
 2. Inspect existing source and tests. Implement the smallest useful workflow,
-   including validation, persistence and failure behavior. Explain and review
+   including validation, persistence and failure behavior. Design the primary
+   workflow for desktop and mobile, with useful empty, loading, error and success
+   states, visible keyboard focus and labelled controls. Preserve the product's
+   existing design system; an empty app gets a small, consistent visual system.
+   Explain and review
    dependency installers and lifecycle scripts before running unfamiliar code.
 3. Run the app's local tests and start it on loopback. Exercise its primary action.
    Use a local development database or an explicitly selected test database;
@@ -27,6 +33,12 @@ it is a starting point, not a requirement to rewrite a Next.js app.
 7. Deploy only through the exact-plan gate. Test HTTPS, two-user authorization,
    persistence after restart, upload/download isolation, logs, backups and restore.
    Unfinished production checks remain blockers to a production handover.
+
+Keep a short [progress record](../../../docs/PROGRESS.md) in the application.
+Update it at phase boundaries with real commands, results and the next action.
+Do not turn it into a transcript or copy credentials, account IDs or private
+deployment receipts into a shareable report. Use the
+[operations guide](../../../docs/OPERATIONS.md) for recovery and handoff.
 
 ## Optional Launchpad handoff
 

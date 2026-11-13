@@ -11,9 +11,13 @@
 
 Work in your own project. Get help with credentials, compartments, security and deployment, using OCI Well-Architected guidance. Review the exact plan and costs before cloud changes run.
 
-[**Get started →**](#get-started) · [Choose your task](#choose-your-task) · [How it works](#how-it-works) · [What is tested](#what-is-tested)
+[**Open the founder guide →**](https://karthiksuku.github.io/oci-founder-kit/) · [Quick start](#get-started) · [Choose your task](#choose-your-task) · [What is tested](#what-is-tested)
 
 ## Get started
+
+Use the [interactive start guide](https://karthiksuku.github.io/oci-founder-kit/#start)
+to choose your task and agent and copy a prompt shaped around your project.
+It runs in your browser and asks for no credentials.
 
 Already using Claude Code or Codex? Open your app's project folder and paste this:
 
@@ -86,17 +90,17 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.2.1 preview.** Real Claude Code and Codex consumer runs, local app builds, persistence checks and live read-only OCI planning have been exercised.
+**0.3.0 preview.** The founder website, optional hooks, safer scanners and an opt-in hardened app reference are included. Local builds, agent workflows, persistence and read-only OCI planning have been exercised; the release evidence identifies which version each check covers.
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
-| Project installation, local app behavior, migration packaging and read-only OCI plans | Live OCI application deployment, production identity, HTTPS, cloud recovery and traffic cutover |
+| Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The container reference remains a restricted sandbox. Production controls must be implemented and verified before real users. [Read the test evidence →](docs/RELEASE-0.2.1.md)
+The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.3.0.md)
 
 ## Go deeper
 
-[Start guide](docs/START-HERE.md) · [Architecture and capability status](docs/ROADMAP.md) · [Example prompts](docs/PLAYBOOK.md) · [Reference projects](docs/ECOSYSTEM.md) · [Maintain the kit](docs/MAINTAINING.md) · [Contribute](CONTRIBUTING.md)
+[Start guide](docs/START-HERE.md) · [Architecture and capability status](docs/ROADMAP.md) · [Optional hooks](docs/HOOKS.md) · [Reference projects](docs/ECOSYSTEM.md) · [Maintain the kit](docs/MAINTAINING.md) · [Contribute](CONTRIBUTING.md)
 
 Launchpad Studio build briefs can feed the [optional app workflow](skills/oci-build/references/app-workflow.md). Launchpad is not required to use the kit.
 

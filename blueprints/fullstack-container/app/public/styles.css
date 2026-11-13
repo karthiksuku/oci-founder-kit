@@ -7,6 +7,10 @@
   :root { --bg: #10181a; --surface: #172226; --ink: #e2ebe9; --muted: #98a9a8; --rule: #2a3a3e; --accent: #3cc2ae; --danger: #f08a6c; }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.bar nav { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
+.bar nav a { color: var(--accent); }
+#account-state { color: var(--muted); font-size: 0.9rem; }
 body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5; }
 .bar, main, .foot { max-width: 720px; margin: 0 auto; padding: 16px; }
 h1 { margin: 24px 0 4px; font-size: 1.8rem; }

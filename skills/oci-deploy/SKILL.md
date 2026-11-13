@@ -4,7 +4,7 @@ description: Deploy, change or tear down infrastructure on Oracle Cloud Infrastr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Approval-gated deploys on OCI
@@ -23,7 +23,13 @@ already-used plan, and records what it created.
    ```bash
    python3 scripts/deploy_gate.py plan --dir /path/to/stack [--var-file env.tfvars]
    ```
-   `terraform plan` reads the account but changes nothing.
+   Review untrusted Terraform, modules, providers and external data sources
+   before running this command. A plan does not apply the declared resource
+   changes, but Terraform/provider code can execute programs and read secrets;
+   the gate is not a sandbox for that code.
+   For the hardened reference, initialize the private OCI state backend first
+   and add `--require-backend oci` to plan/destroy-plan. The gate rechecks backend
+   type before apply; bucket IAM, versioning and recovery still need verification.
 3. **Estimate the cost.** Map the planned resource types to price-list parts
    and run `founder-value`'s `price_lookup.py` and `value_model.py`, or state
    plainly that the estimate is missing. Never type prices from memory.
@@ -47,7 +53,11 @@ already-used plan, and records what it created.
    ```
    Use the apply receipt, or the destroy receipt, which records the OCIDs it
    destroyed.
-   Report anything still running, with its OCID, and what it costs.
+   Report anything still running or unverified, with its available identifier,
+   and what it costs. Empty Search results do not prove deletion: permissions,
+   unsupported resource types and indexing delay can hide existing resources.
+   Use authorized service-specific checks for those unknowns before saying
+   cleanup is complete. Do not change profile or region to make the check pass.
 
 ## What the gate guarantees, and what it does not
 
@@ -67,8 +77,14 @@ directly. The controls for that are the owner's explicit approval in the
 conversation and an `ask` permission rule for the apply and destroy commands
 ([references/permissions.md](references/permissions.md)). The summary shows
 addresses, types and actions, not attribute values: an opened port or a
-larger shape appears only as "update". `verify-teardown` relies on OCI
-resource search, which can lag.
+larger shape appears only as "update". Target labels come from plan variables;
+the gate does not prove that every provider alias or resource uses that target.
+Review those bindings before approving the plan. `verify-teardown` is a residual
+resource check using OCI Search. It reports absent results and OCI resources
+without usable identifiers as unknown (exit 4), rather than claiming deletion.
+Exit 0 means Search reported terminal states for all checked resources; it does
+not establish account-wide cleanup. Search results depend on permissions and
+indexing, as explained in the [Oracle Search overview](https://docs.oracle.com/en-us/iaas/Content/Search/Concepts/queryoverview.htm).
 
 Exit codes: 0 done, 1 Terraform or OCI CLI failed, 2 bad input, 3 refused by
 the gate, 4 teardown incomplete, 5 applied but not recorded.

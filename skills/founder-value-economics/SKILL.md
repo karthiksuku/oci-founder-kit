@@ -4,7 +4,7 @@ description: Turn a startup's cloud invoice and business metrics into gross marg
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Founder unit economics
