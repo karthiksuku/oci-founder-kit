@@ -180,11 +180,12 @@ command as a fallback, disable locking or force-unlock an active operation.
 The gate's hashes and receipts do not prove that a human approved them; keep the
 [coding-agent permission controls](permissions.md) and conversational approval.
 
-The kit does not yet provide gated state migration, state push, workspace
-creation/deletion, lock repair or version-specific cleanup. Native OCI locking
-and version support are service/implementation capabilities, not completed live
-acceptance for this kit. Rehearse recovery in a separately approved isolated
-target before relying on it for a workload.
+The [fixed synthetic rehearsal](backend-rehearsal.md) supports only its own
+generated state and separately approved exact-version cleanup. The kit does not
+provide arbitrary application-state push, migration, workspace creation/deletion
+or lock repair. Native OCI locking and version support are service/implementation
+capabilities, not completed live acceptance for this kit. Rehearse recovery in a
+separately approved isolated target before relying on it for a workload.
 
 Keep the state bucket separate from app teardown. Before eventual version
 cleanup, stop all clients, review current locks, enumerate exact object names
