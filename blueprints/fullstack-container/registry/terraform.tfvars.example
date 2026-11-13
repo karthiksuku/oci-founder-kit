@@ -5,3 +5,6 @@ region              = "<workload-region>"
 config_file_profile = "DEFAULT"
 auth                = "APIKey"
 name                = "taskboard"
+# After the empty repository is created, change to true and review a new plan.
+# Image publication refuses the repository until that update is applied.
+immutable_tags      = false

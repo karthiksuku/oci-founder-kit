@@ -75,9 +75,11 @@ the deploy gate only checks the initialized backend type.
 
 ## Build, review and deploy
 
-Run app tests and build the image. Push to the approved private registry within
-the reviewed scope. Pin `app_image` to its immutable `@sha256:` digest; production
-rejects mutable tags. Fill `production.tfvars` with the certificate, public origin,
+Run app tests and build the image. Use the
+[image publication gate](../../skills/oci-deploy/references/image-publication.md)
+to review and approve upload to a private, immutable-tag registry. Pin `app_image`
+to the verified receipt's immutable `@sha256:` digest; production rejects mutable
+tags. Fill `production.tfvars` with the certificate, public origin,
 OIDC client identifier and secret references, never their values.
 
 ```sh

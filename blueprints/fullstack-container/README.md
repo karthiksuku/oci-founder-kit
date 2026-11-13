@@ -48,10 +48,13 @@ client (allowed CIDRs) --HTTP sandbox / HTTPS hardened--> Load Balancer
 ## Run it
 
 First use the [foundation workflow](../../skills/oci-foundation/SKILL.md).
-The private `registry/` stack prepares the image repository: plan/apply it through
-`oci-deploy`, push the locally tested image only within the approved scope, then
-plan the app stack with its returned image path. Registry and application plans
-are separate approvals. Credentials and registry auth tokens stay outside Git.
+The private `registry/` stack creates an empty image repository. Its
+`immutable_tags` input starts as `false`: create it through `oci-deploy`, then
+plan and approve a separate update to `true` before any upload. Follow the
+[image publication gate](../../skills/oci-deploy/references/image-publication.md),
+then plan the app stack with the verified immutable image URI. Registry creation,
+immutability update, image upload and application deployment have separate approvals. Credentials and
+registry auth tokens stay outside Git.
 
 
 Everything goes through the approval gate in `skills/oci-deploy`.
@@ -59,7 +62,7 @@ Everything goes through the approval gate in `skills/oci-deploy`.
 ```bash
 npm --prefix app ci && npm --prefix app test           # unit tests, from this blueprint directory
 docker build -t taskboard:0.1.0 app                    # image
-# push to OCIR: <region-key>.ocir.io/<namespace>/taskboard:0.1.0
+# next: image-plan, owner approval, then image-push through oci-deploy
 
 cp terraform/terraform.tfvars.example terraform/sandbox.tfvars   # fill in; ignored by Git
 python3 ../../skills/oci-deploy/scripts/deploy_gate.py plan --dir terraform --var-file sandbox.tfvars

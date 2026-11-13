@@ -41,6 +41,12 @@ variable "name" {
   default     = "taskboard"
 }
 
+variable "immutable_tags" {
+  description = "Create empty with false, then separately plan/apply true before publishing. OCI does not support setting immutability at creation."
+  type        = bool
+  default     = false
+}
+
 data "oci_objectstorage_namespace" "ns" {
   compartment_id = var.compartment_ocid
 }
@@ -55,7 +61,8 @@ resource "oci_artifacts_container_repository" "app" {
   compartment_id = var.compartment_ocid
   display_name   = var.name
   is_public      = false
-  is_immutable   = false
+  # Enable in a separately approved update; image publication refuses false.
+  is_immutable = var.immutable_tags
 }
 
 output "image_repository" {

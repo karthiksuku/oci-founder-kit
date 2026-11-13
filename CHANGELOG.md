@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 - 2026-11-13
+
+- Separate approval gate for publishing a tested image to an existing private
+  OCI registry: exact image and destination, expiry, one-use attempts and remote
+  digest, image configuration and platform verification.
+- Two-stage registry instructions: create empty, then separately review enabling
+  immutable tags. Publication refuses mutable repositories and existing tags.
+- Local Docker runtime and logical PostgreSQL restore evidence, plus clearer
+  limits for live OCI, GitHub validation CI and trusted Codex hook execution.
+- Public-content and fresh-install checks repeated for the release; see
+  [0.3.1 evidence](docs/RELEASE-0.3.1.md).
+
 ## 0.3.0 - 2026-11-13
 
 - Static founder website with build/migrate/setup prompt builder, light/dark

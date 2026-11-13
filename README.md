@@ -90,13 +90,13 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.3.0 preview.** The founder website, optional hooks, safer scanners and an opt-in hardened app reference are included. Local builds, agent workflows, persistence and read-only OCI planning have been exercised; the release evidence identifies which version each check covers.
+**0.3.1 preview.** The founder website, optional hooks, safer scanners, gated image publication and an opt-in hardened app reference are included. Local builds, agent workflows, container persistence, logical restore and read-only OCI planning have been exercised; the release evidence identifies which version each check covers.
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.3.0.md)
+The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.3.1.md)
 
 ## Go deeper
 

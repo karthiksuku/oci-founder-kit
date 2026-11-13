@@ -4,7 +4,7 @@ description: Deploy, change or tear down infrastructure on Oracle Cloud Infrastr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Approval-gated deploys on OCI
@@ -60,6 +60,13 @@ already-used plan, and records what it created.
    cleanup is complete. Do not change profile or region to make the check pass.
 
 ## What the gate guarantees, and what it does not
+
+For OCI Container Registry image uploads, follow
+[gated image publication](references/image-publication.md). Registry creation,
+image upload and workload deployment are separate requests and approvals.
+The image gate binds the local image and exact immutable-tag destination,
+records attempts and verifies the resulting remote image. A direct Docker push
+is not a substitute for that reviewed operation.
 
 It guarantees, for any apply that goes through it:
 

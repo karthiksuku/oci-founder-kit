@@ -14,6 +14,8 @@
   verify-teardown  checks recorded resources for terminal states; absent Search
                    results or unsupported identifiers remain unknown, not success
   status           shows the pending plan and receipts
+  image-plan       prepares an exact-image publication plan using a registry receipt
+  image-push       publishes only that approved image to its private immutable OCIR repository
 
 What this gate does NOT guarantee: the approval is the plan's hash, which the agent
 can read. Nothing here proves that a person saw or approved the plan, and anything
@@ -511,8 +513,20 @@ def cmd_status(stack: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Approval-gated Terraform for OCI.")
+    parser = argparse.ArgumentParser(description="Approval-gated Terraform and image publication for OCI.")
     sub = parser.add_subparsers(dest="command", required=True)
+    for name in ("image-plan", "image-push"):
+        p = sub.add_parser(name)
+        p.add_argument("--dir", type=Path, required=True, help="Registry stack / private gate workspace")
+        if name == "image-plan":
+            p.add_argument("--registry-receipt", type=Path, required=True)
+            p.add_argument("--repository-id", required=True)
+            p.add_argument("--image", required=True, help="Local image reference resolved to immutable content ID")
+            p.add_argument("--tag", required=True, help="New destination tag")
+            p.add_argument("--max-image-bytes", type=int, default=1024 ** 3)
+            p.add_argument("--max-age-minutes", type=int, default=DEFAULT_MAX_AGE_MINUTES)
+        else:
+            p.add_argument("--approve", required=True, help="SHA-256 of the exact image plan approved by the owner")
     for name in ("plan", "destroy-plan", "apply", "destroy", "status"):
         p = sub.add_parser(name)
         p.add_argument("--dir", type=Path, required=True, help="Terraform stack directory")
@@ -529,6 +543,9 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--profile")
     v.add_argument("--region")
     args = parser.parse_args(argv)
+    if args.command in ("image-plan", "image-push"):
+        import image_gate
+        return image_gate.dispatch(args)
     try:
         if args.command == "verify-teardown":
             return cmd_verify(args.receipt, args.profile, args.region)
