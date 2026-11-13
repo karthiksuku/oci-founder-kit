@@ -1,8 +1,9 @@
 # A second lock: ask before apply
 
-The gate refuses any plan the owner has not approved. A permission rule in
-the coding agent adds a second, independent check: the harness itself asks
-before the apply or destroy command runs.
+The gate checks the saved plan hash, expiry and one-attempt use. It cannot
+prove a person approved a hash that the agent can also read. Explicit owner
+approval in the conversation and an independent coding-agent permission prompt
+are required before apply or destroy.
 
 ## Claude Code
 

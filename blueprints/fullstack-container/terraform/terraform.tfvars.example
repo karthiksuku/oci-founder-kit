@@ -1,9 +1,10 @@
 # Copy to sandbox.tfvars (ignored by Git) and fill in. Never commit real OCIDs.
 tenancy_ocid          = "ocid1.tenancy.oc1..<your-tenancy>"
 compartment_ocid      = "ocid1.compartment.oc1..<your-sandbox-compartment>"
-region                = "ap-melbourne-1"
-home_region           = "ap-sydney-1"
+region                = "<workload-region>"
+home_region           = "<tenancy-home-region>"
 config_file_profile   = "DEFAULT"
+auth                  = "APIKey"
 allowed_ingress_cidrs = ["203.0.113.10/32"]
 app_image             = "<region-key>.ocir.io/<namespace>/taskboard:0.1.0"
 alert_email           = ""

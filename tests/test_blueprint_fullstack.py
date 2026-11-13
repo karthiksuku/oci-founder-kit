@@ -69,19 +69,40 @@ class Network(unittest.TestCase):
         self.assertIn("prohibit_public_ip_on_vnic = true", subnets["private"])
         self.assertNotIn("ingress_security_rules", blocks("resource", "oci_core_security_list")["none"])
 
+    def test_database_storage_fits_single_and_multi_ad_regions(self):
+        # Found in the live run: regionally durable storage is rejected in
+        # single-AD regions such as ap-melbourne-1.
+        db = blocks("resource", "oci_psql_db_system")["main"]
+        self.assertIn("is_regionally_durable = local.db_multi_ad", db)
+        self.assertIn("availability_domain   = local.db_multi_ad ? null : local.ads[0].name", db)
+        self.assertIn("db_multi_ad = length(local.ads) >= 3", SOURCE)
+
     def test_container_has_no_public_ip(self):
         body = blocks("resource", "oci_container_instances_container_instance")["app"]
         self.assertIn("is_public_ip_assigned = false", body)
 
 
 class Access(unittest.TestCase):
-    def test_policy_is_scoped_to_the_bucket(self):
+    def test_policy_is_scoped_to_the_bucket_and_the_repository(self):
         policy = blocks("resource", "oci_identity_policy")["app"]
         statements = re.findall(r'"(Allow [^"]+)"', policy)
-        self.assertEqual(len(statements), 2)
+        self.assertEqual(len(statements), 3)
         for statement in statements:
-            self.assertIn("target.bucket.name", statement)
+            self.assertTrue("target.bucket.name" in statement or "target.repo.name" in statement, statement)
+            self.assertIn("in compartment id ${var.compartment_ocid}", statement)
+            self.assertNotIn("in tenancy", statement)
             self.assertNotIn("all-resources", statement)
+        [pull] = [s for s in statements if "repos" in s]
+        self.assertIn("to read repos", pull)
+
+    def test_registry_stack_creates_a_private_repository(self):
+        registry = "\n".join(p.read_text() for p in sorted((BLUEPRINT / "registry").glob("*.tf")))
+        self.assertIn('resource "oci_artifacts_container_repository" "app"', registry)
+        self.assertIn("is_public      = false", registry)
+        self.assertIn("var.compartment_ocid", registry)
+        self.assertTrue((BLUEPRINT / "registry" / ".terraform.lock.hcl").exists())
+        types = set(re.findall(r'resource\s+"(oci_[a-z0-9_]+)"', registry))
+        self.assertEqual(types - OCI_TYPES, set())
 
     def test_dynamic_group_matches_container_instances_in_the_compartment(self):
         group = blocks("resource", "oci_identity_dynamic_group")["app"]

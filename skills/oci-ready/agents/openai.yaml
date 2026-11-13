@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prepare OCI access"
+  short_description: "Configure credentials and diagnose OCI readiness"
+  default_prompt: "Use $oci-ready to check OCI access and guide credential, region and compartment setup before building this app."
+policy:
+  allow_implicit_invocation: true

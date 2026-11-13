@@ -1,3 +1,8 @@
+locals {
+  ads         = data.oci_identity_availability_domains.ads.availability_domains
+  db_multi_ad = length(local.ads) >= 3
+}
+
 resource "random_password" "db" {
   length           = 24
   special          = true
@@ -17,8 +22,11 @@ resource "oci_psql_db_system" "main" {
   instance_ocpu_count         = var.db_ocpus
   instance_memory_size_in_gbs = var.db_memory_gbs
 
+  # Regionally durable storage needs a region with three availability domains;
+  # single-AD regions (for example ap-melbourne-1) use storage in their one AD.
   storage_details {
-    is_regionally_durable = true
+    is_regionally_durable = local.db_multi_ad
+    availability_domain   = local.db_multi_ad ? null : local.ads[0].name
     system_type           = "OCI_OPTIMIZED_STORAGE"
   }
 

@@ -1,0 +1,4 @@
+{
+  "crons": [{ "path": "/api/tasks", "schedule": "0 9 * * *" }],
+  "redirects": [{ "source": "/old", "destination": "/tasks", "permanent": true }]
+}

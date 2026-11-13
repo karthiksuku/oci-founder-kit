@@ -1,139 +1,139 @@
 # OCI Founder Kit
 
-> Build, migrate and justify applications on Oracle Cloud Infrastructure
-> (OCI) with the coding agent you already use.
+**Point Claude Code or Codex at your app. Set up OCI, build it, or migrate it.**
 
-The OCI Founder Kit is a set of agent skills and tested tools for Claude Code
-(and Codex and Cursor). It helps three kinds of people get a real result on
-OCI:
+An installable agent toolkit for founders and developers. It helps your coding
+agent inspect the project, configure OCI access, prepare compartments and scoped
+IAM, build or adapt the application, and plan a deployment using OCI
+Well-Architected guidance. Cloud changes happen only after you approve the exact
+plan and its costs. Independent project; not an Oracle product.
 
-| Track | For | What it does |
-|---|---|---|
-| **Decide** | Founders, CEOs, boards | Is OCI worth it, by how much, and how to make the case: gross margin, payback with and without credits, the credit cliff, AI unit cost, Oracle go-to-market, a board brief |
-| **Build** | Developers and technical founders | A full-stack application on OCI from a tested golden path: frontend, API, database, storage, auth, observability, deployed only after you approve the exact plan |
-| **Migrate** | Teams on AWS, Azure or Google Cloud | Automated discovery of what runs today, a service-by-service map that names what does not match, data migration runbooks, cutover and rollback |
+## Start with your coding agent
 
-Everything that changes a cloud account goes through one gate: the agent shows
-the exact Terraform plan, target compartment, region and estimated cost, and
-applies only that plan after you approve it. Every deploy writes a receipt,
-and every receipt can be torn down.
+Paste this into Claude Code or Codex in your application project:
 
-It builds on Oracle's official [`oracle/skills`](https://github.com/oracle/skills)
-for OKE, Functions and database procedures instead of copying them.
+> Read https://github.com/karthiksuku/oci-founder-kit and its README. Install the
+> kit into this project with scripts/install.py. Use oci-kit to build my app on
+> OCI. Inspect the project, guide any credential setup, prepare the compartment
+> and security foundation, and test locally. Show the exact infrastructure plan
+> and costs before making cloud changes. Never ask me to paste private keys.
 
-## Status
+For an existing hosted app, replace the goal with:
 
-| Track | State |
-|---|---|
-| Decide | **Available.** Five skills, a tested value model and a live price-list lookup. See [the business value](docs/BUSINESS-VALUE.md) |
-| Migrate | **Assessment available.** Discovery for AWS, Azure and Google Cloud and a tested service map. Next: migration plan, data runbooks, cutover |
-| Build | **Deploy gate and first golden path built.** [`oci-deploy`](skills/oci-deploy/SKILL.md) applies only the exact plan approved; [`oci-build`](skills/oci-build/SKILL.md) deploys the [full-stack golden path](blueprints/fullstack-container/README.md) (Container Instances, PostgreSQL, Object Storage, load balancer). Validated and planned against a real tenancy; live deploy pending approval |
+> Migrate this Vercel application to OCI. Inventory its platform dependencies,
+> implement and test the required changes, prepare the OCI foundation, and show
+> the deployment and cutover plans. Keep the source running until I approve cutover.
 
-Start with [`oci-kit`](skills/oci-kit/SKILL.md): it routes a request to the
-right track and carries the safety contract every skill follows.
+## Install in an application project
 
-**Name the skill when you ask.** In testing, a plain request ("we're on AWS,
-what would it take to move to OCI?") was sometimes answered from the model's
-general knowledge instead of the kit, especially on machines with many other
-skills installed, and that answer missed facts the kit checks (for example
-Cloudflare@OCI for CDN). Invoking the skill by name gave the evidence-based
-result every time:
+Requires Git, Python 3.11+ and your own Claude Code or Codex installation/account.
+Clone the kit outside the application directory; choose an existing app directory
+(or create an empty one for a new app).
 
-```text
-/oci-founder-kit:oci-migrate-assess We run this app on AWS. What would it take to move it to OCI, and what first?
+```sh
+git clone https://github.com/karthiksuku/oci-founder-kit.git
+python3 oci-founder-kit/scripts/install.py --project /absolute/path/to/my-app --agent both
+cd /absolute/path/to/my-app
 ```
 
-The [roadmap](docs/ROADMAP.md) lists each piece and the evidence it needs
-before it is called done.
+Choose `--agent codex` or `--agent claude` to install for one tool. Windows users
+can use `py -3` with Python 3.11+. The installer copies a self-contained kit into
+`.oci-founder-kit/` and adds local skill entries to `.agents/skills/` and/or
+`.claude/skills/`. No symlinks, global settings, network calls or cloud operations;
+existing skills and files are never overwritten. `--dry-run` previews the install.
+Open a fresh coding-agent session after installing if skills do not appear.
 
-## Install
+**Codex:**
 
-**Claude Code plugin** (all skills), from a checkout:
+```text
+$oci-kit Build my app on OCI. Help me set up access and the required foundation.
+```
 
-```bash
-claude plugin marketplace add /absolute/path/to/oci-founder-kit
+**Claude Code:**
+
+```text
+/oci-kit Migrate this Vercel app to OCI, starting with a repository assessment.
+```
+
+Alternatively, install the complete Claude Code plugin:
+
+```sh
+claude plugin marketplace add karthiksuku/oci-founder-kit
 claude plugin install oci-founder-kit@oci-founder-kit-marketplace
 ```
 
-**One skill into one project** with the Agent Skills CLI:
+Then use `/oci-founder-kit:oci-kit`. Do not install both delivery methods in the
+same scope unless you want duplicate entries. No OCI credentials are bundled.
 
-```bash
-cd /absolute/path/to/your-project
-npx --yes skills@1.7.0 add /absolute/path/to/oci-founder-kit \
-  --skill founder-value -a claude-code --copy -y
-```
+[Start guide and troubleshooting](docs/START-HERE.md) ·
+[Capabilities and validation status](docs/ROADMAP.md) ·
+[Prompts and business case](docs/PLAYBOOK.md)
 
-Use `codex` or `cursor` instead of `claude-code`.
+## What the agent can do
 
-## Decide track: available now
+| Workflow | Entry skill | What is included |
+| --- | --- | --- |
+| Start or continue a project | [oci-kit](skills/oci-kit/SKILL.md) | Route the request, continue local work, preserve approval boundaries |
+| Set up credentials and diagnose access | [oci-ready](skills/oci-ready/SKILL.md) | Credential guide, offline tool checks, opt-in read-only live diagnostics |
+| Prepare compartments and security | [oci-foundation](skills/oci-foundation/SKILL.md) | Dedicated compartment/scoped policy Terraform and five-pillar design review |
+| Build an application | [oci-build](skills/oci-build/SKILL.md) | App implementation workflow and container/PostgreSQL/storage reference |
+| Migrate Vercel or Netlify workloads | [oci-migrate-web](skills/oci-migrate-web/SKILL.md) | Static repository scan, platform dependency report, adaptation/test/cutover workflow |
+| Assess other cloud infrastructure | [oci-migrate-assess](skills/oci-migrate-assess/SKILL.md) | Terraform, CloudFormation, ARM/Bicep, Kubernetes, Compose and SDK discovery |
+| Review/apply infrastructure | [oci-deploy](skills/oci-deploy/SKILL.md) | Saved-plan hash, expiry, one-use apply, IAM summary, receipts and cleanup checks |
+| Evaluate OCI economics | [founder-value](skills/founder-value/SKILL.md) | Dated price lookup, cost scenarios, AI unit economics and board brief |
 
-| Skill | Founder question |
-|---|---|
-| [`founder-value`](skills/founder-value/SKILL.md) | Is OCI worth it for us? Verdict, deciding numbers, value case |
-| [`founder-value-economics`](skills/founder-value-economics/SKILL.md) | Cost per customer, payback, credits and the cliff |
-| [`founder-value-ai`](skills/founder-value-ai/SKILL.md) | What does one AI action cost, and can we protect margin? |
-| [`founder-value-gtm`](skills/founder-value-gtm/SKILL.md) | Startup Growth Engine fit, Marketplace and enterprise readiness |
-| [`founder-value-brief`](skills/founder-value-brief/SKILL.md) | A one-page board or investor brief |
+The agent guides account signup, MFA, local CLI authentication and public-key
+registration. Those steps use your account or an authorized administrator;
+private keys stay on your machine. It does not bypass identity verification or
+silently grant itself administrator access. The foundation uses an existing
+approved parent compartment and developer group; its guide covers initial
+administrator bootstrap when those do not exist.
 
-Worked example: [a seed-stage AI SaaS company](examples/seed-ai-saas/README.md).
-Prompts to paste: [founder playbook](docs/PLAYBOOK.md).
+For migration, the agent edits and tests your actual app. Discovery is a static
+assessment, not proof of runtime compatibility. Source-provider services,
+production data movement, DNS cutover and decommissioning require separate review.
 
-## Migrate track: assessment available
+## Current release: 0.2.0 preview
 
-[`oci-migrate-assess`](skills/oci-migrate-assess/SKILL.md) scans a
-repository read-only and maps every cloud resource to OCI:
+Local tools, installation and safety contracts are tested. The reference
+`fullstack-container` remains a **sandbox**: HTTPS, application sign-in, production
+secret handling and remote state must be implemented and verified for your
+workload before real users. No live deployment or universal Vercel migration is
+claimed by this release. See the [release evidence](docs/RELEASE-0.2.0.md).
 
-- **Reads** Terraform resources and registry modules, CloudFormation and SAM,
-  ARM and Bicep, Deployment Manager, Kubernetes manifests, Compose files, and
-  SDK dependencies in npm, PyPI, Go, Maven/Gradle and NuGet projects.
-- **Maps** each finding through a [service map](skills/oci-migrate-assess/assets/service-map.json)
-  of 59 OCI target services and about 330 rules, with the fit (equivalent,
-  partial, gap), what differs, how to migrate and a documentation link.
-- **Proves the map** in tests: every OCI Terraform type is checked against the
-  OCI provider schema (oracle/oci 9.10.0), every source type against the
-  current AWS, azurerm and Google providers and the CloudFormation
-  specification, and every documentation link was checked live on 2026-10-21.
-- **Reports** partial fits and gaps first, cloud SDK calls that need code
-  changes, self-hosted services that could become managed, Kubernetes
-  settings tied to the old cloud, anything it did not recognise, and an S to
-  XL effort signal.
+The optional [Launchpad Studio handoff](skills/oci-build/references/app-workflow.md)
+uses your build brief and templates. Launchpad is not required. Its browser
+learning starters and platform-dependent exports are not independent OCI apps.
 
-```bash
-python3 skills/oci-migrate-assess/scripts/iac_scan.py /path/to/repo --out migration-scan.md
-```
+## Security and operation
 
-Example: [scan of an AWS app](examples/migrate-aws-taskboard/migration-scan.md)
-(ECS, RDS PostgreSQL, S3, ElastiCache, SQS, Cognito, CloudFront).
+- The agent shows the target, resources, IAM changes, cost basis and saved plan
+  before asking to apply. A plan hash alone is not evidence of human consent.
+- Credential files, environment values, Terraform state and plan receipts stay
+  outside Git. Use workload principals instead of distributing user API keys.
+- Least privilege, private network boundaries, HTTPS, authorization, backups,
+  monitoring and recovery are workload acceptance checks, not automatic claims.
+- Budgets alert on soft spending limits; they are not hard cost caps. Region,
+  service access and capacity must be checked for your account.
+- Keep a rollback path and verify cleanup. A failed apply can leave resources;
+  inspect its private receipt before planning recovery.
 
-## Principles
+## Develop and validate the kit
 
-- **Approve the exact plan.** No cloud change without a reviewed plan, a named
-  target and explicit approval; apply refuses a plan that differs from the
-  one approved.
-- **Receipts and teardown.** Every deploy records what it created; teardown
-  removes exactly that and checks nothing is left running.
-- **Evidence over memory.** Prices from Oracle's public price list with
-  dates; service facts linked to current Oracle documentation; unknowns marked
-  as unknown.
-- **Name the mismatches.** A migration map that hides non-equivalent services
-  is worse than none.
-- **Draft, never act on someone's behalf.** No sign-ups, applications or
-  messages sent by the agent.
-
-## Validate
-
-```bash
+```sh
 python3 scripts/validate.py
 python3 -m unittest discover -s tests -v
 claude plugin validate .
+terraform fmt -check -recursive blueprints
 ```
 
-## Disclaimer and license
+The [reference app](blueprints/fullstack-container/README.md) has its own locked
+Node dependencies and tests. The [curated references](docs/ECOSYSTEM.md) distinguish
+source review from verified deployment. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-An independent project by Karthik Sukumar. It is not an Oracle product and is
-not sponsored, endorsed or supported by Oracle. Oracle, OCI and Java are
-trademarks of Oracle and/or its affiliates; AWS, Azure and Google Cloud are
-trademarks of their owners and are named only to describe migration sources.
-This is not a quote, and not tax, accounting, legal or investment advice.
+## License
 
-Licensed under the [Universal Permissive License 1.0](LICENSE).
+[UPL-1.0](LICENSE). Oracle and OCI are trademarks of Oracle and/or its affiliates.
+Vercel, Netlify, AWS, Azure and Google Cloud are named factually as migration
+sources. No endorsement, guaranteed credits, compatibility, pricing or compliance
+certification is implied.

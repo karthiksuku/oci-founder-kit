@@ -44,10 +44,17 @@ client (allowed CIDRs) --HTTP--> Flexible Load Balancer (public subnet)
 
 ## Run it
 
+First use the [foundation workflow](../../skills/oci-foundation/SKILL.md).
+The private `registry/` stack prepares the image repository: plan/apply it through
+`oci-deploy`, push the locally tested image only within the approved scope, then
+plan the app stack with its returned image path. Registry and application plans
+are separate approvals. Credentials and registry auth tokens stay outside Git.
+
+
 Everything goes through the approval gate in `skills/oci-deploy`.
 
 ```bash
-cd app && npm ci && npm test                          # unit tests
+npm --prefix app ci && npm --prefix app test           # unit tests, from this blueprint directory
 docker build -t taskboard:0.1.0 app                    # image
 # push to OCIR: <region-key>.ocir.io/<namespace>/taskboard:0.1.0
 

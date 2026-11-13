@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-11-13
+
+- Project-local installer for Claude Code and Codex, with self-contained source
+  resources and no overwrites of existing app instructions or skills.
+- OCI credentials/readiness diagnostics, scoped compartment/IAM foundation,
+  five-pillar Well-Architected review and Vercel/Next.js migration workflow.
+- Build-first routing, source reviewed ecosystem references and explicit preview
+  limits; preserves sandbox and exact-plan deployment approval boundaries.
+- Private image registry stage, single/multi-AD database storage selection and
+  partial-apply resource receipts from the existing source fixes.
+
+### Previously unreleased build and assessment work
 
 - `oci-build` and the `fullstack-container` golden path: a reference Taskboard app
   (Express, PostgreSQL with verified TLS, Object Storage uploads through

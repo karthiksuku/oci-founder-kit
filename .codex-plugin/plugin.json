@@ -1,7 +1,7 @@
 {
   "name": "oci-founder-kit",
-  "version": "0.1.0",
-  "description": "Build, migrate and justify applications on Oracle Cloud Infrastructure with Claude Code: full-stack golden paths, AWS/Azure/Google Cloud migration with automated discovery, approval-gated deploys, and the business case for founders and executives.",
+  "version": "0.2.0",
+  "description": "Set up OCI credentials and scoped foundations, build apps, and migrate web workloads with Claude Code or Codex. Includes read-only diagnostics, Vercel/Next.js discovery, Well-Architected guidance and approval-gated Terraform.",
   "license": "UPL-1.0",
   "author": {
     "name": "Karthik Sukumar"
@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "OCI Founder Kit",
     "shortDescription": "Build, migrate and justify apps on OCI.",
-    "longDescription": "Build, migrate and justify applications on Oracle Cloud Infrastructure with Claude Code: full-stack golden paths, AWS/Azure/Google Cloud migration with automated discovery, approval-gated deploys, and the business case for founders and executives. Independent project; not an Oracle product.",
+    "longDescription": "Set up OCI credentials and scoped foundations, build apps, and migrate web workloads with Claude Code or Codex. Includes read-only diagnostics, Vercel/Next.js discovery, Well-Architected guidance and approval-gated Terraform. Independent project; not an Oracle product.",
     "developerName": "Karthik Sukumar",
     "category": "Developer Tools",
     "capabilities": [
@@ -19,9 +19,9 @@
       "Analysis"
     ],
     "defaultPrompt": [
-      "Assess this repo for migration from AWS to OCI.",
-      "Build this full-stack app on OCI, with a plan I approve before anything is created.",
-      "Is OCI worth it for our startup? Here is our cloud bill."
+      "Use $oci-kit to set up OCI and build this app.",
+      "Use $oci-kit to migrate this Vercel app to OCI.",
+      "Use $oci-ready to diagnose my OCI setup without changing cloud resources."
     ]
   }
 }

@@ -4,7 +4,7 @@ description: Migration assessment for moving an application from AWS, Azure or G
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Migration assessment
@@ -42,9 +42,12 @@ or an OCI account from this skill.
    refactor, retain or retire, and pick a first wave.
 6. **Write `migration-assessment.md`** following
    [references/assessment-template.md](references/assessment-template.md).
-7. **Hand off:** costs to `founder-value-economics` (current invoice against
-   OCI list prices), the detailed plan to `oci-migrate-plan`, deploys to
-   `oci-deploy`. Name a hand-off even when that skill is not installed yet.
+7. **Continue within scope:** costs to `founder-value-economics`; web workloads
+   to [oci-migrate-web](../oci-migrate-web/SKILL.md), foundation to
+   [oci-foundation](../oci-foundation/SKILL.md), deployments to `oci-deploy`.
+   General data/cutover automation is not shipped. For other workloads produce
+   a staged migration plan using the assessment template, implement authorized
+   local adaptations, and explicitly identify unrehearsed data/cutover work.
 
 ## How to read the scan
 

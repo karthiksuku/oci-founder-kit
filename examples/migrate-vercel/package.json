@@ -1,0 +1,10 @@
+{
+  "name": "fictional-migration-source",
+  "private": true,
+  "description": "Non-executable inventory fixture; do not install.",
+  "dependencies": {
+    "next": "fixture-only",
+    "react": "fixture-only",
+    "@vercel/blob": "fixture-only"
+  }
+}

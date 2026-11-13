@@ -4,7 +4,7 @@ description: Build and deploy a full-stack application on Oracle Cloud Infrastru
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Build a full-stack app on OCI
@@ -29,9 +29,11 @@ its README before changing it.
 
 ## Workflow
 
-1. **Readiness (read-only).** OCI CLI profile authenticates; target
-   compartment exists and is not the root; home region known (IAM changes go
-   there); Terraform installed.
+1. **Develop and check readiness.** Read [the app workflow](references/app-workflow.md)
+   and build/test the user's app locally. Use [oci-ready](../oci-ready/SKILL.md)
+   for read-only credential and target checks. For missing compartments or scoped
+   permissions use [oci-foundation](../oci-foundation/SKILL.md), including its
+   Well-Architected review. Missing OCI access does not block local development.
 2. **Fit the app to the path.** The app must listen on the address in `HOST`
    and `PORT`, take `DATABASE_URL` and `DATABASE_CA_CERT`, and use
    `OCI_BUCKET`, `OCI_NAMESPACE` and `OCI_REGION` with a resource principal
@@ -47,8 +49,13 @@ its README before changing it.
    changes (a dynamic group and a policy); the gate lists them separately.
 7. **Smoke test.** `app_url` from an allowed address: `/healthz`, `/readyz`,
    create a task, upload and download a file.
-8. **Hand over** the receipt, the URL, the monthly cost while running, and
-   the teardown command.
+8. **Hand over** the receipt, verified URL, dated monthly cost basis, update,
+   rollback, backup/restore and teardown instructions. Report unfinished checks.
+
+The existing fullstack-container is a sandbox reference, not a universal app
+converter. For real users, implement and test HTTPS, server-verified identity,
+authorization, proper secret retrieval, durable protected state and recovery first.
+Keep the default sandbox reachable only from approved restricted addresses.
 
 ## Rules
 

@@ -93,3 +93,13 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+variable "auth" {
+  description = "Authentication mode selected during OCI readiness; credentials remain outside Terraform."
+  type        = string
+  default     = "APIKey"
+  validation {
+    condition     = contains(["APIKey", "SecurityToken", "InstancePrincipal", "ResourcePrincipal"], var.auth)
+    error_message = "Choose the OCI provider authentication mode matching the readiness check."
+  }
+}

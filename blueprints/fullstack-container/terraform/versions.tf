@@ -15,6 +15,8 @@ terraform {
 provider "oci" {
   region              = var.region
   config_file_profile = var.config_file_profile
+  tenancy_ocid        = var.tenancy_ocid
+  auth                = var.auth
 }
 
 # IAM changes (dynamic group, policy) must be made in the tenancy's home region.
@@ -22,4 +24,6 @@ provider "oci" {
   alias               = "home"
   region              = var.home_region
   config_file_profile = var.config_file_profile
+  tenancy_ocid        = var.tenancy_ocid
+  auth                = var.auth
 }

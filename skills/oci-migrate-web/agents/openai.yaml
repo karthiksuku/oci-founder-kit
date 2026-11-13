@@ -1,0 +1,6 @@
+interface:
+  display_name: "Migrate web apps to OCI"
+  short_description: "Adapt Vercel and Netlify workloads for OCI"
+  default_prompt: "Use $oci-migrate-web to inspect this app, adapt it for OCI and test it; show the target plan and cost before cloud changes."
+policy:
+  allow_implicit_invocation: true
