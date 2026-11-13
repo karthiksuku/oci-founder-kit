@@ -74,8 +74,6 @@ Other cloud workloads are covered by the [AWS, Azure and Google Cloud assessment
   <img src="docs/assets/workflow.png" alt="Choose an agent, build or adapt your app, test locally, prepare the OCI foundation, approve the plan and costs, then deploy and verify." width="1280" />
 </picture>
 
-[Diagram source and licensing](docs/assets/README.md) · Public exports; no Figma account needed to view.
-
 The agent works on your application source. OCI setup uses your own account and permissions. Account enrollment and administrator-only steps stay with you or your administrator; every cloud write waits for approval.
 
 **A foundation is the beginning.** The supplied foundation creates a child compartment and inspection policy under an existing approved parent/group. The agent guides additional workload permissions, networking, HTTPS, secrets, backups and monitoring as separate reviewed changes.
