@@ -146,7 +146,7 @@ class ProtectedBackend(GateTestCase):
         directory = self.stack / ".terraform"
         directory.mkdir(exist_ok=True)
         path = directory / "terraform.tfstate"
-        path.write_text(json.dumps({"backend": {"type": kind, "config": {"key": "private-fixture"}}}))
+        path.write_text(json.dumps({"version": 3, "backend": {"type": kind, "config": {"key": "private-fixture"}}}))
         return path
 
     def test_local_backend_is_refused_before_plan(self):
@@ -156,20 +156,19 @@ class ProtectedBackend(GateTestCase):
         self.assertNotIn("private-fixture", out + err)
         self.assertFalse((self.gate_dir / "tfplan").exists())
 
-    def test_required_backend_is_rechecked_before_apply(self):
+    def test_local_plan_cannot_switch_to_remote_before_apply(self):
+        summary, _ = self.plan()
         self.backend()
-        summary, _ = self.plan("--require-backend", "oci")
-        self.assertEqual(summary["required_backend"], "oci")
-        self.backend("local")
         code, _, _ = self.apply(summary["plan_sha256"])
         self.assertEqual(code, 3)
         self.assertEqual(self.applied(), [])
 
-    def test_remote_backend_allows_exact_plan_apply(self):
+    def test_unapproved_remote_backend_never_reaches_terraform(self):
         self.backend()
-        summary, _ = self.plan("--require-backend", "oci")
-        code, _, err = self.apply(summary["plan_sha256"])
-        self.assertEqual(code, 0, err)
+        code, _, err = self.run_gate("plan", "--dir", str(self.stack), "--require-backend", "oci")
+        self.assertEqual(code, 3, err)
+        self.assertFalse(self.log.exists())
+        self.assertIn("backend-plan", err)
 
     def test_unsafe_backend_metadata_is_refused(self):
         path = self.backend()

@@ -4,7 +4,7 @@ description: Set up and diagnose OCI access before building or migrating an appl
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.2"
+  version: "0.3.3"
 ---
 
 # Prepare OCI access

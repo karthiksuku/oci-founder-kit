@@ -114,7 +114,11 @@ python3 .oci-founder-kit/scripts/hooks.py readiness --project .
 
 A hook can catch an accidental `terraform apply`, `tofu destroy`, OCI mutation,
 image push, Skopeo registry copy/delete or common Kubernetes mutation. Generated
-`.local-preview` files are private artifacts even when force-staged. It does not understand arbitrary
+`.local-preview` files and private `*.tfbackend.json` settings are private artifacts even when force-staged.
+Direct Terraform `init` and `plan` also need review because remote backends can
+write state or lock objects. Use the deploy gate: local planning stays available,
+and native OCI backend initialization/planning has its own exact approval.
+The hook does not understand arbitrary
 shell programs, aliases, SDK calls, remote execution or commands hidden inside
 scripts. It never returns an allow decision or assumes a plan hash proves
 human approval. Keep the normal agent permissions, scoped IAM, and the

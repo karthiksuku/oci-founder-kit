@@ -1,7 +1,0 @@
-# Copy privately to backend.tfbackend and replace placeholders.
-# Requires a Terraform version that supports the OCI backend.
-# Authenticate privately with a supported OCI profile/principal. No key material here.
-bucket    = "<private-versioned-state-bucket>"
-namespace = "<object-storage-namespace>"
-region    = "<state-region>"
-key       = "founder-app/production/terraform.tfstate"

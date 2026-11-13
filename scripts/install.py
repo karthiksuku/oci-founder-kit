@@ -35,7 +35,7 @@ def distributable(path: Path) -> bool:
     if set(rel.parts) & SKIP or any(p.startswith(".env") for p in rel.parts):
         return False
     return not (path.suffix in {".pem", ".key", ".p12", ".pfx", ".pyc", ".tfvars", ".tfbackend", ".tfstate", ".tfplan"}
-                or path.name.endswith(".tfvars.json") or path.name == "crash.log"
+                or path.name.endswith((".tfvars.json", ".tfbackend.json")) or path.name == "crash.log"
                 or ".tfstate." in path.name or path.name.startswith("tfplan"))
 
 

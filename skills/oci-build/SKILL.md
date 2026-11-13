@@ -4,7 +4,7 @@ description: Build and test a useful application locally, preserve its chosen fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.2"
+  version: "0.3.3"
 ---
 
 # Build a full-stack app on OCI
