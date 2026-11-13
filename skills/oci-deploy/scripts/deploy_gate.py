@@ -16,6 +16,8 @@
   status           shows the pending plan and receipts
   image-plan       prepares an exact-image publication plan using a registry receipt
   image-push       publishes only that approved image to its private immutable OCIR repository
+  backend-plan     prepares an offline approval for native OCI backend init/planning
+  backend-run      runs that exact approved backend operation, once
 
 What this gate does NOT guarantee: the approval is the plan's hash, which the agent
 can read. Nothing here proves that a person saw or approved the plan, and anything
@@ -200,6 +202,10 @@ def render_summary(summary: dict, stack: Path) -> str:
                   + ". These widen what identities can do; review them on their own.", ""]
     if summary.get("required_backend"):
         lines += ["Required state backend: OCI. Bucket IAM, versioning and recovery require separate verification.", ""]
+    if summary.get("backend"):
+        backend = summary["backend"]
+        lines += [f"State destination: {backend['region']} / {backend['namespace']} / {backend['bucket']} / {backend['key']}.",
+                  "Applying also writes state and creates/deletes its lock object; version history can remain.", ""]
     if summary.get("resource_targets"):
         lines += ["Targeted plan (dependencies can also change): " + ", ".join(summary["resource_targets"])
                   + ". Run and review a full plan after this exceptional bootstrap/recovery step.", ""]
@@ -284,28 +290,61 @@ def require_backend(stack: Path, expected: str | None) -> None:
         raise GateRefused("An initialized OCI remote backend is required. Configure it privately before planning.") from None
 
 
-def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
-             required_backend: str | None = None, resource_targets: list[str] | None = None) -> int:
-    if max_age <= 0:
-        raise GateInputError("--max-age-minutes must be positive")
-    resource_targets = resource_targets or []
+def validate_targets(resource_targets: list[str]) -> None:
     ident = r"[A-Za-z_][A-Za-z0-9_-]*"
     index = r'(?:\[(?:0|[1-9][0-9]*|"[A-Za-z0-9_./-]+")\])?'
     address = rf"(?:module\.{ident}{index}\.)*(?!(?:module|data)\.){ident}\.{ident}{index}"
     if len(resource_targets) > 32 or len(set(resource_targets)) != len(resource_targets) or any(
             len(t) > 512 or not re.fullmatch(address, t) or t.startswith("data.") for t in resource_targets):
         raise GateInputError("--target requires unique, explicit managed-resource addresses (maximum 32).")
+
+
+def backend_observation(stack: Path) -> tuple[dict, bool]:
+    import backend_config
+    try:
+        observed = backend_config.inspect_backend(stack)
+    except backend_config.BackendConfigError as exc:
+        raise GateRefused(str(exc)) from None
+    metadata = observed["metadata"]
+    remote = bool(observed["cloud"] or any(t != "local" for t in observed["types"])
+                  or metadata is not None and metadata.get("type") != "local")
+    return observed, remote
+
+
+def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
+             required_backend: str | None = None, resource_targets: list[str] | None = None,
+             backend_activity: dict | None = None) -> int:
+    if max_age <= 0:
+        raise GateInputError("--max-age-minutes must be positive")
+    resource_targets = resource_targets or []
+    validate_targets(resource_targets)
+    observed, remote = backend_observation(stack)
+    import backend_ops
+    if remote:
+        if backend_activity is None or backend_activity.get("binding") != backend_ops.binding(observed):
+            raise GateRefused("Remote backend operations need exact approval before init or plan. Use backend-plan then backend-run.")
+        backend_ops.canonical_declaration(stack, observed)
+        if backend_ops.metadata_config(observed) != backend_activity.get("backend"):
+            raise GateRefused("The initialized backend differs from the approved operation.")
+    elif required_backend:
+        raise GateRefused("The required OCI backend is not initialized; prepare an approved backend initialization first.")
     binary = terraform_binary()
     gate = _gate(stack, create=True)
     plan_path = _no_symlink(gate / PLAN_FILE)
     for stale in (plan_path, gate / SUMMARY_FILE, gate / SUMMARY_MD):
         _no_symlink(stale).unlink(missing_ok=True)
-    run_terraform(binary, ["init", "-input=false", "-no-color"], stack, gate)
+    if not remote:
+        run_terraform(binary, ["init", "-input=false", "-no-color"], stack, gate)
+        _, initialized_remote = backend_observation(stack)
+        if initialized_remote:
+            raise GateRefused("Initialization selected a remote backend unexpectedly; do not run plan.")
     require_backend(stack, required_backend)
     args = ["plan", "-input=false", "-no-color", f"-out={plan_path}"]
     args += ["-destroy"] if kind == "destroy" else []
     args += [f"-var-file={f}" for f in var_files]
     args += [f"-target={target}" for target in resource_targets]
+    if remote and time.time() > backend_activity["expires_at_epoch"]:
+        raise GateRefused("Backend approval expired before planning; no plan client was started.")
     run_terraform(binary, args, stack, gate)
     _no_symlink(plan_path).chmod(0o600)
     plan_bytes = plan_path.read_bytes()
@@ -323,10 +362,17 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
         raise GateRefused("The declared authentication mode is invalid.")
     if kind == "destroy" and (described["changes"]["create"] or described["changes"]["update"]):
         raise GateRefused("A destroy plan must only delete resources.")
+    after, _ = backend_observation(stack)
+    if remote and backend_ops.binding(after) != backend_activity["binding"]:
+        raise GateRefused("Backend metadata or source changed while planning; review the private attempt receipt.")
     created_at, epoch = _now()
     summary = {"kind": kind, "stack": stack.name, "stack_path": str(stack), "plan_sha256": sha256_bytes(plan_bytes),
                "created_at": created_at, "created_at_epoch": epoch, "expires_at_epoch": epoch + max_age * 60,
-               "terraform": binary, "required_backend": required_backend, "resource_targets": resource_targets, **described}
+               "terraform": binary, "required_backend": required_backend, "resource_targets": resource_targets,
+               "backend_binding": backend_ops.binding(after),
+               "backend": backend_activity["backend"] if remote else None,
+               "backend_operation_sha256": backend_activity["operation_sha256"] if remote else None,
+               "backend_environment_sha256": backend_ops.environment_binding() if remote else None, **described}
     text = render_summary(summary, stack)
     _write_private(gate / SUMMARY_FILE, json.dumps(summary, indent=2) + "\n")
     _write_private(gate / SUMMARY_MD, text)
@@ -360,6 +406,20 @@ def _load_approval(stack: Path, kind: str, approve: str) -> tuple[Path, dict]:
 
 def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     gate, summary = _load_approval(stack, kind, approve)
+    if not isinstance(summary.get("backend_binding"), dict) or "backend_environment_sha256" not in summary:
+        raise GateRefused("This older plan lacks backend binding; prepare and review a fresh plan with the current gate.")
+    observed, remote = backend_observation(stack)
+    import backend_ops
+    if summary.get("backend_binding") is not None and summary["backend_binding"] != backend_ops.binding(observed):
+        raise GateRefused("Backend metadata or source changed since planning; prepare and review a fresh plan.")
+    if remote:
+        if not summary.get("backend_operation_sha256") or summary.get("backend_binding") is None:
+            raise GateRefused("This remote plan lacks an approved backend operation; prepare a fresh backend-plan.")
+        backend_ops.canonical_declaration(stack, observed)
+        if backend_ops.metadata_config(observed) != summary.get("backend"):
+            raise GateRefused("The backend destination changed since resource planning.")
+        if backend_ops.environment_binding() != summary.get("backend_environment_sha256"):
+            raise GateRefused("The Terraform environment changed since remote planning; prepare a fresh operation.")
     require_backend(stack, summary.get("required_backend"))
     binary = summary["terraform"]
     sha = summary["plan_sha256"]
@@ -386,7 +446,8 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     receipt = {"schema": "oci-deploy-receipt/2", "kind": kind, "status": "attempted", "stack": summary["stack"],
                "started_at": started, "plan_sha256": sha, "target": summary["target"],
                "changes": summary["changes"], "planned": summary["resources"],
-               "resource_targets": summary.get("resource_targets", [])}
+               "resource_targets": summary.get("resource_targets", []),
+               "backend": summary.get("backend"), "backend_operation_sha256": summary.get("backend_operation_sha256")}
     if kind == "destroy":
         try:
             receipt["destroyed_resources"] = _read_state(binary, stack, gate)
@@ -394,7 +455,14 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
             receipt["destroyed_resources"] = []
     _write_private(receipt_path, json.dumps(receipt, indent=2) + "\n")
     try:
+        if time.time() > summary["expires_at_epoch"]:
+            raise GateRefused("Resource approval expired during validation; no apply was started.")
         run_terraform(binary, ["apply", "-input=false", "-no-color", str(applying)], stack, gate)
+    except GateRefused:
+        receipt["status"] = "refused"
+        receipt["apply_started"] = False
+        _write_private(receipt_path, json.dumps(receipt, indent=2) + "\n")
+        raise
     except TerraformError as exc:
         receipt["status"] = "failed"
         try:  # a partial apply leaves resources behind; record whatever state reports
@@ -527,6 +595,17 @@ def cmd_status(stack: Path) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Approval-gated Terraform and image publication for OCI.")
     sub = parser.add_subparsers(dest="command", required=True)
+    for name in ("backend-plan", "backend-run"):
+        p = sub.add_parser(name)
+        p.add_argument("--dir", type=Path, required=True)
+        if name == "backend-plan":
+            p.add_argument("--operation", choices=["init", "plan", "destroy-plan"], required=True)
+            p.add_argument("--backend-config", type=Path, help="Private JSON settings, for init only")
+            p.add_argument("--var-file", action="append", default=[])
+            p.add_argument("--target", action="append", default=[])
+            p.add_argument("--max-age-minutes", type=int, default=DEFAULT_MAX_AGE_MINUTES)
+        else:
+            p.add_argument("--approve", required=True)
     for name in ("image-plan", "image-push"):
         p = sub.add_parser(name)
         p.add_argument("--dir", type=Path, required=True, help="Registry stack / private gate workspace")
@@ -559,9 +638,13 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--profile")
     v.add_argument("--region")
     args = parser.parse_args(argv)
+    if args.command in ("backend-plan", "backend-run"):
+        import backend_ops
+        return backend_ops.dispatch(args)
     if args.command in ("image-plan", "image-push"):
         import image_gate
         return image_gate.dispatch(args)
+    import image_gate
     try:
         if args.command == "verify-teardown":
             return cmd_verify(args.receipt, args.profile, args.region)
@@ -577,6 +660,9 @@ def main(argv: list[str] | None = None) -> int:
     except GateRefused as exc:
         sys.stderr.write(f"deploy_gate: refused. {exc}\n")
         return 3
+    except image_gate.ImageGateError as exc:
+        sys.stderr.write(f"deploy_gate: refused. {exc}\n")
+        return exc.code
     except AppliedButUnrecorded as exc:
         sys.stderr.write(f"deploy_gate: applied but not recorded. {exc}\n")
         return 5

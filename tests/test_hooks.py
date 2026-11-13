@@ -50,9 +50,10 @@ class Staged(unittest.TestCase):
     def test_private_files_and_binary_blobs_are_checked(self):
         self.stage('private.auto.tfvars.json', b'{}')
         self.stage('backend.tfbackend', b'private')
+        self.stage('backend.tfbackend.json', b'{}')
         self.stage('blob.bin', b'\0prefix' + ('ghp_' + 'C' * 30).encode())
         result = hooks.scan_staged(self.root)
-        self.assertEqual({x['path'] for x in result['findings']}, {'private.auto.tfvars.json', 'backend.tfbackend', 'blob.bin'})
+        self.assertEqual({x['path'] for x in result['findings']}, {'private.auto.tfvars.json', 'backend.tfbackend', 'backend.tfbackend.json', 'blob.bin'})
 
     def test_example_suffix_is_not_a_secret_bypass(self):
         self.stage('.env.example', b'ACCESS_TOKEN="' + ('ghp_' + 'D' * 30).encode() + b'"')
@@ -119,9 +120,18 @@ class Guard(unittest.TestCase):
             self.assertIsNotNone(hooks.cloud_reason(command), command)
 
     def test_read_commands_and_gate_are_not_auto_approved_or_blocked(self):
-        for command in ['terraform plan', 'terraform show -json plan', 'oci iam compartment list',
+        for command in ['terraform show -json plan', 'oci iam compartment list',
                         'oci os bucket get --bucket-name demo', 'python3 .oci-founder-kit/skills/oci-deploy/scripts/deploy_gate.py apply --help',
                         'printf "terraform apply"', 'git status --short']:
+            self.assertIsNone(hooks.cloud_reason(command), command)
+
+    def test_init_and_plan_need_backend_review_including_wrapped_calls(self):
+        for command in ['terraform init', 'terraform plan -out=tfplan',
+                        'terraform -chdir=infra plan', 'env FOO=x tofu -chdir infra init',
+                        'bash -c "terraform init -backend-config=private.tfbackend.json"']:
+            self.assertIsNotNone(hooks.cloud_reason(command), command)
+        for command in ['terraform plan -help', 'terraform init --help',
+                        'terraform -chdir=infra show -json plan', 'terraform fmt -check']:
             self.assertIsNone(hooks.cloud_reason(command), command)
 
     def test_shell_substitution_is_inspected(self):

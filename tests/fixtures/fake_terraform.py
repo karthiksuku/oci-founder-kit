@@ -46,6 +46,14 @@ def main(argv):
         print(json.dumps({"terraform_version": "1.16.6"}))
         return 0
     if command == "init":
+        config_file = next((a.split("=", 1)[1] for a in argv if a.startswith("-backend-config=")), None)
+        if config_file:
+            config = json.loads(Path(config_file).read_text())
+            if os.environ.get("FAKE_TF_WRONG_BACKEND"):
+                config["bucket"] = "different-fixture-bucket"
+            folder = Path(".terraform")
+            folder.mkdir(exist_ok=True)
+            (folder / "terraform.tfstate").write_text(json.dumps({"version": 3, "backend": {"type": "oci", "config": config}}))
         return 0
     if command == "plan":
         out = next(a.split("=", 1)[1] for a in argv if a.startswith("-out="))

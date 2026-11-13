@@ -4,22 +4,25 @@ description: Deploy, change or tear down infrastructure on Oracle Cloud Infrastr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.2"
+  version: "0.3.3"
 ---
 
 # Approval-gated deploys on OCI
 
-Nothing reaches an OCI account unless the owner approved that exact plan in
-this conversation. `scripts/deploy_gate.py` makes the approval checkable: an
-apply needs the SHA-256 of the saved plan, refuses a changed, stale or
-already-used plan, and records what it created.
+Cloud mutations require the owner's approval of the exact operation in this
+conversation. `scripts/deploy_gate.py` makes the approval checkable: an apply
+needs the SHA-256 of the saved resource plan, refuses a changed, stale or
+already-used plan, and records what it created. Remote backend initialization
+and planning have their own prior approvals because they can affect state or
+lock objects.
 
 ## The loop
 
 1. **Check readiness (read-only).** The OCI CLI authenticates with the
    intended profile; the target compartment exists; Terraform is installed.
    Never default to the root compartment.
-2. **Plan.**
+2. **Prepare the plan through the appropriate state workflow.** For a local
+   backend:
    ```bash
    python3 scripts/deploy_gate.py plan --dir /path/to/stack [--var-file env.tfvars]
    ```
@@ -27,9 +30,19 @@ already-used plan, and records what it created.
    before running this command. A plan does not apply the declared resource
    changes, but Terraform/provider code can execute programs and read secrets;
    the gate is not a sandbox for that code.
-   For the hardened reference, initialize the private OCI state backend first
-   and add `--require-backend oci` to plan/destroy-plan. The gate rechecks backend
-   type before apply; bucket IAM, versioning and recovery still need verification.
+   For a remote backend, follow [approved state operations](references/backend-state.md).
+   First prepare an offline `backend-plan --operation init --backend-config
+   /private/backend.tfbackend.json`; obtain exact owner approval and use
+   `backend-run --approve <hash>`. After initialization, prepare an offline
+   `backend-plan --operation plan` with the required variable files/targets,
+   obtain its approval, and use `backend-run` to generate the saved resource
+   plan. This does not authorize apply; step 4 reviews its separate hash.
+   Plain `plan`/`destroy-plan` refuses detected remote configuration or stale
+   remote metadata. Do not call remote Terraform initialization/planning directly.
+   The supported backend path uses a canonical empty `backend.tf.json`, exactly
+   seven private settings, an existing APIKey profile and the default workspace.
+   Effective bucket IAM, versioning and recovery remain independent acceptance
+   requirements; bucket privacy alone does not establish secure state.
    For an exceptional bootstrap, an explicit `--target RESOURCE_ADDRESS` may
    select a managed resource and its dependencies. Targets appear in the summary
    and receipt. Inspect every resulting change and run a full plan afterward;
@@ -50,8 +63,11 @@ already-used plan, and records what it created.
    If the gate refuses, do not work around it: re-plan and ask again.
 6. **Verify the result** (health checks, endpoints, logs) and report the
    receipt path and what was created.
-7. **Tear down when asked or when a test ends.** `destroy-plan`, owner
-   approval of that destroy plan, `destroy --approve <sha256>`, then
+7. **Tear down when asked or when a test ends.** For a local backend, prepare
+   `destroy-plan`. For remote state, obtain approval of `backend-plan --operation
+   destroy-plan` and run it with `backend-run`. Then obtain separate owner
+   approval of the resulting resource destroy plan, use `destroy --approve
+   <sha256>`, and run
    ```bash
    python3 scripts/deploy_gate.py verify-teardown --receipt /path/to/stack/.gate/receipts/<receipt>.json
    ```
@@ -60,6 +76,8 @@ already-used plan, and records what it created.
    Report anything still running or unverified, with its available identifier,
    and what it costs. Empty Search results do not prove deletion: permissions,
    unsupported resource types and indexing delay can hide existing resources.
+   Retained state/lock versions require separate cleanup approval and permissions;
+   the kit does not yet provide a version-deletion operation.
    Use authorized service-specific checks for those unknowns before saying
    cleanup is complete. Do not change profile or region to make the check pass.
 
@@ -87,7 +105,12 @@ hash, which the agent can read; an agent running as the same OS user could
 also edit the gate's files, change the environment or call Terraform
 directly. The controls for that are the owner's explicit approval in the
 conversation and an `ask` permission rule for the apply and destroy commands
-([references/permissions.md](references/permissions.md)). The summary shows
+and for `backend-run`/`image-push`
+([references/permissions.md](references/permissions.md)). Backend approvals bind
+the explicit destination, source/input hashes, binary, expiry and one attempt;
+they do not establish inherited IAM, a working restore or live lock contention.
+Root configuration and lockfile hashes are not a sandbox for module/provider
+code. The summary shows
 addresses, types and actions, not attribute values: an opened port or a
 larger shape appears only as "update". Target labels come from plan variables;
 the gate does not prove that every provider alias or resource uses that target.
@@ -105,18 +128,23 @@ the gate, 4 teardown incomplete, 5 applied but not recorded.
 
 - Never run `terraform apply`, `terraform destroy`, `oci ... create|update|delete`
   or console automation directly. The gate is the only path.
-- After exit 1 on apply, assume something may have been created: run plan to
-  see the state before anything else, and tell the owner.
+- Never directly initialize or plan a remote backend. Use the separately
+  approved backend-operation path; do not bypass it with hidden flags or scripts.
+- After a failed apply or backend run, assume resources/state/lock history may
+  have changed. Preserve the receipt, inspect the outcome and tell the owner.
+  Obtain a new backend-operation approval before remote replanning.
 - One approval covers one plan. A new plan needs a new approval.
 - IAM policy changes go to the tenancy's home region; show them on their own
   in the summary, because they widen access.
-- Keep `.gate/`, state, `.tfvars` and receipts out of Git. Before a receipt is
-  shared as evidence, redact tenancy and compartment OCIDs.
-- Recommend the owner adds an `ask` permission rule for the gate's apply and
-  destroy commands, so the agent's harness also asks before running them;
-  see [references/permissions.md](references/permissions.md).
+- Keep `.gate/`, backend settings/metadata, state, `.tfvars` and receipts out of
+  Git. Before a receipt is shared as evidence, redact tenancy and compartment OCIDs.
+- Recommend the owner adds an `ask` permission rule for the gate's apply,
+  destroy, backend-run and image-push commands, so the harness also asks before
+  running them; see [references/permissions.md](references/permissions.md).
 - A budget alert does not stop spend. For tests, plan the teardown before the
   apply.
+- State migration, state push, workspace changes, lock repair and retained
+  version deletion have no gated implementation yet. Do not improvise them.
 
 ## Finish with
 

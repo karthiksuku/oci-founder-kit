@@ -106,7 +106,7 @@ def private_path(name: str) -> bool:
         return True
     if base.startswith('.env') and base not in {'.env.example', '.env.sample', '.env.template'}:
         return True
-    if base.endswith(('.pem', '.key', '.p12', '.pfx', '.tfvars', '.tfvars.json', '.tfplan', '.tfstate', '.tfbackend')):
+    if base.endswith(('.pem', '.key', '.p12', '.pfx', '.tfvars', '.tfvars.json', '.tfplan', '.tfstate', '.tfbackend', '.tfbackend.json')):
         return True
     return '.tfstate.' in base or base.startswith('tfplan')
 
@@ -246,9 +246,16 @@ def cloud_reason(command: str, depth: int = 0) -> str | None:
             index = next((i for i, arg in enumerate(args) if arg == '--command' or re.fullmatch(r'-[a-z]*c[a-z]*', arg)), -1)
             if index >= 0 and index + 1 < len(args) and cloud_reason(args[index + 1], depth + 1):
                 return reason
-        if '--help' in args or '-h' in args or args == ['--version']:
+        if '--help' in args or '-h' in args or args == ['--version'] or executable in {'terraform', 'tofu'} and '-help' in args:
             continue
         if executable in {'terraform', 'tofu'}:
+            command_args = list(args)
+            while command_args and command_args[0].startswith('-'):
+                option = command_args.pop(0)
+                if option == '-chdir' and command_args:
+                    command_args.pop(0)
+            if command_args and command_args[0] in {'init', 'plan'}:
+                return 'Terraform init/plan can write remote state or lock objects. Use the reviewed deploy gate; remote backend operations need their own exact approval.'
             if any(a in {'apply', 'destroy', 'import', 'refresh', 'taint', 'untaint', 'force-unlock'} for a in args):
                 return reason
             if 'state' in args and any(a in {'rm', 'mv', 'push', 'replace-provider'} for a in args):

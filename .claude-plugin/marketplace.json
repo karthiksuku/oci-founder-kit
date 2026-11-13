@@ -9,7 +9,7 @@
       "name": "oci-founder-kit",
       "source": "./",
       "description": "Set up OCI credentials and scoped foundations, build apps, and migrate web workloads with Claude Code or Codex. Includes read-only diagnostics, Vercel/Next.js discovery, Well-Architected guidance and approval-gated Terraform.",
-      "version": "0.3.2"
+      "version": "0.3.3"
     }
   ]
 }

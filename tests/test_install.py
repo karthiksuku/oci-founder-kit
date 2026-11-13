@@ -109,7 +109,7 @@ class Installation(unittest.TestCase):
 
     def test_distribution_excludes_keys_state_and_env(self):
         for name in ["skills/x/.env", "skills/x/.env.local", "blueprints/x/a.tfstate",
-                     "blueprints/x/a.tfvars", "blueprints/x/private.auto.tfvars.json", "blueprints/x/private.tfbackend",
+                     "blueprints/x/a.tfvars", "blueprints/x/private.auto.tfvars.json", "blueprints/x/private.tfbackend", "blueprints/x/private.tfbackend.json",
                      "blueprints/x/crash.log", "skills/x/credentials/config.json",
                      "blueprints/x/.local-preview/settings.json",
                      "skills/x/key.pem", "skills/x/.gate/report.json"]:
@@ -150,11 +150,11 @@ class Installation(unittest.TestCase):
             (fake_root / "skills").mkdir(parents=True)
             private = fake_root / "blueprints/test"
             private.mkdir(parents=True)
-            for name in ["private.auto.tfvars.json", "crash.log"]:
+            for name in ["private.auto.tfvars.json", "private.tfbackend.json", "crash.log"]:
                 (private / name).write_text("PRIVATE_SENTINEL")
             with mock.patch.object(installer, "ROOT", fake_root):
                 installer.install(Path(app), "codex")
-            for name in ["private.auto.tfvars.json", "crash.log"]:
+            for name in ["private.auto.tfvars.json", "private.tfbackend.json", "crash.log"]:
                 self.assertFalse((Path(app) / ".oci-founder-kit/blueprints/test" / name).exists())
 
     def test_private_local_preview_is_not_distributed(self):

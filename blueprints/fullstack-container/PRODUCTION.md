@@ -37,8 +37,10 @@ Before planning, an authorized administrator prepares or selects:
    and database must use the same version. Review the
    [PostgreSQL service permissions](https://docs.oracle.com/en-us/iaas/Content/postgresql/policies.htm).
 4. A private, versioned Object Storage bucket for Terraform state with access
-   limited to deployment operators. Keep it separate from app uploads and teardown.
-   Review the backend's [authentication and locking](https://developer.hashicorp.com/terraform/language/backend/oci).
+   limited to the reviewed deployment operators. Review inherited tenancy and
+   ancestor-compartment grants as well as bucket-specific policies; private
+   access does not establish least privilege. Keep it separate from app uploads
+   and teardown. Follow the [state operations and IAM review](../../skills/oci-deploy/references/backend-state.md).
 
 The app policy grants its resource principal read access to only the three named
 secret bundles. The deploying identity still needs reviewed permissions to create
@@ -72,35 +74,56 @@ endpoints against the intended identity domain. Discovery locations come from
 operator configuration, never request parameters. Other providers can leave the
 optional discovery URL unset and retain their normal issuer discovery.
 
-## Configure state before the first plan
+## Approve state initialization before planning
 
 Use Terraform 1.16.6, the version used for this reference's local checks. From
 this blueprint directory, inspect and copy the examples:
 
 ```sh
-cp terraform/backend.tf.example terraform/backend.tf
-cp terraform/backend.tfbackend.example terraform/backend.tfbackend
+umask 077
+cp terraform/backend.tf.json.example terraform/backend.tf.json
+cp terraform/backend.tfbackend.json.example terraform/backend.tfbackend.json
 cp terraform/terraform.tfvars.example terraform/production-common.tfvars
 cp terraform/production.tfvars.example terraform/production.tfvars
+chmod 600 terraform/backend.tfbackend.json terraform/production-common.tfvars terraform/production.tfvars
 ```
 
-Fill the ignored backend and both variable files locally; all example identifiers
-are placeholders. The common file supplies tenancy, compartment, region, home
-region, authentication and ingress settings. The production file supplies the
-immutable image and hardened options and is loaded last. Authenticate using a
-supported private OCI profile or principal.
-Do not put private keys or tokens into backend configuration. Then initialize:
+Keep the empty `backend.tf.json` declaration unchanged. Fill the ignored private
+backend JSON and both variable files locally. Replace every backend placeholder,
+including the fictional region. The backend JSON has exactly seven fields:
+`bucket`, `namespace`, `region`, `key`, `workspace_key_prefix`, `auth` and
+`config_file_profile`. This gated path requires `auth = "APIKey"`, an existing
+private profile and the default workspace. It does not yet accept principal or
+security-token authentication for the backend.
+
+The common variable file supplies tenancy, compartment, region, home region,
+provider authentication and ingress settings. The production file supplies the
+immutable image and hardened options and is loaded last. Review both provider
+and backend identity choices; do not infer that they are the same. Never put
+private keys or tokens in backend JSON. Review the
+[supported environment and file restrictions](../../skills/oci-deploy/references/backend-state.md#supported-configuration),
+then prepare initialization offline:
 
 ```sh
-terraform -chdir=terraform init -backend-config=backend.tfbackend
+python3 ../../skills/oci-deploy/scripts/deploy_gate.py backend-plan \
+  --dir terraform --operation init --backend-config terraform/backend.tfbackend.json
 ```
 
-This command configures the selected remote backend. If state already exists,
-stop and review a backup and state migration procedure with the owner before
-continuing. Do not use unattended `-migrate-state`, `-force-copy` or force-unlock.
-Backend metadata, state, plans and receipts can contain sensitive data and stay
-outside Git. Independently verify bucket privacy, versioning, IAM and recovery;
-the deploy gate only checks the initialized backend type.
+This prepares a private destination/input-hash packet without invoking Terraform
+or OCI. Have the owner review and approve its exact hash, then run:
+
+```sh
+python3 ../../skills/oci-deploy/scripts/deploy_gate.py backend-run \
+  --dir terraform --approve <backend-init-sha256>
+```
+
+The approved operation initializes the backend and may install reviewed modules
+and providers. It does not approve resource planning or deployment. Existing
+local state/workspace history and changes to a different backend are refused;
+state migration has no gated implementation yet. Backend metadata, state, plans
+and receipts can contain sensitive data and stay outside Git. Independently
+verify effective IAM, versioning and recovery before using credential-bearing
+state. Live backend lock contention and restore acceptance remain pending.
 
 ## Build, review and deploy
 
@@ -116,14 +139,25 @@ certificate, public origin, OIDC client identifier and secret references, never
 their values. For the gateway, complete the staged procedure below first.
 
 ```sh
-python3 ../../skills/oci-deploy/scripts/deploy_gate.py plan \
-  --dir terraform --var-file production-common.tfvars \
-  --var-file production.tfvars --require-backend oci
+python3 ../../skills/oci-deploy/scripts/deploy_gate.py backend-plan \
+  --dir terraform --operation plan --var-file production-common.tfvars \
+  --var-file production.tfvars
 ```
 
-Review the exact plan, scoped IAM statements, DNS/certificate dependencies and
-dated cost estimate. Obtain approval of its hash before invoking the matching
-gate apply command. The required backend is checked again before apply.
+This is offline preparation for planning, not the resource plan itself. Obtain
+owner approval of its backend-operation hash, then:
+
+```sh
+python3 ../../skills/oci-deploy/scripts/deploy_gate.py backend-run \
+  --dir terraform --approve <backend-plan-sha256>
+```
+
+Planning can create/delete lock objects and retain version history. Review its
+resulting saved resource plan, scoped IAM statements, DNS/certificate dependencies
+and dated cost estimate. Obtain **separate approval of the resource-plan hash**
+before invoking `apply --dir terraform --approve <resource-plan-sha256>`. The gate
+rechecks the bound backend and source. Do not use direct remote Terraform
+initialization/planning or plain gate `plan` as a shortcut.
 
 The selected hardened entry point accepts only HTTPS from the chosen CIDRs;
 port 80 is closed. TLS terminates there. The private app connection uses HTTP on
@@ -147,7 +181,8 @@ and verified database TLS. It does not enable the unauthenticated sandbox app.
 The generated hostname flow is locally schema/mock tested; live OCI gateway,
 OIDC, cookie and attachment behavior remains unverified.
 
-1. Configure the protected OCI backend and common variables above. Choose the
+1. Complete the separately approved OCI backend initialization and configure
+   common variables above. Choose the
    actual tester/browser IPv4 `/32` addresses for `allowed_ingress_cidrs`; do not
    assume the coding agent's egress address is the browser's. The dedicated
    regional gateway subnet must have at least 32 free addresses; the default
@@ -159,20 +194,25 @@ OIDC, cookie and attachment behavior remains unverified.
    production   = null
    ```
 
-   Prepare the exceptional gateway-only plan from this blueprint directory:
+   Prepare the exceptional gateway planning operation offline from this
+   blueprint directory:
 
    ```sh
-   python3 ../../skills/oci-deploy/scripts/deploy_gate.py plan \
-     --dir terraform --var-file production-common.tfvars \
-     --var-file gateway-bootstrap.tfvars --require-backend oci \
+   python3 ../../skills/oci-deploy/scripts/deploy_gate.py backend-plan \
+     --dir terraform --operation plan --var-file production-common.tfvars \
+     --var-file gateway-bootstrap.tfvars \
      --target 'oci_apigateway_gateway.web[0]'
    ```
 
-   A target includes dependencies. Review every actual change: the intended
+   Keep `gateway-bootstrap.tfvars` private (`0600`). Obtain approval of the
+   backend-operation hash and invoke `backend-run --dir terraform --approve
+   <backend-plan-sha256>` to generate the resource plan. A target includes
+   dependencies. Review every actual change: the intended
    fresh-stack bootstrap contains the gateway, VCN, internet gateway, public
    route table, empty security list, gateway subnet, gateway/app NSGs and three
    restrictive rules. It must not create the app, database, API deployment,
-   IAM policies, bucket or secrets. Obtain approval of that exact plan before
+   IAM policies, bucket or secrets. Obtain separate approval of that exact
+   resource-plan hash before
    the matching gate apply. Existing stacks can have different changes; do not
    treat this list as approval or switch a running ingress without review.
 3. Read only `api_gateway_hostname` from the resulting Terraform outputs. Verify
@@ -185,10 +225,12 @@ OIDC, cookie and attachment behavior remains unverified.
    `certificate_ocid` from `production`. Terraform derives PUBLIC_ORIGIN from
    the actual gateway. Use `oidc_discovery_url` only as described above. Do not
    pass `gateway-bootstrap.tfvars` to the full plan.
-5. Run and review the **full**, untargeted deployment plan from the preceding
-   section. It creates the authenticated app and its root API deployment only
-   after complete production inputs are present. Obtain a separate exact-plan
-   approval, apply through the gate, and perform the acceptance checks below.
+5. Prepare the **full**, untargeted planning operation from the preceding
+   section, obtain its backend-operation approval, and run it through
+   `backend-run`. The resulting resource plan creates the authenticated app and
+   its root API deployment only after complete production inputs are present.
+   Obtain a separate resource-plan approval, apply through the gate, and perform
+   the acceptance checks below.
 
 The root route forwards nested paths and callback queries to the fixed private
 app. It overwrites `X-Forwarded-Proto` to `https`; the app trusts only the dedicated
@@ -249,8 +291,10 @@ apply and rerun the primary workflow. Reverting an image does not undo database
 writes. Secret rotation, ownership mapping and destructive schema changes need
 their own rehearsed procedure.
 
-Plan cleanup of rehearsal resources through the same gate with `--require-backend
-oci`. Inventory retained versions/backups and shared resources before deletion.
+Prepare cleanup through `backend-plan --operation destroy-plan`, obtain approval
+and run it through `backend-run`, then review and approve its separate resource
+destroy plan before `destroy`. Inventory retained versions/backups and shared
+resources before deletion. The kit has no gated state-version deletion operation.
 The separate registry, previous image digests, state bucket, identity resources
 and Vault secrets remain until their individual retention/cleanup plans are
 approved; destroying the app stack does not establish that they were removed.

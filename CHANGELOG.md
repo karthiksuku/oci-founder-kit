@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.3 - 2026-11-13
+
+- Offline preparation and one-attempt approval for OCI backend initialization
+  and resource planning. Remote lock/state activity is reviewed before running;
+  applying the resulting resource plan still requires its separate exact approval.
+- Backend/source/environment checks prevent changed destinations, stale legacy
+  plans and expired operations from reaching Terraform. Local planning remains
+  available through the deploy gate.
+- Private JSON backend settings are excluded by Git, project installation and
+  staged-content checks. Hooks flag direct Terraform init/plan calls for review.
+- Updated state-access, versioning and recovery guidance; APIKey/default-workspace
+  limitations and remaining live acceptance are recorded in
+  [0.3.3 evidence](docs/RELEASE-0.3.3.md).
+
 ## 0.3.2 - 2026-11-13
 
 - Local Taskboard/PostgreSQL preview with persistent data, private generated
