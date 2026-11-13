@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="430" viewBox="0 0 720 430" fill="none">
+  <title>OCI Founder Kit — build on OCI with your own agent</title>
+  <desc>Use Claude Code or Codex to set up OCI, build an app or migrate a workload. Cloud changes require your approval.</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="720" y2="430" gradientUnits="userSpaceOnUse"><stop stop-color="#101C26"/><stop offset="1" stop-color="#182F3A"/></linearGradient></defs>
+  <rect width="720" height="430" rx="20" fill="url(#bg)"/>
+  <circle cx="700" cy="65" r="180" fill="#85E5C7" fill-opacity=".04"/>
+  <g font-family="Inter,Arial,sans-serif">
+    <rect x="38" y="35" width="25" height="25" rx="7" fill="#85E5C7"/>
+    <path d="M44 42L49 47L44 52M53 52H58" stroke="#10212B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="76" y="54" fill="#F4F5F0" font-size="20" font-weight="600">OCI FOUNDER KIT</text>
+    <text x="36" y="143" fill="#F4F5F0" font-size="57" font-weight="650" letter-spacing="-2">Build on OCI.</text>
+    <text x="36" y="211" fill="#85E5C7" font-size="51" font-weight="650" letter-spacing="-2">Keep your own agent.</text>
+    <text x="39" y="263" fill="#BCCCD1" font-size="23">Set up. Build. Migrate.</text>
+    <rect x="38" y="310" width="162" height="43" rx="21" fill="#FFFFFF" fill-opacity=".07" stroke="#FFFFFF" stroke-opacity=".12"/>
+    <text x="61" y="338" fill="#DAE5E8" font-size="19" font-weight="500">Claude Code</text>
+    <rect x="211" y="310" width="113" height="43" rx="21" fill="#FFFFFF" fill-opacity=".07" stroke="#FFFFFF" stroke-opacity=".12"/>
+    <text x="236" y="338" fill="#DAE5E8" font-size="19" font-weight="500">Codex</text>
+    <circle cx="44" cy="388" r="4" fill="#F0C98B"/>
+    <text x="58" y="394" fill="#F0C98B" font-size="19">You approve cloud changes before they run.</text>
+  </g>
+</svg>
