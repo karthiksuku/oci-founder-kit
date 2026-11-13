@@ -22,7 +22,7 @@ establish a completed migration or a production deployment.
 | Managed hostname rehearsal | Optional API Gateway HTTPS entry point with restricted ingress and separate hostname bootstrap | Provider validation and mocked plans; live routing, hosted identity and gateway recovery remain unverified |
 | Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
 | Founder website | Build/migrate/setup prompt builder, guides, examples and light/dark themes | Static build, browser/mobile/keyboard and automated accessibility checks; no account connection or credential collection |
-| Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | Current unit/adapter tests and earlier Claude runtime evidence; the changed hook has not been retested in a trusted host runtime. Codex trusted runtime remains unverified |
+| Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | Current Claude host probes cover the four events, with [PostToolUse evidence limits](HOOKS.md) documented. Codex trusted runtime remains unverified |
 
 Actual results and skipped checks for this release are in
 [RELEASE-0.3.4.md](RELEASE-0.3.4.md).
