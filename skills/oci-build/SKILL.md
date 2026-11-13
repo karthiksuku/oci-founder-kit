@@ -4,7 +4,7 @@ description: Build and test a useful application locally, preserve its chosen fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Build a full-stack app on OCI
@@ -42,9 +42,12 @@ its README before changing it.
    [HTTPS/OIDC/Vault configuration](../../blueprints/fullstack-container/PRODUCTION.md).
    Other apps keep their own validated configuration contract.
 3. **Test locally.** The app's own tests must pass before any image is built.
-4. **Image.** Build it, and push to OCI Container Registry. Creating an auth
-   token for the registry is an IAM change: it needs the owner's approval,
-   and the token is stored only in the owner's credential store.
+4. **Image.** Build and test it. Create the empty private registry, then enable
+   immutable tags in a separately approved update through
+   `oci-deploy`, then follow [gated image publication](../oci-deploy/references/image-publication.md)
+   to prepare and approve the exact image upload. Never use a direct push as a
+   substitute. Use existing private registry authentication; creating an auth
+   token is a separate IAM change, not implied by this workflow.
 5. **Variables.** Copy `terraform.tfvars.example` to a `.tfvars` file that
    Git ignores. Choose `allowed_ingress_cidrs` with the owner; there is no
    open default.

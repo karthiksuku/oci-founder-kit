@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "oci-founder-kit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Set up OCI credentials and scoped foundations, build apps, and migrate web workloads with Claude Code or Codex. Includes read-only diagnostics, Vercel/Next.js discovery, Well-Architected guidance and approval-gated Terraform.",
   "author": {
     "name": "Karthik Sukumar"

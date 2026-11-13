@@ -4,7 +4,7 @@ description: Migrate an existing Vercel or Netlify web application to Oracle Clo
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Migrate a web app to OCI

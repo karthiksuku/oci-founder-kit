@@ -37,7 +37,7 @@ behavior where practical. Keep local build, read-only plan, cloud deployment and
 traffic cutover results distinct. Do not turn a static scan or local unit-test
 pass into a deployed-app claim.
 
-[Release evidence](RELEASE-0.3.0.md) records the current preview's checks and limits.
+[Release evidence](RELEASE-0.3.1.md) records the current preview's checks and limits.
 The [optional CI template](ci/validate.workflow.yml) is not installed as an Actions
 workflow, so there is no GitHub Actions pass to infer from local results.
 

@@ -4,7 +4,7 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.3.0 preview
+## 0.3.1 preview
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
@@ -16,12 +16,13 @@ establish a completed migration or a production deployment.
 | Web migration | Vercel/Netlify/Next.js static scanner, source adaptation and staged cutover workflow | Fictional fixtures and security/behavior tests; arbitrary apps need their own build, data rehearsal and target verification |
 | Other clouds | IaC/SDK scanner and OCI mapping for AWS, Azure and Google Cloud | Provider-type fixture tests; map documentation freshness remains dated in the source |
 | Infrastructure approval | Hash-bound saved plan, expiry, one attempt, Terraform binary check, IAM summary, private receipts and cleanup checks | Fake Terraform regression tests; actual human approval remains a conversation/harness control |
+| Image publication | Separate image/destination approval, immutable private registry, one-use receipt and remote manifest verification | Fake-client regression tests and actual local image inspection; live OCI publication remains unverified |
 | Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
 | Founder website | Build/migrate/setup prompt builder, guides, examples and light/dark themes | Static build, browser/mobile/keyboard and automated accessibility checks; no account connection or credential collection |
 | Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | Unit tests and actual Claude runtime; Codex schema parsed but trusted runtime remains unverified |
 
 Actual results and skipped checks for this release are in
-[RELEASE-0.3.0.md](RELEASE-0.3.0.md).
+[RELEASE-0.3.1.md](RELEASE-0.3.1.md).
 
 An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
 installed as an Actions workflow because the publication credential lacks that

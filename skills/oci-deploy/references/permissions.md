@@ -15,6 +15,7 @@ Add to the project's `.claude/settings.json` (or the user settings):
     "ask": [
       "Bash(python3 *deploy_gate.py apply*)",
       "Bash(python3 *deploy_gate.py destroy *)",
+      "Bash(python3 *deploy_gate.py image-push*)",
       "Bash(terraform apply*)",
       "Bash(terraform destroy*)"
     ]
@@ -28,7 +29,7 @@ shows the exact command, including the plan hash, for a click to approve.
 ## Codex
 
 Run Codex with an approval policy that asks before running commands that
-change state, and do not add the gate's apply or destroy commands to any
+change state, and do not add the gate's apply, destroy or image-push commands to any
 trusted command list.
 
 ## What this does not replace

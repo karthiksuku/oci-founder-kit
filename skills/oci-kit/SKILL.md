@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Start building on OCI
