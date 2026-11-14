@@ -4,7 +4,7 @@ description: Build and test a useful application locally, preserve its chosen fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.4"
+  version: "0.4.0"
 ---
 
 # Build a full-stack app on OCI
@@ -26,6 +26,13 @@ The `fullstack-container` blueprint lives at
 `blueprints/fullstack-container` in the kit (two levels above this skill's
 directory): `app/` is a reference application, `terraform/` the stack. Read
 its README before changing it.
+
+If the founder explicitly wants a new Taskboard starting point, create an
+editable project with `python3 scripts/blueprint.py create fullstack-container --project
+PATH --agent both` from the kit root. Its root README gives relocated commands;
+edit the generated project's `app/` and `terraform/`. The hidden kit bundle stays
+a reference/tool snapshot. Creation is not an app test or deployment. Preserve
+different requested frameworks and existing apps instead of using this creator.
 
 ## Workflow
 

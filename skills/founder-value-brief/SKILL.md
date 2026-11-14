@@ -4,7 +4,7 @@ description: Turn a startup's OCI value case and model results into a board or i
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.4"
+  version: "0.4.0"
 ---
 
 # Board and investor brief

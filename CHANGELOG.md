@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 - 2026-11-14
+
+- Create an editable Taskboard project with project-local agent skills and explicit next commands; preserve existing projects and keep runtime work separate.
+- Task-specific first checkpoints and resume prompts on the founder site, with bookmarkable selections and an ephemeral brief.
+- Runnable stateless Next.js production-server/standalone packaging rehearsal with shared HTTP checks and explicit migration limits.
+- Exclude generated Next.js and hosted-provider working directories from installed snapshots.
+- See [0.4.0 evidence](docs/RELEASE-0.4.0.md) for actual validation and remaining acceptance.
+
 ## 0.3.4 - 2026-11-13
 
 - Fixed synthetic OCI backend rehearsal with separate exact approval, observed native lock contention, overwrite and historical-version recovery into a separate key.

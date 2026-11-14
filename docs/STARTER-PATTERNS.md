@@ -5,6 +5,11 @@ developer tools and application starters. This kit adapts selected workflow
 ideas for OCI, with original implementation. These projects are references,
 not dependencies installed by the kit, and were not deployed in this review.
 
+Follow-up reviewed 14 November 2026: the 0.4.0 preview adds editable project
+creation, task-specific start/resume prompts and a runnable stateless Next.js
+packaging rehearsal. These extend the existing local preview and metadata
+contract rather than introducing another framework or automatic deployment.
+
 | Public reference | Pattern worth adopting | Where it fits in this kit |
 | --- | --- | --- |
 | [AWS SAM CLI](https://github.com/aws/aws-sam-cli/tree/25d628c6073b6baa5e5558ba746038e55340da72) and [app templates](https://github.com/aws/aws-sam-cli-app-templates/tree/db18bc9832f83ea519065b7e7ae24840d04c5a99) | A small runnable application, a local feedback loop, then deployment | [Local Taskboard preview](../blueprints/fullstack-container/LOCAL.md): start the app and PostgreSQL before configuring OCI |
@@ -39,14 +44,42 @@ resources and IAM remain separate, explicit decisions.
 
 ## Boundaries and next improvements
 
+The follow-up draws on these public patterns:
+
+- [Azure Developer CLI templates](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/azd-templates)
+  keep application source, infrastructure and lifecycle instructions together.
+  The kit's creator exports its own existing app and installs project-local
+  agent skills; users can edit the application independently of the kit snapshot.
+- [Google Agents CLI setup](https://google.github.io/agents-cli/setup.md)
+  provides a short agent handoff and recognizes already-loaded skills. The kit's
+  resume path inspects existing installation and project evidence before trying
+  to install again. It retains project-local defaults and separate cloud approval.
+- [Amplify's migration feature matrix](https://docs.amplify.aws/react/start/migrate-to-gen2/feature-matrix/)
+  distinguishes supported features from work that still needs adaptation.
+  The runnable Next.js example similarly names what its local HTTP checks cover
+  and which provider, data and cloud behaviors remain unverified.
+- [Awesome AZD's catalog schema](https://github.com/Azure/awesome-azd/blob/57c2a5146d18c2cc9ab0df56823ffc37c86a3304/docs/templates-schema.md)
+  illustrates validated discovery metadata. A larger generated gallery remains
+  future work; this release adds only the explicit included starter path.
+
+The inspected [Amplify backend](https://github.com/aws-amplify/amplify-backend/tree/4d3d41c9470bf0c4256b99be4c4e0d6c3f9781e6)
+and [Google Agents CLI](https://github.com/google/agents-cli/tree/6eedbdc2f44c388cbfc5f305eb83b9924cfefebb)
+use Apache-2.0; [Azure Developer CLI](https://github.com/Azure/azure-dev/tree/03459efde709d92907b3b788fb20b3ecbbd122cd)
+and [Awesome AZD](https://github.com/Azure/awesome-azd/tree/57c2a5146d18c2cc9ab0df56823ffc37c86a3304)
+use MIT. These repositories were unarchived at the dated follow-up. Google's
+older [Agent Starter Pack](https://github.com/GoogleCloudPlatform/agent-starter-pack)
+was archived and directs new users to Agents CLI. These are source/documentation
+references, not independently deployed tools or copied implementation.
+
 Service behavior, scaling, managed domains and prices do not transfer between
 clouds. OCI claims need OCI-specific documentation and validation. The kit keeps
 exact-plan approvals and scoped cleanup; it does not adopt automatic cloud
 deployment, project-wide deletion or unrestricted administrator defaults.
 
 Potential follow-ons are a production acceptance runner, more tested app
-blueprints, and workload-specific migration rehearsals. They are not included
-capabilities until implemented and verified. Named cloud environment management
+blueprints, and workload-specific data/cutover rehearsals beyond the small
+stateless packaging example. They are not included capabilities until implemented
+and verified. Named cloud environment management
 and arbitrary manifest hooks are also outside the current metadata checker.
 
 At review time, AWS SAM, CDK, Azure Developer CLI and Google's three-tier

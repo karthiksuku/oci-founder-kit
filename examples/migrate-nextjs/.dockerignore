@@ -1,0 +1,8 @@
+**
+!package.json
+!package-lock.json
+!next.config.mjs
+!prepare-standalone.mjs
+!app/**
+!lib/**
+!public/**

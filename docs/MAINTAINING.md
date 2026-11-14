@@ -27,6 +27,28 @@ The real PostgreSQL integration suite requires a deliberately selected test
 database through `TEST_DATABASE_URL`. It drops and recreates its fixture tables;
 never point it at production or an existing shared database by inference.
 
+For editable project creation, run `test_blueprint_create.py` through unittest
+discovery. Its refusal tests cover occupied targets, symlink changes, partial
+publication and no-write dry runs. In a disposable created project, verify that
+editing `app/` changes the preview and data persists across stop/start. Stop
+retains its database volume; review removal separately and never prune shared
+Docker resources to clean up a test.
+
+The stateless [Next.js packaging rehearsal](../examples/migrate-nextjs/README.md)
+has its own locked dependencies and real HTTP checks:
+
+```sh
+cd examples/migrate-nextjs
+npm ci --ignore-scripts --no-audit --no-fund
+NEXT_TELEMETRY_DISABLED=1 npm run build
+npm run test:parity
+```
+
+After building, the root suite can include that rehearsal with
+`FOUNDER_KIT_NEXTJS_PARITY=1`. Without that explicit opt-in it reports a skip and
+installs nothing. Its passing local HTTP contract does not establish hosted
+Vercel behavior or OCI deployment.
+
 For changed Terraform, validate the relevant blueprint with its committed lockfile
 and supported provider. Provider validation does not create resources. Keep local
 validation isolated from remote backend initialization. A remote plan can write
@@ -74,7 +96,7 @@ A private/versioned bucket and passing mocked commands do not establish effectiv
 IAM or restore behavior. Never publish account-specific policy/group details as
 fixtures; use synthetic examples and link public primary documentation.
 
-[Release evidence](RELEASE-0.3.4.md) records the current preview's checks and limits.
+[Release evidence](RELEASE-0.4.0.md) records the current preview's checks and limits.
 The [optional CI template](ci/validate.workflow.yml) is not installed as an Actions
 workflow, so there is no GitHub Actions pass to infer from local results.
 

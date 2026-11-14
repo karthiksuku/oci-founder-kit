@@ -24,7 +24,7 @@ DIRECTORIES = {"skills", "scripts", "docs", "blueprints", "examples", "tests",
 FILES = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "SECURITY.md",
          "CHANGELOG.md", "CONTRIBUTING.md", "plugin.json", ".gitignore"}
 SKIP = {".git", ".terraform", ".gate", "node_modules", "__pycache__", ".venv",
-        "venv", "dist", "build", "work", "receipts", ".oci", ".local-preview", "credentials", "keys"}
+        "venv", "dist", "build", "work", "receipts", ".oci", ".local-preview", ".next", ".vercel", ".netlify", "credentials", "keys"}
 AGENTS = {"codex": ".agents", "claude": ".claude"}
 
 

@@ -26,8 +26,9 @@ npm audit
 ```
 
 The build includes Astro's TypeScript check. Browser tests exercise all task and
-agent combinations, clipboard success/fallback, mobile navigation, keyboard
-access, light/dark layout, local-only brief handling and automated accessibility
+agent combinations, task checkpoints, editable-starter commands, initial and
+resume clipboard success/fallback, bookmark/reload/history behavior, mobile
+navigation, keyboard access, light/dark layout, local-only brief handling and automated accessibility
 checks. Automated checks supplement visual and assistive-technology review.
 
 Browser tests start the built site's preview on loopback port 4321. Environments
@@ -57,10 +58,20 @@ build alone does not establish a live deployment.
   it to the user's clipboard. Do not enter credentials in a project brief.
 - Only the selected display theme is saved in local storage. Storage failures
   are harmless and do not prevent use of the site.
+- Task, agent and stack choices are allowlisted and retained in the URL fragment,
+  alongside the page anchor. Reload and browser history restore these choices;
+  unknown values fall back to defaults and unknown parameters are discarded.
+  The fragment contains no brief, project path, credential or completion state.
 - The prompt is plain text. User text is assigned to a textarea value, never
   interpreted as markup. Clipboard denial selects the text for manual copying.
 - The workflow illustration explains a sequence; it does not report a real
   deployment. Example cards state their actual verification level.
+- The handoff panel describes expected first results and offers a resume prompt.
+  Progress lives in the application's `docs/PROGRESS.md`; the site does not read
+  it or mark any check complete. A resume prompt requires current cloud approval.
+- Editable Taskboard is an explicit Build choice. Its command creates app source
+  and skills offline in a new or empty project; Docker preview startup is a
+  separate step. Generic Build, Next.js and FastAPI do not select this starter.
 - Without JavaScript the default prompt, terminal commands, path content and
   documentation links remain available.
 - The local Astro runner disables Astro telemetry for builds and previews.

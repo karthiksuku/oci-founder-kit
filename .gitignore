@@ -30,3 +30,6 @@ crash.log
 *.p12
 .oci/
 .oci-founder-kit/
+.next/
+.vercel/
+.netlify/

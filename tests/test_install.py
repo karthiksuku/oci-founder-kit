@@ -112,6 +112,8 @@ class Installation(unittest.TestCase):
                      "blueprints/x/a.tfvars", "blueprints/x/private.auto.tfvars.json", "blueprints/x/private.tfbackend", "blueprints/x/private.tfbackend.json",
                      "blueprints/x/crash.log", "skills/x/credentials/config.json",
                      "blueprints/x/.local-preview/settings.json",
+                     "examples/x/.next/cache/private.json", "examples/x/.vercel/project.json",
+                     "examples/x/.netlify/state.json",
                      "skills/x/key.pem", "skills/x/.gate/report.json"]:
             self.assertFalse(installer.distributable(ROOT / name), name)
         self.assertTrue(installer.distributable(ROOT / "blueprints/x/terraform.tfvars.example"))

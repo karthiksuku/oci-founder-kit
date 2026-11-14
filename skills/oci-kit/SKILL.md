@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.4"
+  version: "0.4.0"
 ---
 
 # Start building on OCI
@@ -35,6 +35,14 @@ then deploy and verify. The order can overlap: missing cloud access does not blo
 local app development. For migration: inventory dependencies, preserve source
 behavior, adapt and test, rehearse data movement, then stage/cut over with rollback.
 
+For an explicitly chosen new Taskboard app, use
+`python3 scripts/blueprint.py create fullstack-container --project PATH --agent both`
+from the kit root. Use the appropriate single-agent option when requested. The
+target must be new or empty and outside the kit. Creation is offline; its output
+lists the next commands and marks runtime checks as not run. Work on the created
+project's `app/` and `terraform/`, not the bundled example. Do not select Taskboard
+over a requested Next.js/FastAPI stack or an existing application.
+
 For the bundled Taskboard, inspect `scripts/blueprint.py inspect fullstack-container`
 from the kit root and follow the [local preview guide](../../blueprints/fullstack-container/LOCAL.md).
 Its metadata lists command arguments and working directories without executing
@@ -49,6 +57,13 @@ Keep the founder's [project brief](../../docs/PROJECT-BRIEF.md) and a short
 [progress record](../../docs/PROGRESS.md) in their app, using actual results.
 The public start page generates a prompt; it does not inspect their repository
 or establish OCI access. Local development remains useful before cloud setup.
+
+When continuing a project, inspect existing instructions, installation metadata,
+uncommitted changes and its progress record before installing or redoing work.
+Recheck stale evidence against the current app source. A missing progress file
+is a reason to establish a short record, not to discard working code. Continue
+the next unfinished checkpoint and end with one actionable next step. A prior
+progress entry or approval never authorizes a different cloud plan.
 
 ## Authorization and security
 
