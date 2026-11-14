@@ -9,7 +9,9 @@ The implementation has local Terraform and fake-client evidence. One live
 synthetic OCI run on 14 November 2026 verified writes, plan lock contention,
 normal release and historical-version recovery, followed by independent state
 and inventory readback. See the [dated evidence](../../../docs/RELEASE-0.3.4.md).
-IAM isolation, application recovery and retained-version cleanup remain pending.
+Its separately approved exact-version cleanup also passed, with fresh readback
+confirming an empty test prefix. IAM isolation and application recovery remain
+pending.
 
 ## Prerequisites and scope
 

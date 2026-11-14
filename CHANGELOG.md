@@ -5,7 +5,7 @@
 - Fixed synthetic OCI backend rehearsal with separate exact approval, observed native lock contention, overwrite and historical-version recovery into a separate key.
 - Separate exact-version cleanup; no workspace/prefix deletion or forced unlock.
 - Private identity/source binding, bounded output retention, normal unlock on failure and conservative handling of interrupted native launches.
-- Local native behavior and fake-client controls are verified. Post-release verification on 14 November 2026 also passed one live synthetic OCI write/lock/recovery run with independent readback; IAM isolation, application recovery and retained-version cleanup remain pending. See [0.3.4 evidence](docs/RELEASE-0.3.4.md).
+- Local native behavior and fake-client controls are verified. Post-release verification on 14 November 2026 also passed one live synthetic OCI write/lock/recovery run and its separately approved exact-version cleanup, each with independent readback; IAM isolation and application recovery remain pending. See [0.3.4 evidence](docs/RELEASE-0.3.4.md).
 
 ## 0.3.3 - 2026-11-13
 

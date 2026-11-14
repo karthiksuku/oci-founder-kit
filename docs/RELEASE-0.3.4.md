@@ -81,18 +81,26 @@ generation 1 at serial 1. Complete current-object/version inventories showed no
 current locks, and all recorded native and output-draining processes had exited.
 A supplemental HEAD check was inconclusive and was not used to establish lock
 absence. The run left two current synthetic state objects and thirteen retained
-versions/deletion markers; permanent cleanup has not been approved or executed.
+versions/deletion markers for a separately reviewed cleanup.
 
 The test uploaded only the two synthetic outputs and native lock records, with
 no managed resources or credentials in state. Raw state, lock metadata, target
 identifiers and receipts remain private. This dated result covers one synthetic
 backend run. The release tag and executable source are unchanged.
 
+Later on 14 November, the owner approved the exact cleanup manifest. The unchanged
+gate permanently deleted all thirteen recorded versions and markers once.
+Two fresh complete current-object/version inventory reads confirmed an empty
+test prefix, and a separate bucket read confirmed the existing private,
+versioned bucket remained. The bucket, original bootstrap state and other
+resources were outside this deletion scope. Private receipts and readback
+evidence remain retained. This verifies cleanup of this synthetic run only.
+
 ## Remaining acceptance
 
-Permanent cleanup remains pending a separate exact-version approval. Effective
-IAM isolation remains independent: private bucket visibility and a successful
-synthetic test cannot establish confidentiality for credential-bearing state.
+Effective IAM isolation remains independent: private bucket visibility and a
+successful synthetic test cannot establish confidentiality for credential-bearing
+state.
 The full hosted application, identity, HTTPS, Vault, recovery, rollback and
 teardown still need workload-specific live evidence.
 
