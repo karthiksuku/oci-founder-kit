@@ -4,7 +4,7 @@ description: Migrate an existing Vercel or Netlify web application to Oracle Clo
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.4"
+  version: "0.4.0"
 ---
 
 # Migrate a web app to OCI
@@ -55,6 +55,12 @@ Add behavioral tests where semantics change. Run the app's build and relevant
 tests; exercise routing, auth, uploads, streaming, caching and scheduled jobs
 when used. Record baseline failures separately. Never claim a generic scanner
 automatically converted the app.
+
+For a small executable reference, see the [Next.js packaging rehearsal](../../examples/migrate-nextjs/README.md).
+It runs shared HTTP checks against a production Next.js server and its standalone
+package locally. Review the capability matrix before reusing it: hosted Vercel
+features, authentication, provider data and deployed OCI behavior are separate
+acceptance work. Never substitute this example's pass for tests of the user's app.
 
 ## Set up OCI and deploy
 

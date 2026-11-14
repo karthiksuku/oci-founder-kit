@@ -13,6 +13,8 @@ test('all goal/agent choices produce useful distinct prompts and preserve the br
       expect(prompt).toContain(agent === 'codex' ? '$oci-kit' : '/oci-kit');
       expect(prompt).toContain('wait for my approval');
       expect(prompt).toContain('what is still unverified');
+      await expect(page.locator('#handoff-path')).toContainText(agent === 'codex' ? 'Codex' : 'Claude Code');
+      await expect(page.locator('#resume-prompt')).toHaveValue(/docs\/PROGRESS.md/);
     }
   }
   await expect(page.locator('#stack-field')).toBeHidden();
@@ -53,6 +55,9 @@ test('brief stays local, is rendered as text and never enters persistent storage
   expect(requests.some(url => url.includes('invalid.example'))).toBe(false);
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(payload);
   expect(await page.evaluate(() => JSON.stringify(sessionStorage))).not.toContain(payload);
+  expect(page.url()).not.toContain(encodeURIComponent(payload));
+  expect(await page.evaluate(() => JSON.stringify(history.state))).not.toContain(payload);
+  expect(await page.locator('#resume-prompt').inputValue()).not.toContain(payload);
   expect(requests.every(url => new URL(url).hostname === '127.0.0.1')).toBe(true);
 });
 
@@ -63,7 +68,7 @@ test('mobile menu, path selection, keyboard and anchor destinations work', async
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
   await page.getByRole('button', { name: 'Open navigation' }).click();
   await page.getByRole('navigation', { name: 'Mobile navigation' }).getByRole('link', { name: 'Migrate an app' }).click();
-  await expect(page).toHaveURL(/#migrate$/);
+  await expect(page).toHaveURL(/#migrate\?task=build&agent=codex&stack=existing$/);
   await expect(page.locator('#mobile-nav')).toBeHidden();
   await page.getByRole('link', { name: 'Map my migration' }).click();
   await expect(page.locator('input[name="task"][value="migrate"]')).toBeChecked();
@@ -81,6 +86,8 @@ for (const theme of ['dark', 'light'] as const) {
       await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
       await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
       await page.goto('./');
+      await page.locator('#stack').selectOption('taskboard');
+      await page.locator('#resume-details summary').click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
@@ -108,6 +115,110 @@ test('without JavaScript the default prompt and guides remain usable', async ({ 
   await expect(page.locator('noscript .notice')).toBeVisible();
   await expect(page.locator('noscript .notice')).toContainText('Enable JavaScript to tailor the prompt');
   expect(await page.locator('#generated-prompt').inputValue()).toContain('$oci-kit');
+  await expect(page.locator('#checkpoint-title')).toContainText('running locally');
+  await page.locator('#resume-details summary').click();
+  await expect(page.locator('#resume-prompt')).toBeVisible();
+  expect(await page.locator('#resume-prompt').inputValue()).toContain('docs/PROGRESS.md');
+  await expect(page.getByRole('link', { name: 'Create my Taskboard' })).toHaveAttribute('href', /docs\/INSTALL.md#create-a-new-editable-starter$/);
   await expect(page.getByRole('link', { name: 'Browse the start guide' })).toBeVisible();
   await context.close();
 });
+
+test('editable Taskboard is opt-in with offline creation and a separate preview command', async ({ page }) => {
+  await page.goto('./');
+  expect(await page.locator('#generated-prompt').inputValue()).not.toContain('Taskboard');
+  await page.getByRole('link', { name: 'Create my Taskboard' }).click();
+  await expect(page.locator('#stack')).toHaveValue('taskboard');
+  await expect(page.locator('#checkpoint-title')).toContainText('editable Taskboard');
+  await expect(page.locator('#generated-prompt')).toHaveValue(/project’s app\/ and terraform\//);
+  await page.getByText('Prefer the terminal?', { exact: true }).click();
+  await expect(page.locator('#install-command')).toContainText('blueprint.py create fullstack-container');
+  await expect(page.locator('#install-command')).not.toContainText('local_preview');
+  await expect(page.locator('#taskboard-preview')).toContainText('python3 local_preview.py start');
+  await page.locator('input[name="agent"][value="claude"]').check();
+  await expect(page.locator('#install-command')).toContainText('--agent claude');
+  await page.locator('#stack').selectOption('nextjs');
+  await expect(page.locator('#generated-prompt')).toHaveValue(/Next.js and TypeScript/);
+  expect(await page.locator('#generated-prompt').inputValue()).not.toContain('blueprint.py create');
+  await expect(page.locator('#taskboard-preview')).toBeHidden();
+  await page.locator('#stack').selectOption('taskboard');
+  await page.locator('input[name="task"][value="migrate"]').check();
+  await expect(page.locator('#stack')).toHaveValue('existing');
+  await expect(page.locator('#taskboard-option')).toBeDisabled();
+  await expect(page.locator('#checkpoint-title')).toContainText('migration assessment');
+});
+
+test('bookmark, reload and history restore choices without saving the brief', async ({ page }) => {
+  await page.goto('./#start?task=migrate&agent=claude&stack=fastapi');
+  await expect(page.locator('input[name="task"][value="migrate"]')).toBeChecked();
+  await expect(page.locator('input[name="agent"][value="claude"]')).toBeChecked();
+  await expect(page.locator('#stack')).toHaveValue('fastapi');
+  await page.getByLabel('The idea').fill('Synthetic project context, never in the URL.');
+  await page.locator('input[name="task"][value="build"]').check();
+  await page.locator('#stack').selectOption('taskboard');
+  const bookmark = page.url();
+  expect(bookmark).toMatch(/#start\?task=build&agent=claude&stack=taskboard$/);
+  await page.reload();
+  await expect(page.locator('#stack')).toHaveValue('taskboard');
+  await expect(page.locator('#brief')).toHaveValue('');
+  await expect(page.locator('#resume-prompt')).toHaveValue(/project’s Taskboard app\//);
+  await page.goBack();
+  await expect(page.locator('#stack')).toHaveValue('fastapi');
+  await expect(page.locator('input[name="task"][value="build"]')).toBeChecked();
+  await page.goBack();
+  await expect(page.locator('input[name="task"][value="migrate"]')).toBeChecked();
+  await page.goForward();
+  await page.goForward();
+  await expect(page).toHaveURL(bookmark);
+  await expect(page.locator('#stack')).toHaveValue('taskboard');
+});
+
+test('page anchors retain selections and keyboard navigation reaches its destination', async ({ page }) => {
+  await page.goto('./#start?task=migrate&agent=claude&stack=existing');
+  const guideLink = page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Guides', exact: true });
+  await guideLink.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#guides\?task=migrate&agent=claude&stack=existing$/);
+  await expect(page.locator('#guides')).toBeFocused();
+  await page.reload();
+  await expect(page.locator('input[name="task"][value="migrate"]')).toBeChecked();
+  await expect(page.locator('input[name="agent"][value="claude"]')).toBeChecked();
+  await page.goBack();
+  await expect(page).toHaveURL(/#start\?task=migrate&agent=claude&stack=existing$/);
+});
+
+test('invalid or private fragment parameters fall back and are discarded', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('./#start?task=wrong&agent=unknown&stack=%3Cscript%3E&brief=do-not-save&token=example');
+  await expect(page).toHaveURL(/#start\?task=build&agent=codex&stack=existing$/);
+  await expect(page.locator('#brief')).toHaveValue('');
+  await expect(page.locator('#checkpoint-title')).toContainText('running locally');
+  await page.goto('./#start?task=migrate&agent=claude&stack=taskboard');
+  await expect(page.locator('#stack')).toHaveValue('existing');
+  expect(errors).toEqual([]);
+});
+
+for (const allowed of [true, false]) {
+  test(`resume prompt supports keyboard copy with clipboard ${allowed ? 'allowed' : 'denied'}`, async ({ page, context }) => {
+    if (allowed) await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    else await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => { throw new Error('Denied'); } } }));
+    await page.goto('./#start?task=migrate&agent=claude&stack=existing');
+    await page.locator('#resume-details summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#resume-prompt')).toBeVisible();
+    await page.getByRole('button', { name: 'Copy resume prompt' }).focus();
+    await page.keyboard.press('Enter');
+    const text = await page.locator('#resume-prompt').inputValue();
+    expect(text).toContain('/oci-kit');
+    expect(text).toContain('Do not change DNS');
+    if (allowed) {
+      await expect(page.locator('#resume-status')).toContainText('Copied.');
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
+    } else {
+      await expect(page.locator('#resume-status')).toContainText('Clipboard unavailable');
+      await expect(page.locator('#resume-prompt')).toBeFocused();
+      expect(await page.locator('#resume-prompt').evaluate((el: HTMLTextAreaElement) => el.selectionEnd - el.selectionStart)).toBe(text.length);
+    }
+  });
+}

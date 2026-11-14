@@ -1,0 +1,19 @@
+{
+  "name": "oci-founder-kit-nextjs-migration-example",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UPL-1.0",
+  "engines": { "node": ">=22.23.4 <23" },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "npm run build:standalone && node build-reference.mjs",
+    "build:standalone": "OCI_KIT_REFERENCE=0 next build --webpack && node prepare-standalone.mjs",
+    "start": "OCI_KIT_REFERENCE=1 next start --hostname 127.0.0.1",
+    "test:parity": "python3 parity.py"
+  },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

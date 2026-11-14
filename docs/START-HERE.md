@@ -26,7 +26,11 @@ useful local workflow. The [optional hooks](HOOKS.md) can help catch accidental
 secret publication and skipped checks without changing the basic installation.
 
 For a working starting point, use the [local Taskboard preview](../blueprints/fullstack-container/LOCAL.md).
-It starts the app and PostgreSQL without OCI credentials. From the kit root,
+To make it your own, use [editable project creation](INSTALL.md#create-a-new-editable-starter).
+This explicit starter choice exports source into your project's `app/`; preserve
+a different requested or existing framework instead of replacing it with Taskboard.
+After creation, run `python3 local_preview.py start` from the new project to
+start the app and PostgreSQL without OCI credentials. From the kit root,
 `python3 scripts/blueprint.py inspect fullstack-container` shows its paths,
 requirements, commands and remaining acceptance checks; `check` validates the
 metadata and files offline. Neither command runs the listed commands or proves
@@ -50,6 +54,30 @@ first migration stage; show what remains external and why.
 
 Use the [migration acceptance record](MIGRATION-ACCEPTANCE.md) to compare source
 and target behavior, rehearse data changes and define rollback before cutover.
+
+The [runnable Next.js example](../examples/migrate-nextjs/README.md) demonstrates
+local production-server versus standalone-package checks on a small stateless
+app. Use its capability matrix to understand the boundary; it does not validate
+an arbitrary Vercel application or migrate provider-managed data.
+
+## Resume an existing project
+
+Open the same application folder and use the website's resume prompt, or paste:
+
+```text
+Use oci-kit to continue this project. Read its instructions, current changes and
+docs/PROGRESS.md if present. Inspect the existing kit installation before trying
+to install anything. Preserve the app's framework, services and uncommitted work.
+Check whether recorded evidence still matches the current source. Continue the
+next unfinished local checkpoint and update the progress record with actual
+results. Explain missing facts together when they block the next step. Cloud
+changes still need fresh approval of the exact plan; old progress is not approval.
+Never request credential values. Finish with one clear next action.
+```
+
+Progress is maintained in your application, not measured by the website. A
+bookmark can retain only the chosen task, agent and stack. It does not save your
+brief, project files, credentials, completion status or approval decisions.
 
 ## OCI credentials and initial setup
 

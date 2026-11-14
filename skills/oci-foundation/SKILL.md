@@ -4,7 +4,7 @@ description: Set up a dedicated OCI workload compartment and scoped IAM access, 
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.3.4"
+  version: "0.4.0"
 ---
 
 # Prepare the OCI foundation

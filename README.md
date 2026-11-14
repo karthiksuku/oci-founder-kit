@@ -55,20 +55,38 @@ Then start your coding agent inside that project:
 
 </details>
 
-### Try a working app locally
+### Create an app you can make your own
 
-With Python 3.11+ and Docker Compose, run from a clone of this repository:
+For a new Node.js/PostgreSQL project, create an editable copy of the Taskboard
+with project-local Claude Code and Codex skills. Use this **instead of the
+installer above** for a fresh Taskboard. From a directory outside your app,
+clone the kit (or reuse your existing clone):
 
 ```sh
-python3 scripts/blueprint.py inspect fullstack-container
-python3 blueprints/fullstack-container/local_preview.py start
+git clone https://github.com/karthiksuku/oci-founder-kit.git
+python3 oci-founder-kit/scripts/blueprint.py create fullstack-container \
+  --project /absolute/path/to/my-app --agent both
+cd /absolute/path/to/my-app
+python3 local_preview.py start
 ```
 
-Open the localhost URL it prints and start adding tasks. The app uses a real
-PostgreSQL database and needs no OCI credentials. `local_preview.py stop` stops
-the containers while keeping your local data. This is an unauthenticated local
-sandbox; cloud uploads and hosted sign-in are separate setup steps.
-[Local preview guide →](blueprints/fullstack-container/LOCAL.md)
+Use a new path with an existing parent, or an empty directory outside the kit.
+Creation runs offline with Python 3.11+ on Linux, macOS or WSL2; starting the
+preview needs local Docker and Compose. Edit **your project's `app/`**, then run `start` again to
+rebuild. `stop` preserves the local database and settings. No OCI credentials
+are needed for this unauthenticated local sandbox.
+
+Taskboard is an explicit starting choice. Keep your existing app or your chosen
+Next.js/FastAPI stack when that fits better. [Creation and installation →](docs/INSTALL.md)
+· [Try the original example without creating a project →](blueprints/fullstack-container/LOCAL.md)
+
+### Come back without starting over
+
+Use the website's **resume prompt** in the same app folder. It asks your agent to
+inspect the existing installation, progress and actual test evidence, then work
+on the next unfinished checkpoint. The site can remember your selected path in
+a bookmark; your project brief stays in the current tab.
+[Start and resume guide →](docs/START-HERE.md)
 
 ## Choose your task
 
@@ -85,6 +103,11 @@ Local implementation, tests and a deployment plan matched to your app. Say **“
 Dependency discovery, code adaptation, staging and a cutover/rollback plan. Say **“Use oci-kit to migrate this Vercel app to OCI.”** [Migration guide →](docs/START-HERE.md#existing-vercel-or-netlify-application)
 
 Other cloud workloads are covered by the [AWS, Azure and Google Cloud assessment](skills/oci-migrate-assess/SKILL.md). For a business case, use [OCI economics and AI unit costs](docs/BUSINESS-VALUE.md).
+
+For a runnable web example, try the [Next.js packaging rehearsal](examples/migrate-nextjs/README.md).
+It compares a production Next.js server with its standalone package using the
+same HTTP checks. It is a local stateless example; hosted Vercel behavior, data
+migration and OCI deployment require separate verification.
 
 ## How it works
 
@@ -105,13 +128,13 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.3.4 preview.** Includes a local app preview, blueprint inspection for coding agents, optional hooks, digest-bound image publication and separately approved OCI backend operations. A fixed synthetic rehearsal tests state locking and version recovery, with separately reviewed cleanup. Local app behavior, persistence and logical restore have been exercised; the release evidence identifies the checks and remaining cloud validation.
+**0.4.0 preview.** Adds editable project creation, a task-specific start/resume guide and a runnable Next.js packaging example. Existing optional hooks, digest-bound image publication and separately approved OCI backend operations remain available. Local app behavior, persistence and logical restore have been exercised; the release evidence identifies the checks and remaining cloud validation.
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.3.4.md)
+The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.4.0.md)
 
 ## Go deeper
 

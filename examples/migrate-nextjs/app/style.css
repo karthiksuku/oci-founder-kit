@@ -1,0 +1,36 @@
+:root { color-scheme: light; font-family: ui-sans-serif, system-ui, sans-serif; color: #18342b; background: #f4f5ef; }
+* { box-sizing: border-box; }
+body { margin: 0 auto; max-width: 1120px; padding: 0 32px; }
+a { color: inherit; text-underline-offset: 4px; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 30px 0; border-bottom: 1px solid #ccd5ca; }
+.brand { font-size: 24px; font-weight: 760; letter-spacing: -1px; text-decoration: none; }
+.brand span { color: #476244; }
+.badge { border: 1px solid #b2c1ad; border-radius: 30px; padding: 7px 13px; font-size: 13px; }
+main { min-height: 72vh; padding: 56px 0; }
+.hero { max-width: 760px; margin-bottom: 46px; }
+.eyebrow { font-size: 12px; font-weight: 750; letter-spacing: 2px; color: #3b5e4f; }
+h1 { font-size: clamp(38px, 6vw, 70px); line-height: 1.07; letter-spacing: -3px; margin: 20px 0; }
+em { color: #48633e; font-style: normal; }
+.intro { font-size: 19px; line-height: 1.6; max-width: 600px; color: #456052; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+article { background: #fff; padding: 26px; border: 1px solid #d4ddcf; border-radius: 18px; }
+.number { display: inline-block; border-radius: 50%; background: #e9efdf; padding: 10px; font-size: 13px; }
+h2 { font-size: 23px; letter-spacing: -.5px; }
+article p { min-height: 70px; line-height: 1.55; color: #456052; }
+.action { display: flex; justify-content: space-between; font-weight: 700; }
+.back { display: inline-block; margin-bottom: 28px; }
+.project { font-size: 25px; overflow-wrap: anywhere; }
+form { max-width: 640px; margin: 30px 0; }
+label { display: block; margin-bottom: 10px; font-weight: 650; }
+label span { font-size: 13px; font-weight: 400; }
+.form-row { display: flex; gap: 10px; }
+input { width: 100%; min-width: 0; border: 1px solid #99ac9b; border-radius: 8px; padding: 12px; font: inherit; background: #fff; }
+button { border: 0; border-radius: 8px; background: #244936; color: #fff; padding: 12px 22px; font: inherit; font-weight: 650; cursor: pointer; }
+.checklist { padding-left: 25px; max-width: 680px; }
+.checklist li { padding: 16px 8px; border-bottom: 1px solid #ccd5ca; font-size: 19px; }
+.note, footer { font-size: 14px; color: #456052; line-height: 1.6; }
+footer { padding: 24px 0; border-top: 1px solid #ccd5ca; }
+:focus-visible { outline: 3px solid #7b4f15; outline-offset: 4px; }
+.skip { position: absolute; top: -100px; padding: 14px; background: white; }
+.skip:focus { top: 0; }
+@media (max-width: 720px) { body { padding: 0 20px; } main { padding: 36px 0; } .cards { grid-template-columns: 1fr; } article p { min-height: 0; } h1 { letter-spacing: -1.5px; } .badge { display: none; } }

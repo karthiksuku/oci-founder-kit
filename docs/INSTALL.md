@@ -5,6 +5,37 @@ Claude Code or Codex in that application directory. You need Git, Python 3.11+
 and your own installed coding tool and account. OCI credentials are configured
 separately when you are ready to connect to your tenancy.
 
+## Create a new editable starter
+
+Choose this path specifically for the included Node.js/PostgreSQL Taskboard.
+It creates app source, infrastructure templates, agent instructions and a local
+kit snapshot in your own project. It does not replace an existing application
+or implement a requested Next.js/FastAPI stack.
+
+```sh
+git clone https://github.com/karthiksuku/oci-founder-kit.git
+python3 oci-founder-kit/scripts/blueprint.py create fullstack-container \
+  --project /absolute/path/to/my-app --agent both
+cd /absolute/path/to/my-app
+python3 local_preview.py start
+```
+
+The target must be new with an existing parent, or an empty existing directory,
+outside the kit. Creation refuses occupied or unsafe destinations. Use
+`--dry-run` to validate the source and target without writing files. If creation
+fails during publication, it retains any partial destination for you to review;
+it does not delete or overwrite those files. Preserve that folder and choose a
+new empty destination after resolving the error. Creation requires Python 3.11+ on
+Linux, macOS or WSL2; native Windows creation refuses unsupported filesystem
+operations. Starting the app requires the Docker/Compose versions in the
+[local preview guide](../blueprints/fullstack-container/LOCAL.md).
+
+Edit the new project's `app/`, use its root README for commands, and record real
+results in its `docs/PROGRESS.md`. The `.oci-founder-kit/` directory is the
+toolkit snapshot, not the app you should customize. Creation installs selected
+skills locally but enables no hooks, installs no dependencies, runs no app or
+tests, reads no cloud credentials and makes no network or OCI calls.
+
 ## Project installation
 
 Clone the kit outside your app directory. Set `--project` to an existing

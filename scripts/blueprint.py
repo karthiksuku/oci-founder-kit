@@ -8,6 +8,7 @@ not installed tools, application behavior, OCI access or deployment readiness.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -155,10 +156,25 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("check", "inspect"):
         command = commands.add_parser(name, help="Validate metadata and local paths without executing anything.")
         command.add_argument("blueprint")
+    create = commands.add_parser("create", help="Copy an editable Taskboard and install local agent skills; no tools or cloud operations run.")
+    create.add_argument("blueprint")
+    create.add_argument("--project", required=True, type=Path)
+    create.add_argument("--agent", choices=("codex", "claude", "both"), default="both")
+    create.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     try:
         result = {"schema": "oci-kit-blueprint-inspection/1", "scope": SCOPE}
-        if args.command == "list":
+        if args.command == "create":
+            spec = importlib.util.spec_from_file_location("oci_blueprint_create", ROOT / "scripts/scaffold.py")
+            scaffold = importlib.util.module_from_spec(spec)
+            previous = sys.dont_write_bytecode
+            try:
+                sys.dont_write_bytecode = True
+                spec.loader.exec_module(scaffold)
+            finally:
+                sys.dont_write_bytecode = previous
+            result = scaffold.create(args.blueprint, args.project, args.agent, args.dry_run, root=ROOT)
+        elif args.command == "list":
             result["blueprints"] = catalog()
         else:
             data = load(args.blueprint)
@@ -170,6 +186,9 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, OSError, UnicodeError, RecursionError):
         # Do not echo malformed metadata, account values or private filesystem paths.
         sys.stderr.write("Blueprint check refused: invalid contract, unsafe path or missing required file.\n")
+        if args.command == "create" and not args.dry_run:
+            sys.stderr.write("Creation may have left partial destination files. Preserve and review the destination "
+                             "before retrying; no automatic destination cleanup was performed.\n")
         return 2
     return 0
 
