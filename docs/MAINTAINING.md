@@ -63,7 +63,9 @@ behavior where practical. Keep local build, offline preparation, remote planning
 cloud deployment and traffic cutover results distinct. Do not turn a static scan or local unit-test
 pass into a deployed-app claim.
 
-Full live state locking, version history and recovery acceptance remains pending.
+One live synthetic OCI run verified state writes, plan lock contention and
+historical-version recovery on 14 November 2026, with independent readback.
+IAM isolation, application recovery and retained-version cleanup remain pending.
 A private/versioned bucket and passing mocked commands do not establish effective
 IAM or restore behavior. Never publish account-specific policy/group details as
 fixtures; use synthetic examples and link public primary documentation.

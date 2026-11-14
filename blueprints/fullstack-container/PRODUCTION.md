@@ -123,7 +123,9 @@ local state/workspace history and changes to a different backend are refused;
 state migration has no gated implementation yet. Backend metadata, state, plans
 and receipts can contain sensitive data and stay outside Git. Independently
 verify effective IAM, versioning and recovery before using credential-bearing
-state. Live backend lock contention and restore acceptance remain pending.
+state. A separate synthetic OCI rehearsal verified native lock contention and
+historical-version recovery; it does not establish this application's IAM or
+recovery acceptance. See the [dated evidence](../../docs/RELEASE-0.3.4.md).
 
 ## Build, review and deploy
 
