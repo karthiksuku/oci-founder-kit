@@ -8,13 +8,15 @@ does not retroactively authorize initialization or planning.
 The kit provides an offline `backend-plan` and a one-attempt `backend-run` for
 native OCI backend initialization, resource planning and destroy planning. A
 successful backend operation is not proof of least privilege, lock contention,
-state recovery or production readiness. The full live lock/version/recovery
-acceptance remains pending.
+state recovery or production readiness. Validate each intended workload and
+its effective storage permissions separately.
 
 The optional [synthetic backend rehearsal](backend-rehearsal.md) provides a
 separately approved fixed lock/overwrite/version-recovery test and exact-version
-cleanup. Local native behavior and fake-client orchestration have been tested;
-live OCI write/recovery acceptance remains pending.
+cleanup. One live synthetic OCI run verified writes, native plan lock contention,
+normal release and historical-version recovery on 14 November 2026, with
+independent readback. See the [dated evidence](../../../docs/RELEASE-0.3.4.md).
+IAM isolation, application recovery and retained-version cleanup remain pending.
 
 ## Establish the storage boundary
 

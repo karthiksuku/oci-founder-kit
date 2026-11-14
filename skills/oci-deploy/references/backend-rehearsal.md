@@ -5,9 +5,11 @@ It tests the native OCI backend's write, overwrite, lock contention and recovery
 behavior using two synthetic outputs and no infrastructure resources. It does
 not establish effective IAM isolation or restore an application/database.
 
-The implementation has local Terraform and fake-client evidence. Live OCI
-write/lock/recovery acceptance remains pending. The read-only metadata adapter
-has been checked against an existing private, versioned bucket.
+The implementation has local Terraform and fake-client evidence. One live
+synthetic OCI run on 14 November 2026 verified writes, plan lock contention,
+normal release and historical-version recovery, followed by independent state
+and inventory readback. See the [dated evidence](../../../docs/RELEASE-0.3.4.md).
+IAM isolation, application recovery and retained-version cleanup remain pending.
 
 ## Prerequisites and scope
 

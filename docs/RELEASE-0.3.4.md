@@ -67,11 +67,31 @@ Read-only discovery found four enabled but untrusted hooks and no configuration
 errors. No trust setting was changed or hook executed. See [hook compatibility
 and evidence](HOOKS.md) for the precise coverage and remaining limitations.
 
+## Post-release synthetic OCI verification — 14 November 2026
+
+One owner-approved run of the published recipe completed against an existing
+private, versioned OCI bucket using Terraform 1.16.6 and OCI SDK 2.167.2. All ten
+native steps had their expected outcomes: synthetic state creation, a competing
+plan rejected on the observed live lock, normal release and a successful control
+plan, overwrite, then historical-version recovery into a separate key.
+
+Independent readback matched the recorded state hashes and versions. The primary
+retained generation 2 at serial 3; the historical and recovered copies contained
+generation 1 at serial 1. Complete current-object/version inventories showed no
+current locks, and all recorded native and output-draining processes had exited.
+A supplemental HEAD check was inconclusive and was not used to establish lock
+absence. The run left two current synthetic state objects and thirteen retained
+versions/deletion markers; permanent cleanup has not been approved or executed.
+
+The test uploaded only the two synthetic outputs and native lock records, with
+no managed resources or credentials in state. Raw state, lock metadata, target
+identifiers and receipts remain private. This dated result covers one synthetic
+backend run. The release tag and executable source are unchanged.
+
 ## Remaining acceptance
 
-Live OCI write/overwrite, lock contention, historical-version restore and
-permanent cleanup remain pending exact operation approvals. Effective IAM
-isolation remains independent: private bucket visibility and a successful
+Permanent cleanup remains pending a separate exact-version approval. Effective
+IAM isolation remains independent: private bucket visibility and a successful
 synthetic test cannot establish confidentiality for credential-bearing state.
 The full hosted application, identity, HTTPS, Vault, recovery, rollback and
 teardown still need workload-specific live evidence.
