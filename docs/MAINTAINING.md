@@ -47,8 +47,10 @@ An initialized stack then uses an approved `backend-plan --operation plan` /
 `backend-run` pair to generate a resource plan. Do not invoke remote Terraform
 initialization or planning directly, even to test the gate. Its current contract
 is a canonical empty OCI declaration, exactly seven private settings, an existing
-APIKey profile and the default workspace. Migration, state push, workspace
-changes and version cleanup are not implemented.
+APIKey profile and the default workspace. Migration, arbitrary state push,
+workspace changes and version cleanup are outside this general backend operation.
+The separate synthetic rehearsal supports only its generated state and exact
+version cleanup.
 
 Changes to this contract need negative tests for source/cache ambiguity, stale
 metadata, alternate workspace/data directories, destination or input drift,
@@ -65,7 +67,9 @@ pass into a deployed-app claim.
 
 One live synthetic OCI run verified state writes, plan lock contention and
 historical-version recovery on 14 November 2026, with independent readback.
-IAM isolation, application recovery and retained-version cleanup remain pending.
+Its separately approved exact-version cleanup also passed, with fresh readback
+confirming an empty test prefix. IAM isolation and application recovery remain
+pending.
 A private/versioned bucket and passing mocked commands do not establish effective
 IAM or restore behavior. Never publish account-specific policy/group details as
 fixtures; use synthetic examples and link public primary documentation.

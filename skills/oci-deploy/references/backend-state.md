@@ -16,7 +16,9 @@ separately approved fixed lock/overwrite/version-recovery test and exact-version
 cleanup. One live synthetic OCI run verified writes, native plan lock contention,
 normal release and historical-version recovery on 14 November 2026, with
 independent readback. See the [dated evidence](../../../docs/RELEASE-0.3.4.md).
-IAM isolation, application recovery and retained-version cleanup remain pending.
+Its separately approved exact-version cleanup also passed, with fresh readback
+confirming an empty test prefix. IAM isolation and application recovery remain
+pending.
 
 ## Establish the storage boundary
 
