@@ -96,7 +96,7 @@ A private/versioned bucket and passing mocked commands do not establish effectiv
 IAM or restore behavior. Never publish account-specific policy/group details as
 fixtures; use synthetic examples and link public primary documentation.
 
-[Release evidence](RELEASE-0.4.0.md) records the current preview's checks and limits.
+[Release evidence](RELEASE-0.4.1.md) records the current preview's checks and limits.
 The [optional CI template](ci/validate.workflow.yml) is not installed as an Actions
 workflow, so there is no GitHub Actions pass to infer from local results.
 

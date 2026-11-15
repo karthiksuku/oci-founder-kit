@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 - 2026-11-15
+
+- Exclude additional known credential/configuration paths, Terraform backup variants and logs from project installation and starter creation.
+- Apply matching Git ignores and public-hook path checks while retaining example templates and their content checks.
+- Generalize exported-app guidance and document that a reviewed source checkout is required; filename filtering cannot sanitize arbitrary local JSON or modified source.
+- See [0.4.1 evidence](docs/RELEASE-0.4.1.md) for verification and limits.
+
 ## 0.4.0 - 2026-11-14
 
 - Create an editable Taskboard project with project-local agent skills and explicit next commands; preserve existing projects and keep runtime work separate.

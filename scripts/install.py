@@ -24,7 +24,8 @@ DIRECTORIES = {"skills", "scripts", "docs", "blueprints", "examples", "tests",
 FILES = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "SECURITY.md",
          "CHANGELOG.md", "CONTRIBUTING.md", "plugin.json", ".gitignore"}
 SKIP = {".git", ".terraform", ".gate", "node_modules", "__pycache__", ".venv",
-        "venv", "dist", "build", "work", "receipts", ".oci", ".local-preview", ".next", ".vercel", ".netlify", "credentials", "keys"}
+        "venv", "dist", "build", "work", "receipts", ".oci", ".local-preview", ".next", ".vercel", ".netlify",
+        ".docker", ".aws", ".ssh", ".azure", ".kube", "credentials", "keys"}
 AGENTS = {"codex": ".agents", "claude": ".claude"}
 
 
@@ -32,11 +33,19 @@ def distributable(path: Path) -> bool:
     rel = path.relative_to(ROOT)
     if rel.parts[0] not in DIRECTORIES and rel.as_posix() not in FILES:
         return False
-    if set(rel.parts) & SKIP or any(p.startswith(".env") for p in rel.parts):
+    if {p.lower() for p in rel.parts} & SKIP or any(p.lower().startswith(".env") for p in rel.parts[:-1]):
         return False
-    return not (path.suffix in {".pem", ".key", ".p12", ".pfx", ".pyc", ".tfvars", ".tfbackend", ".tfstate", ".tfplan"}
-                or path.name.endswith((".tfvars.json", ".tfbackend.json")) or path.name == "crash.log"
-                or ".tfstate." in path.name or path.name.startswith("tfplan"))
+    base = path.name.lower()
+    if base.startswith(".env") and base != ".env.example":
+        return False
+    # These names identify private artifacts, not arbitrary secret-bearing data.
+    # Example templates remain eligible for the separate content review.
+    if not base.endswith(".example") and (
+            re.match(r"^\.(?:npmrc|pypirc|git-credentials|netrc)(?:[.~]|$)", base)
+            or re.search(r"\.(?:tfvars|tfbackend|tfstate|log)(?:[.~]|$)", base)):
+        return False
+    return not (path.suffix.lower() in {".pem", ".key", ".p12", ".pfx", ".pyc", ".tfvars", ".tfbackend", ".tfstate", ".tfplan"}
+                or base.startswith("tfplan"))
 
 
 def safe_parent(path: Path, project: Path) -> None:
@@ -54,7 +63,8 @@ def source_files() -> list[Path]:
             if child.is_symlink():
                 continue
             if child.is_dir():
-                if child.name not in SKIP and (directory != ROOT or child.name in DIRECTORIES):
+                if (child.name.lower() not in SKIP and not child.name.lower().startswith(".env")
+                        and (directory != ROOT or child.name in DIRECTORIES)):
                     walk(child)
             elif child.is_file() and distributable(child):
                 files.append(child)

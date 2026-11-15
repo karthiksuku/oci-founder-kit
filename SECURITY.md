@@ -9,6 +9,9 @@ are bundled or collected by a hosted kit service.
 - Review the kit before installation. Skills and scripts run with the coding
   agent's user permissions. The installer adds project-local files only and
   refuses overwrites; it does not configure accounts or call cloud APIs.
+  Use a fresh, reviewed source checkout: the distribution filter excludes known
+  private paths but cannot identify secrets in arbitrary added files. Keep
+  private session exports, operational JSON and logs outside the kit checkout.
 - Never paste keys, tokens, passwords, customer records, Terraform state or
   credential configuration into chat, GitHub issues or shared reports. Keep
   credential files outside the repository with restrictive permissions.

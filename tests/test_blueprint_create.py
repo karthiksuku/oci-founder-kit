@@ -87,6 +87,32 @@ class BlueprintCreate(unittest.TestCase):
         self.assertTrue((project / ".agents/skills/oci-kit/SKILL.md").is_file())
         self.assertFalse((project / ".claude").exists())
 
+    def test_generated_gitignore_keeps_sensitive_files_private_and_examples_visible(self):
+        project = self.parent / "app"
+        result = self.run_create(project)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        subprocess.run(["git", "init", "-q", str(project)], check=True, capture_output=True)
+        private = ["app/.npmrc", "app/.pypirc", "app/.git-credentials", "app/.netrc",
+                   "app/.docker/config.json", "app/.aws/config", "app/.ssh/config",
+                   "app/.azure/accessTokens.json", "app/.kube/config", "app/diagnostic.log.1",
+                   "terraform/private.tfvars.backup", "terraform/private.tfvars.json.bak",
+                   "terraform/private.tfbackend.json.old", "terraform/private.tfstate~", "app/.ENV",
+                   "app/KEY.PEM", "app/.DoCkEr/config.json", "app/.AwS/config", "app/.SsH/config",
+                   "app/.AzUrE/accessTokens.json", "app/.KuBe/config", "app/.NeTrC", "app/.PyPiRc",
+                   "app/.GiT-CrEdEnTiAlS", "app/.NpMrC", "app/diagnostic.LoG.1",
+                   "terraform/private.TfVaRs.BaCkUp", "terraform/private.TfBaCkEnD.JsOn.OlD",
+                   "terraform/private.TfStAtE~", "app/.env.production.example",
+                   "app/private-env/.env.example/runtime-config.json",
+                   "app/private-env/.EnV.ExAmPlE/nested.json", "app/private-env/.env/config.example",
+                   "app/private-env/.env.production.example/config.example"]
+        examples = ["app/.npmrc.example", "app/.env.example", "app/diagnostic.log.example",
+                    "terraform/terraform.tfvars.example", "terraform/backend.tfbackend.json.example"]
+        checked = subprocess.run(["git", "-C", str(project), "check-ignore", "--no-index", "--stdin"],
+                                 input="\n".join(private + examples) + "\n", text=True,
+                                 capture_output=True, check=False)
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertEqual(set(checked.stdout.splitlines()), set(private))
+
     def test_dry_run_creates_no_project_or_staging_files(self):
         project = self.parent / "app"
         before = snapshot(self.parent)

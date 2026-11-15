@@ -5,6 +5,13 @@ Claude Code or Codex in that application directory. You need Git, Python 3.11+
 and your own installed coding tool and account. OCI credentials are configured
 separately when you are ready to connect to your tenancy.
 
+Install or create from a fresh, reviewed source checkout. The distribution
+filter excludes named credential/configuration files, Terraform working files
+and logs; it is not a content sanitizer or a Git-tracked-files allowlist. Other
+eligible files added inside the kit's source directories can be copied, even
+when untracked. Keep private JSON, session exports and all operational data
+outside that checkout. Review the resulting project before sharing it.
+
 ## Create a new editable starter
 
 Choose this path specifically for the included Node.js/PostgreSQL Taskboard.

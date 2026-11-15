@@ -98,17 +98,24 @@ def private_path(name: str) -> bool:
     parts = Path(name).parts
     low = name.lower()
     base = Path(low).name
-    if any(p.lower() in {'.oci', '.aws', '.gate', '.hooks', '.local-preview', 'credentials', 'private-receipts'} for p in parts):
+    if any(p.lower() in {'.oci', '.aws', '.docker', '.ssh', '.azure', '.kube', '.gate', '.hooks',
+                        '.local-preview', 'credentials', 'private-receipts'} for p in parts):
         return True
     if low.endswith('.claude/settings.local.json'):
+        return True
+    if any(part.lower().startswith('.env') for part in parts[:-1]):
         return True
     if base in {'id_rsa', 'id_ed25519', 'credentials', 'token', 'tokens.json', 'crash.log', 'hook-installation.json'}:
         return True
     if base.startswith('.env') and base not in {'.env.example', '.env.sample', '.env.template'}:
         return True
+    if not base.endswith('.example') and (
+            re.match(r'^\.(?:npmrc|pypirc|git-credentials|netrc)(?:[.~]|$)', base)
+            or re.search(r'\.(?:tfvars|tfbackend|tfstate|log)(?:[.~]|$)', base)):
+        return True
     if base.endswith(('.pem', '.key', '.p12', '.pfx', '.tfvars', '.tfvars.json', '.tfplan', '.tfstate', '.tfbackend', '.tfbackend.json')):
         return True
-    return '.tfstate.' in base or base.startswith('tfplan')
+    return base.startswith('tfplan')
 
 
 def display_path(name: str) -> str:

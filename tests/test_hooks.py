@@ -69,6 +69,37 @@ class Staged(unittest.TestCase):
         self.stage('terraform.tfvars.example', b'region = "<your-region>"\n')
         self.assertEqual(hooks.scan_staged(self.root)['status'], 'passed')
 
+    def test_sensitive_config_backup_and_log_paths_block_without_content_matches(self):
+        names = ['.npmrc', '.pypirc', '.git-credentials', '.netrc', '.npmrc.backup',
+                 '.docker/config.json', '.aws/config', '.ssh/config', '.azure/accessTokens.json',
+                 '.kube/config', 'runtime.tfvars.backup', 'runtime.tfvars.json.bak', 'runtime.tfvars~',
+                 'runtime.tfbackend.backup', 'runtime.tfbackend.json.old', 'runtime.tfstate.backup',
+                 'runtime.tfstate~', 'diagnostic.log', 'diagnostic.log.1', 'diagnostic.log.gz', 'diagnostic.log~',
+                 '.ENV', '.ENV.LOCAL', 'KEY.PEM', 'KEY.PFX', 'TFPLAN.PRIVATE', '.DOCKER/config.json',
+                 '.NPMRC', 'RUNTIME.TFVARS.BACKUP', '.DoCkEr/config.json', '.AwS/config', '.SsH/config',
+                 '.AzUrE/accessTokens.json', '.KuBe/config', '.NeTrC', '.PyPiRc', '.GiT-CrEdEnTiAlS',
+                 'runtime.TfBaCkEnD.JsOn.OlD', 'diagnostic.LoG.1', 'key.PeM',
+                 '.env.production.example', '.EnV.PrOdUcTiOn.ExAmPlE',
+                 'private-env/.env.example/runtime-config.json', 'private-env/.EnV.ExAmPlE/nested.json',
+                 'private-env/.env/config.example', 'private-env/.env.production.example/config.example']
+        for name in names:
+            self.stage('nested/' + name, b'synthetic diagnostic data without credential patterns')
+        result = hooks.scan_staged(self.root, public=True)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertEqual({item['path'] for item in result['findings']}, {'nested/' + name for name in names})
+        self.assertEqual({item['rule'] for item in result['findings']}, {'private-artifact'})
+
+    def test_config_backup_and_log_examples_still_receive_content_checks(self):
+        for name in ['.npmrc.example', '.pypirc.example', '.git-credentials.example', '.netrc.example',
+                     'backend.tfbackend.json.example', 'state.tfstate.example', 'diagnostic.log.example',
+                     '.ENV.example', 'RUNTIME.TFVARS.EXAMPLE']:
+            self.stage(name, b'<set-locally>\n')
+        self.assertEqual(hooks.scan_staged(self.root, public=True)['status'], 'passed')
+        self.stage('.npmrc.example', ('ghp_' + 'Q' * 30).encode())
+        result = hooks.scan_staged(self.root, public=True)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertEqual(result['findings'], [{'path': '.npmrc.example', 'rule': 'github-token'}])
+
     def test_provider_identifiers_are_not_partial_api_tokens(self):
         self.stage('types.json', json.dumps([
             'aws_msk_scram_secret_association',

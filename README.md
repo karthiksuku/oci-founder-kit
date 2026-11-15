@@ -128,13 +128,13 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.4.0 preview.** Adds editable project creation, a task-specific start/resume guide and a runnable Next.js packaging example. Existing optional hooks, digest-bound image publication and separately approved OCI backend operations remain available. Local app behavior, persistence and logical restore have been exercised; the release evidence identifies the checks and remaining cloud validation.
+**0.4.1 preview.** Includes editable project creation, a task-specific start/resume guide and a runnable Next.js packaging example. Existing optional hooks, digest-bound image publication and separately approved OCI backend operations remain available. Local app behavior, persistence and logical restore have been exercised; the release evidence identifies the checks and remaining cloud validation.
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.4.0.md)
+The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.4.1.md)
 
 ## Go deeper
 

@@ -217,11 +217,20 @@ after performing each check; keep secret values and private receipts outside it.
 | Recovery and cleanup | Not started | None recorded | Agree retention, rehearse recovery and approve exact cleanup separately |
 """, encoding="utf-8")
     ignored = ["# Local development and private cloud files", ".local-preview/", "node_modules/",
-               ".next/", ".vercel/", ".netlify/", ".env", ".env.*", "*.pem", "*.key",
-               "*.p12", "*.pfx", ".oci/", ".terraform/", ".gate/", "*.tfvars", "*.tfvars.json",
-               "*.tfbackend", "*.tfbackend.json", "*.tfstate", "*.tfstate.*", "*.tfplan", "tfplan*",
-               "crash.log", "__pycache__/", "*.pyc", "", "# Per-user toolkit installation",
-               "/.oci-founder-kit/"]
+               ".next/", ".vercel/", ".netlify/", "__pycache__/", "*.pyc"]
+    private_patterns = ["*.pem", "*.key",
+               "*.p12", "*.pfx", ".oci/", ".docker/", ".aws/", ".ssh/", ".azure/", ".kube/",
+               ".npmrc", ".npmrc.*", ".npmrc~", ".pypirc", ".pypirc.*", ".pypirc~",
+               ".git-credentials", ".git-credentials.*", ".git-credentials~", ".netrc", ".netrc.*", ".netrc~",
+               ".terraform/", ".gate/", "*.tfvars", "*.tfvars.*", "*.tfvars~",
+               "*.tfbackend", "*.tfbackend.*", "*.tfbackend~", "*.tfstate", "*.tfstate.*", "*.tfstate~",
+               "*.tfplan", "tfplan*", "*.log", "*.log.*", "*.log~", "!*.example",
+               # Only the .env.example file is a template; .env* directories stay private.
+               ".env*", "!.env.example", ".env*/"]
+    # Git globs are case-sensitive; match the installer and staged-hook policy.
+    ignored.extend("".join(f"[{char.lower()}{char.upper()}]" if char.isalpha() else char
+                           for char in pattern) for pattern in private_patterns)
+    ignored.extend(["", "# Per-user toolkit installation", "/.oci-founder-kit/"])
     agent_directories = {"codex": ".agents", "claude": ".claude"}
     for agent in installation["agents"]:
         ignored.extend(f"/{agent_directories[agent]}/skills/{skill}/" for skill in installation["skills"])

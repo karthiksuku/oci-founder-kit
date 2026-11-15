@@ -4,7 +4,7 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.4.0 preview
+## 0.4.1 preview
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ establish a completed migration or a production deployment.
 | Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | Current Claude host probes cover the four events, with [PostToolUse evidence limits](HOOKS.md) documented. Codex trusted runtime remains unverified |
 
 Actual results and skipped checks for this release are in
-[RELEASE-0.4.0.md](RELEASE-0.4.0.md).
+[RELEASE-0.4.1.md](RELEASE-0.4.1.md).
 
 An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
 installed as an Actions workflow because the publication credential lacks that
