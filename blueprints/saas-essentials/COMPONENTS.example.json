@@ -1,0 +1,23 @@
+{
+  "worker": {
+    "blueprint": "saas-essentials",
+    "infrastructure": "deploy/rehearsal-worker",
+    "target": {
+      "region": "us-ashburn-1",
+      "compartment_id": "ocid1.compartment.oc1..exampleworker",
+      "profile": "REHEARSAL",
+      "auth": "security_token",
+      "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "image_architecture": "AMD64",
+      "ocpus": 1,
+      "memory_gbs": 4
+    },
+    "backend": {
+      "region": "us-ashburn-1",
+      "namespace": "example",
+      "bucket": "example-state",
+      "key": "rehearsal/worker.tfstate",
+      "workspace_key_prefix": "rehearsal/worker-workspaces"
+    }
+  }
+}

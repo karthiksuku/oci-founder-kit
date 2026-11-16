@@ -9,6 +9,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = '91af893a6ffd631ea98fd1c0727371083a5e6025'
+BASELINES = {BASELINE: '0.5.0', 'c1f8de322564ac37693d25da8fa77f9daa266061': '0.6.0'}
 
 
 def run(*args):
@@ -24,8 +25,9 @@ def main():
     parser.add_argument('--work', type=Path, required=True)
     args = parser.parse_args()
     baseline = args.baseline.resolve(strict=True)
-    if run('git', '-C', baseline, 'rev-parse', 'HEAD').strip() != BASELINE:
-        raise SystemExit('The upgrade baseline must be the reviewed v0.5.0 commit.')
+    baseline_commit = run('git', '-C', baseline, 'rev-parse', 'HEAD').strip()
+    if baseline_commit not in BASELINES:
+        raise SystemExit('The upgrade baseline must be a reviewed v0.5.0 or v0.6.0 commit.')
     work = args.work.absolute()
     work.mkdir(mode=0o700, exist_ok=False)
     original = b'# Existing founder application, preserved during installation and upgrade.\n'
@@ -45,9 +47,19 @@ def main():
     source = unpack / ('oci-founder-kit-' + metadata['version'])
     run(sys.executable, source / 'scripts/release_manifest.py', 'check')
     run(sys.executable, source / 'scripts/install.py', '--project', clean, '--agent', 'both')
+    entry = clean / '.oci-founder-kit/scripts/kit.py'
+    run(sys.executable, entry, 'start', '--project', clean, '--mode', 'existing', '--json', '--non-interactive')
+    run(sys.executable, entry, 'capabilities', '--json')
     run(sys.executable, clean / '.oci-founder-kit/scripts/blueprint.py', 'check', 'web-container')
     run(sys.executable, clean / '.oci-founder-kit/scripts/blueprint.py', 'attach', 'web-container',
         '--project', clean, '--directory', 'deploy/oci')
+    run(sys.executable, entry, 'environment', 'create', '--project', clean,
+        '--environment', 'rehearsal', '--role', 'rehearsal', '--blueprint', 'web-container',
+        '--infrastructure', 'deploy/oci/terraform', '--json')
+    continued = json.loads(run(sys.executable, entry, 'next', '--project', clean, '--environment', 'rehearsal', '--json'))
+    if continued.get('environment') != 'rehearsal':
+        raise SystemExit('Installed continuation did not retain explicit environment selection.')
+    run(sys.executable, entry, 'support', 'export', '--project', clean, '--environment', 'rehearsal', '--json')
     if (clean / 'application.py').read_bytes() != original:
         raise SystemExit('Clean install changed application source.')
     upgrade = work / 'upgrade'
@@ -55,14 +67,20 @@ def main():
     (upgrade / 'application.py').write_bytes(original)
     run(sys.executable, baseline / 'scripts/release_manifest.py', 'check')
     run(sys.executable, baseline / 'scripts/install.py', '--project', upgrade, '--agent', 'both')
+    run(sys.executable, baseline / 'scripts/project.py', 'start', '--project', upgrade, '--mode', 'existing')
+    legacy_state = (upgrade / '.oci-kit/state.json').read_bytes()
     run(sys.executable, source / 'scripts/update.py', 'check', '--project', upgrade)
     run(sys.executable, source / 'scripts/update.py', 'apply', '--project', upgrade)
     status = json.loads(run(sys.executable, source / 'scripts/install.py', '--status', '--project', upgrade))
     if status['kit_version'] != metadata['version'] or (upgrade / 'application.py').read_bytes() != original:
         raise SystemExit('Upgrade version or application-preservation mismatch.')
+    if (upgrade / '.oci-kit/state.json').read_bytes() != legacy_state:
+        raise SystemExit('Upgrade changed the saved project record.')
+    run(sys.executable, upgrade / '.oci-founder-kit/scripts/kit.py', 'status', '--project', upgrade, '--json')
     print(json.dumps({'schema': 'oci-kit-platform-smoke/1', 'status': 'passed',
-                      'archive': 'verified', 'clean_install': 'passed', 'upgrade_from': '0.5.0',
-                      'application_preserved': True, 'cloud': 'not_run'}))
+                      'archive': 'verified', 'clean_install': 'passed', 'upgrade_from': BASELINES[baseline_commit],
+                      'application_preserved': True, 'saved_records_preserved': True,
+                      'installed_lifecycle_interface': 'passed', 'cloud': 'not_run'}))
 
 
 if __name__ == '__main__':

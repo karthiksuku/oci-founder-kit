@@ -559,3 +559,12 @@ code { font-family: ui-monospace, Consolas, monospace; }
 .help-table table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
 .help-table th, .help-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .help-table th { color: var(--text); font-weight: 600; }
+.guide-search { display: grid; gap: 10px; max-width: 560px; font-size: 13px; margin-bottom: 20px; }
+.guide-search input { background: var(--input); color: var(--text); border: 1px solid var(--line); padding: 14px 16px; border-radius: 8px; font: inherit; }
+.capability-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+.capability-card { min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+.capability-card h3 { font-size: 20px; margin-block: 18px 12px; }
+.capability-card p, .capability-card li, .capability-card summary { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.capability-card pre { overflow-wrap: anywhere; white-space: pre-wrap; padding: 16px; background: var(--input); border-radius: 8px; font-size: 11px; line-height: 1.8; }
+[data-searchable][hidden] { display: none; }
+#guide-search-status { font-size: 13px; color: var(--muted); }

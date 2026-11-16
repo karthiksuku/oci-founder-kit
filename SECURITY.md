@@ -36,6 +36,15 @@ are bundled or collected by a hosted kit service.
   Pattern scans support human review and cannot prove that every secret or
   proprietary passage has been detected.
 
-Report a vulnerability privately through the maintainer's GitHub profile contact
-or GitHub private vulnerability reporting if enabled. Do not open an issue
-containing exploit credentials, customer data or unredacted state/receipts.
+Use [GitHub's private vulnerability report form](https://github.com/karthiksuku/oci-founder-kit/security/advisories/new)
+(enabled on this upstream repository and verified 16 November 2026).
+If GitHub does not offer the private form on a fork or in the future, open a public issue
+asking for a private reporting channel, without disclosing the vulnerability,
+credentials or affected customer information. Do not paste an exploit, raw logs,
+customer data or unredacted state/receipts into a public issue. No response-time service is promised.
+
+Verify release downloads using the [consumer provenance check](docs/ci/README.md#trusted-release-provenance).
+Checksums alone cannot authenticate a publisher. Keep agent hook review under
+the agent host's normal trust controls; installing the kit does not grant trust.
+New release templates create and verify a draft before publication. Previously
+published releases do not retroactively gain attestations or immutability.

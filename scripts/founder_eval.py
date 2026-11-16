@@ -13,6 +13,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import selectors
 import shutil
@@ -27,6 +28,7 @@ LIMIT = 131072
 WRITABLE = {"index.html", "Dockerfile", "README.md", "migration-plan.md", "outcome.json"}
 SCENARIOS = ("new-app", "hosting-first", "unsupported", "interrupted")
 GRADER = "tests/fixtures/evaluations/browser_grade.mjs"
+HARNESS_VERSION = "2"
 ACTIONS = ("start", "environment", "attach", "status", "resume", "assess", "test-app")
 TOOL = {"name": "founder_local", "description": "Evaluation-only workspace operations. No cloud/credential/network/shell access.",
         "inputSchema": {"type": "object", "properties": {
@@ -127,6 +129,8 @@ def prepare(path, scenario):
     value = {"schema": "oci-founder-eval/1", "scenario": scenario, "original": original,
              "manifest_sha256": sha((ROOT / "release-manifest.json").read_bytes()),
              "browser_grader_sha256": sha(source_bytes(GRADER)),
+             "harness_version": HARNESS_VERSION,
+             "harness_sha256": sha(Path(__file__).read_bytes()),
              "sentinel": sentinel, "created_at": int(time.time())}
     write(path / "evaluation.json", value)
     write(path / "events.json", [])
@@ -200,16 +204,18 @@ def action(path, value, name, environment):
     if name == "test-app":
         return app_test(path, value)
     if name == "start":
-        return fixed_command([ROOT / "scripts/project.py", "start", "--project", app, "--task",
-                              "build" if value["scenario"] == "new-app" else "migrate", "--mode", "existing", "--agent", "both"])
+        return fixed_command([ROOT / "scripts/kit.py", "start", "--project", app, "--task",
+                              "build" if value["scenario"] == "new-app" else "migrate", "--mode", "existing", "--agent", "both",
+                              "--json", "--non-interactive"] + (["--environment", environment] if environment else []))
     if name in {"status", "resume"}:
-        return fixed_command([ROOT / "scripts/project.py", name, "--project", app] +
+        return fixed_command([ROOT / "scripts/kit.py", "next" if name == "resume" else "status", "--project", app,
+                              "--json", "--non-interactive"] +
                              (["--environment", environment] if environment else []))
     if name in {"environment", "attach"} and environment is None:
         raise ValueError("Select the environment explicitly.")
     if name == "environment":
-        return fixed_command([ROOT / "scripts/environments.py", "create", "--project", app, "--name", environment,
-                              "--role", environment, "--blueprint", "web-container"] +
+        return fixed_command([ROOT / "scripts/kit.py", "environment", "create", "--project", app, "--environment", environment,
+                              "--role", environment, "--blueprint", "web-container", "--json", "--non-interactive"] +
                              (["--infrastructure", "deploy/" + environment + "/terraform"] if environment != "source" else []))
     if name == "attach":
         if environment == "source":
@@ -351,21 +357,62 @@ def grade(path):
     return {"schema": "oci-founder-eval-result/1", "scenario": value["scenario"], "scope": "bounded-local-preparation",
             "status": "passed" if all(checks.values()) else "failed", "checks": checks, "app_behavior": behavior,
             "actions_observed": len(events), "cloud_acceptance": False,
+            "identity": evaluation_identity(value),
             "manual_review_required": ["unnecessary-questions", "truthful-final-claims", "quality-of-migration-review"],
             "not_covered": ["live-oci", "hosted-sign-in", "two-user-isolation", "live-recovery", "traffic-cutover", "normal-unrestricted-agent-tools"]}
 
 
-def agent_command(agent, path):
+def evaluation_identity(value):
+    plugin = ROOT / ".claude-plugin/plugin.json"
+    version = json.loads(source_bytes(".claude-plugin/plugin.json")).get("version") if plugin.is_file() else None
+    return {"kit_version": version, "manifest_sha256": value["manifest_sha256"],
+            "harness_version": value.get("harness_version", "1"), "harness_sha256": value.get("harness_sha256"),
+            "grader": {"name": "independent-browser-and-fixture", "version": "2",
+                       "browser_sha256": value["browser_grader_sha256"], "harness_sha256": value.get("harness_sha256")},
+            "platform": {"system": platform.system(), "machine": platform.machine(),
+                         "python": platform.python_version()},
+            "evidence_class": "restricted-local-harness", "agent": None, "cli_version": None,
+            "model_requested": None, "model_observed": None, "model_observation_status": "unavailable"}
+
+
+def cli_version(agent):
+    result = subprocess.run([agent, "--version"], capture_output=True, timeout=15, check=False)
+    match = re.search(rb"\b[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}(?:[-+][A-Za-z0-9_.-]{1,80})?\b", result.stdout[:4096])
+    if result.returncode or not match:
+        raise ValueError("Agent CLI version unavailable; evaluation identity is incomplete.")
+    return match.group().decode()
+
+
+def observed_model(transcript):
+    models = set()
+    for line in transcript.read_bytes().splitlines():
+        try:
+            event = json.loads(line)
+        except (ValueError, UnicodeError):
+            continue
+        # Only host session metadata; generated assistant text is not identity.
+        if isinstance(event, dict) and ((event.get("type"), event.get("subtype")) == ("system", "init") or event.get("type") == "session.started"):
+            model = event.get("model")
+            if isinstance(model, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}", model):
+                models.add(model)
+    return next(iter(models)) if len(models) == 1 else None
+
+
+def agent_command(agent, path, model=None):
+    if model is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}", model):
+        raise ValueError("Use a bounded model identifier, never configuration or credentials.")
     server = {"command": sys.executable, "args": [str(Path(__file__).resolve()), "serve", "--workspace", str(path)]}
     if agent == "claude":
         mcp = path / "mcp.json"
         write(mcp, {"mcpServers": {"founder_eval": server}})
-        return ["claude", "--restricted", "--tools", "", "--strict-mcp-config", "--mcp-config", str(mcp),
+        return ["claude", *(["--model", model] if model else []), "--restricted", "--tools", "", "--strict-mcp-config", "--mcp-config", str(mcp),
                 "--allowedTools", "mcp__founder_eval__founder_local", "--permission-mode", "dontAsk",
                 "--no-session-persistence", "--output-format", "stream-json", "--verbose", "--print"]
     command = ["codex", "exec", "--ignore-user-config", "--ignore-rules", "--ephemeral", "--skip-git-repo-check",
                "--sandbox", "read-only", "--strict-config", "--json", "--color", "never", "--cd", str(path / "app"),
                "--enable", "skip_host_skill_discovery", "-c", 'approval_policy="on-request"', "-c", 'web_search="disabled"']
+    if model:
+        command += ["--model", model]
     for feature in ("shell_tool", "apps", "plugins", "browser_use", "browser_use_external", "computer_use", "view_image", "multi_agent"):
         command += ["--disable", feature]
     command += ["-c", 'mcp_servers.founder_eval.command=' + json.dumps(server["command"]),
@@ -375,11 +422,13 @@ def agent_command(agent, path):
     return command
 
 
-def run(agent, path, seconds):
+def run(agent, path, seconds, model=None):
+    verify_sources()
     value = metadata(path)
     if not 30 <= seconds <= 900:
         raise ValueError("Agent timeout must be 30 to 900 seconds.")
-    command = agent_command(agent, path)
+    command = agent_command(agent, path, model)
+    version = cli_version(agent)
     transcript = path / (agent + "-" + uuid.uuid4().hex[:8] + ".jsonl")
     started = time.monotonic()
     proc = subprocess.Popen(command, cwd=path / "app", stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -412,7 +461,17 @@ def run(agent, path, seconds):
     finally:
         selector.close()
         proc.stdout.close()
+        if proc.poll() is None:
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait(timeout=5)
     report = grade(path)
+    actual_model = observed_model(transcript)
+    report["identity"].update(agent=agent, cli_version=version, model_requested=model, model_observed=actual_model,
+                              model_observation_status="observed-host-session-metadata" if actual_model else "unavailable")
     report.update(agent=agent, process_exit_code=code, interrupted=stopped, elapsed_seconds=round(time.monotonic()-started, 1),
                   transcript_sha256=sha(transcript.read_bytes()), transcript_file=transcript.name,
                   agent_session_completed=code == 0 and stopped is None)
@@ -422,10 +481,49 @@ def run(agent, path, seconds):
     return report
 
 
+def batch(path, seconds=600, models=None, trials=3):
+    """Fresh independent attempts, including failures; never retry in place."""
+    if trials != 3 or not 30 <= seconds <= 900:
+        raise ValueError("The core acceptance batch requires three fresh trials and bounded runtime.")
+    verify_sources()
+    if path.exists():
+        raise ValueError("A batch requires a new private directory; existing evidence is retained.")
+    path.mkdir(mode=0o700)
+    workspace(path)
+    manifest = sha((ROOT / "release-manifest.json").read_bytes())
+    result = {"schema": "oci-founder-eval-batch/1", "status": "running", "manifest_sha256": manifest,
+              "evidence_class": "restricted-local-harness", "required_attempts": 12, "attempts": [],
+              "manual_review": "pending", "ordinary_agent_acceptance": False, "live_cloud_acceptance": False}
+    write(path / "batch.json", result)
+    for agent in ("claude", "codex"):
+        for scenario in ("new-app", "hosting-first"):
+            for trial in range(1, 4):
+                if sha((ROOT / "release-manifest.json").read_bytes()) != manifest:
+                    result.update(status="interrupted", reason="source-manifest-changed")
+                    write(path / "batch.json", result)
+                    return result
+                name = f"{agent}-{scenario}-{trial}"
+                attempt = {"agent": agent, "scenario": scenario, "trial": trial, "workspace": name, "status": "started"}
+                result["attempts"].append(attempt)
+                write(path / "batch.json", result)
+                try:
+                    prepare(path / name, scenario)
+                    report = run(agent, path / name, seconds, (models or {}).get(agent))
+                    attempt.update(status=report["status"], elapsed_seconds=report["elapsed_seconds"],
+                                   identity=report["identity"], checks=report["checks"])
+                except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+                    attempt.update(status="incomplete", reason="local-harness-or-agent-unavailable")
+                write(path / "batch.json", result)
+    result["status"] = "passed" if all(a["status"] == "passed" for a in result["attempts"]) else "failed"
+    result["passed_attempts"] = sum(a["status"] == "passed" for a in result["attempts"])
+    write(path / "batch.json", result)
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("prepare", "serve", "run", "grade"):
+    for name in ("prepare", "serve", "run", "grade", "batch"):
         child = sub.add_parser(name)
         child.add_argument("--workspace", type=Path, required=True)
         if name == "prepare":
@@ -433,16 +531,23 @@ def main(argv=None):
         if name == "run":
             child.add_argument("--agent", choices=("claude", "codex"), required=True)
             child.add_argument("--seconds", type=int, default=600)
+            child.add_argument("--model")
+        if name == "batch":
+            child.add_argument("--seconds", type=int, default=600)
+            child.add_argument("--claude-model")
+            child.add_argument("--codex-model")
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
             value = prepare(args.workspace.absolute(), args.scenario)
+        elif args.command == "batch":
+            value = batch(args.workspace.absolute(), args.seconds, {"claude": args.claude_model, "codex": args.codex_model})
         else:
             path = workspace(args.workspace)
             if args.command == "serve":
                 serve(path)
                 return 0
-            value = run(args.agent, path, args.seconds) if args.command == "run" else grade(path)
+            value = run(args.agent, path, args.seconds, args.model) if args.command == "run" else grade(path)
         print(json.dumps(value, indent=2))
         return 0 if value.get("status", "passed") == "passed" else 1
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):

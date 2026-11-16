@@ -114,7 +114,7 @@ python3 oci-founder-kit/scripts/install.py --project /absolute/path/to/my-app --
 
 The target must already exist. Add `--dry-run` to preview the selected agents
 and skill names without writing files. This does not create a project progress
-record. Initialize one later with `project.py start --mode existing`; do not
+record. Initialize one later with `kit.py start --mode existing`; do not
 reinstall or delete working app files. Git clone, coding-agent sessions and
 later OCI operations have their own network and account requirements.
 
@@ -137,24 +137,26 @@ provides full prompts, first checkpoints and continuation guidance.
 From the same application folder, inspect the local record:
 
 ```sh
-python3 .oci-founder-kit/scripts/project.py status --project .
+python3 .oci-founder-kit/scripts/kit.py environment list --project .
+python3 .oci-founder-kit/scripts/kit.py status --project . --environment rehearsal
 ```
 
 `status` reads observations without updating the project record. To refresh the
 record and receive the next action:
 
 ```sh
-python3 .oci-founder-kit/scripts/project.py resume --project .
+python3 .oci-founder-kit/scripts/kit.py next --project . --environment rehearsal
 ```
 
 Neither command runs app tests, contacts OCI or grants approval. Known private
 paths are excluded from content reads; other source files are hashed locally.
-This is not a secret detector. `start --mode continue` is an alias for resume and uses the saved
-choices. Changed source, helper code or evidence makes earlier records stale.
+This is not a secret detector. Replace `rehearsal` with the existing named target.
+For legacy records with no named environments, omit the flag only after inspection.
+`start --mode continue` preserves the explicit environment selection and saved choices. Changed source, helper code or evidence makes earlier records stale.
 See [recording actual evidence](PROGRESS.md#private-project-checklist).
 
 For an installation with no project state, initialize it once with
-`project.py start --mode existing`, using the intended task, agent and stack.
+`kit.py start --mode existing`, using the intended task, agent and stack.
 For an older kit without `project.py`, review and update it first using the new
 source helper below. Do not recreate an existing app to obtain a progress file.
 

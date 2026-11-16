@@ -39,7 +39,7 @@ Requires Git and Python 3.11+. Run from a directory outside your application:
 
 ```sh
 git clone https://github.com/karthiksuku/oci-founder-kit.git
-python3 oci-founder-kit/scripts/project.py start --project /absolute/path/to/my-app \
+python3 oci-founder-kit/scripts/kit.py start --project /absolute/path/to/my-app \
   --task build --mode existing --agent both
 cd /absolute/path/to/my-app
 ```
@@ -65,7 +65,7 @@ clone the kit (or reuse your existing clone):
 
 ```sh
 git clone https://github.com/karthiksuku/oci-founder-kit.git
-python3 oci-founder-kit/scripts/project.py start --project /absolute/path/to/my-app \
+python3 oci-founder-kit/scripts/kit.py start --project /absolute/path/to/my-app \
   --task build --mode new --agent both --blueprint fullstack-container
 cd /absolute/path/to/my-app
 python3 local_preview.py start
@@ -135,13 +135,13 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.6.0 preview.** Attach a reusable OCI target to your own app, keep explicit source/rehearsal/production environments, and check workload prerequisites before deployment. Backend and deployment gates accept temporary sessions, with local expiry and identity checks. Hosting-first compatibility checks retain existing database, storage and sign-in; a private local dashboard shows current evidence and unknowns. Existing v0.5 commands and saved progress remain supported. [Follow the complete workflow →](docs/ENVIRONMENTS.md)
+**0.7.0 preview.** One project-local interface connects app packaging, OCI prerequisites, explicit environments, reviewed releases and private operating evidence. Package Next.js, FastAPI or your Docker app without replacing its source. The optional SaaS essentials pack adds durable jobs, private attachments and signed webhooks with a separate worker identity. Hosting migration retains your existing data and identity. Existing v0.5/v0.6 commands and records remain supported. [Follow the complete workflow →](docs/WORKFLOW.md)
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The Taskboard defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets. The [reusable web target](blueprints/web-container/README.md) retains your app's services and requires its own tested authentication and secret adapter. Verify deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.6.0.md)
+The Taskboard defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets. The [reusable web target](blueprints/web-container/README.md) retains your app's services and requires its own tested authentication and secret adapter. Verify deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.7.0.md)
 
 ## Go deeper
 

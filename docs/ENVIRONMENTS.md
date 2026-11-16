@@ -65,8 +65,10 @@ has no OCI deployment root. No commands silently select production.
 `--convert-legacy` first backs up the old progress record and evidence into
 `.oci-kit/environment-backups/`. The original v0.5 record remains intact. The new
 environment begins with empty checkpoints; old approvals, receipts and assertions
-are not copied. Existing commands without `--environment` continue to operate on
-the original record. Review any `.pending-*` directory after interruption rather
+are not copied. The lower-level `project.py` commands without `--environment`
+retain compatibility with the original record. The `oci-kit` facade requires
+explicit selection whenever named environments exist. Review any `.pending-*`
+directory after interruption rather
 than overwriting or automatically deleting it.
 
 ## 3. Configure the private target and run the doctor
@@ -127,7 +129,18 @@ expire after 24 hours. Recheck before relying on them.
 ## 4. Deploy and verify the selected workload
 
 Prepare the private seven-field native backend JSON described in the state guide.
-Bind it to this environment before initialization or resource planning:
+Attachment supplies `backend.tf.json.example`; the gate requires the actual
+canonical declaration. When that destination is absent, copy it without adding
+inline backend settings:
+
+```sh
+cp -n deploy/rehearsal/terraform/backend.tf.json.example deploy/rehearsal/terraform/backend.tf.json
+```
+
+If the destination already exists, inspect it against the state guide instead of
+replacing it. Bind the complete private target and backend to this environment
+before initialization or resource planning. Preserve fields supplied by a prior
+foundation handoff; `configure` replaces the target selection:
 
 ```sh
 python3 .oci-founder-kit/scripts/environments.py configure --project . \
@@ -156,9 +169,13 @@ approval. Missing or changed bindings, another environment's destination, an old
 unbound plan and target-variable mismatches stop the gate. Source environments
 cannot select OCI backends or execute these deployment operations.
 
-Named deployment gates support the reviewed, unmodified Terraform sources of
-`web-container` and `fullstack-container`. Private variable files and the canonical
-native backend are configurable. Additional or modified infrastructure code needs
+Named web deployment gates support the reviewed, unmodified Terraform sources of
+`web-container` and `fullstack-container`. The optional
+[SaaS worker](../blueprints/saas-essentials/README.md) has its own explicitly bound
+component, infrastructure root, image, compartment and backend; use
+`oci-kit release ... --component worker` for its operations. Native Function role
+activation remains blocked pending its separate acceptance. Private variable
+files and the canonical native backend are configurable. Additional or modified infrastructure code needs
 separate reviewed support; an environment label alone cannot prove its target.
 The gate checks the evaluated workload compartment and image as well as the
 selected configuration. Shared registry, Vault and home-region IAM scopes still

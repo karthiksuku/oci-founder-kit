@@ -34,14 +34,29 @@ def project_module():
     return module
 
 
-def validate(config: dict):
+def validate(config: dict, *, component: bool = False):
     fields = {"schema", "name", "role", "blueprint", "infrastructure", "target"}
-    if (not isinstance(config, dict) or not fields.issubset(config) or not set(config).issubset(fields | {"backend"})
+    if (not isinstance(config, dict) or not fields.issubset(config) or not set(config).issubset(fields | {"backend", "components"})
             or config["schema"] != "oci-kit-environment/1"
             or not isinstance(config["name"], str) or not NAME.fullmatch(config["name"])
-            or config["role"] not in ROLES or config["blueprint"] not in BLUEPRINTS
+            or config["role"] not in ROLES or config["blueprint"] not in ((*BLUEPRINTS, "saas-essentials") if component else BLUEPRINTS)
             or not isinstance(config["target"], dict) or not set(config["target"]).issubset(TARGET_FIELDS)):
         raise ValueError("Invalid environment selection.")
+    if "components" in config:
+        components = config["components"]
+        if (component or config["role"] == "source" or not isinstance(components, dict)
+                or not set(components).issubset({"worker"})):
+            raise ValueError("Only an explicit worker component is supported for an OCI target.")
+        for role, selected in components.items():
+            if (not isinstance(selected, dict) or set(selected) != {"blueprint", "infrastructure", "target", "backend"}
+                    or selected["blueprint"] != "saas-essentials"):
+                raise ValueError("Worker components require the reviewed SaaS blueprint and independent bindings.")
+            validate({"schema": config["schema"], "name": config["name"], "role": config["role"], **selected}, component=True)
+            for field in ("region", "profile", "auth"):
+                if selected["target"].get(field) != config["target"].get(field):
+                    raise ValueError("Components must explicitly share their environment region and operator context.")
+            if not selected["target"].get("compartment_id") or not config["target"].get("compartment_id"):
+                raise ValueError("Bind distinct dedicated web and worker compartments before adding a component.")
     if config.get("backend") is not None:
         validate_backend(config["backend"])
         if config["role"] == "source":
@@ -103,28 +118,36 @@ def overlap(left: str, right: str) -> bool:
     return left == right or left.startswith(right + "/") or right.startswith(left + "/")
 
 
+def component_configs(config: dict) -> list[dict]:
+    """Expand explicit role bindings without selecting a default deployment target."""
+    main = {key: value for key, value in config.items() if key != "components"}
+    return [dict(main, component_role="web"), *[
+        {"schema": config["schema"], "name": config["name"], "role": config["role"],
+         **selected, "component_role": role} for role, selected in config.get("components", {}).items()]]
+
+
 def validate_isolation(config: dict, configs: list[dict]):
-    """Refuse known sibling target/state collisions; unknowns never prove isolation."""
+    """Refuse known component/environment target and state collisions."""
     validate(config)
-    for other in configs:
-        validate(other)
-        if other["name"] == config["name"]:
-            continue
-        if config["infrastructure"] and other["infrastructure"] and overlap(
-                config["infrastructure"].casefold(), other["infrastructure"].casefold()):
-            raise ValueError("Environments must use distinct non-overlapping infrastructure roots.")
-        if config["role"] == "source" or other["role"] == "source":
-            continue
-        compartment = config["target"].get("compartment_id")
-        if compartment and compartment == other["target"].get("compartment_id"):
-            raise ValueError("Rehearsal and production need distinct dedicated compartments.")
-        selected, existing = config.get("backend"), other.get("backend")
-        if not selected or not existing:
-            continue
-        if all(selected[key] == existing[key] for key in ("region", "namespace", "bucket")):
-            if any(overlap(selected[left], existing[right]) for left in ("key", "workspace_key_prefix")
-                   for right in ("key", "workspace_key_prefix")):
-                raise ValueError("Environment state keys and workspace prefixes overlap in the same bucket.")
+    all_configs = [config, *[item for item in configs if item["name"] != config["name"]]]
+    for item in all_configs:
+        validate(item)
+    expanded = [item for parent in all_configs for item in component_configs(parent)]
+    for index, selected in enumerate(expanded):
+        for other in expanded[index + 1:]:
+            if selected["infrastructure"] and other["infrastructure"] and overlap(
+                    selected["infrastructure"].casefold(), other["infrastructure"].casefold()):
+                raise ValueError("Environments and components need distinct non-overlapping infrastructure roots.")
+            if selected["role"] == "source" or other["role"] == "source":
+                continue
+            compartment = selected["target"].get("compartment_id")
+            if compartment and compartment == other["target"].get("compartment_id"):
+                raise ValueError("Environments and runtime components need distinct dedicated compartments.")
+            left, right = selected.get("backend"), other.get("backend")
+            if left and right and all(left[key] == right[key] for key in ("region", "namespace", "bucket")):
+                if any(overlap(left[a], right[b]) for a in ("key", "workspace_key_prefix")
+                       for b in ("key", "workspace_key_prefix")):
+                    raise ValueError("Environment or component state destinations overlap in the same bucket.")
 
 
 def private_directory(parent: int, name: str, p, *, create: bool = False) -> int:
@@ -247,10 +270,18 @@ def create(project: Path, *, name: str, role: str, blueprint: str = "web-contain
                 "scope": "Local configuration only. Select this environment explicitly on every operation. Use distinct backend keys and reviewed plans."}
 
 
-def configure(project: Path, *, name: str, target: dict, backend: dict | None = None) -> dict:
+def configure(project: Path, *, name: str, target: dict, backend: dict | None = None, components: dict | None = None,
+              expected_binding: dict | None = None) -> dict:
     p = project_module()
     with p.Store(project, environment=name, write=True) as store:
+        if expected_binding is not None:
+            actual = {"target_sha256": p.digest(p.canonical(store.environment_config)),
+                      "source_sha256": p.source_fingerprint(store.root_fd), "kit_sha256": p.kit_fingerprint()}
+            if expected_binding != actual:
+                raise ValueError("Source, kit or environment changed after local review; prepare a new proposal.")
         config = dict(store.environment_config, target=target)
+        if components is not None:
+            config["components"] = components
         if backend is not None:
             config["backend"] = backend
         validate_isolation(config, list_configs(store, p))
@@ -295,6 +326,8 @@ def main(argv=None):
         if command != "list":
             child.add_argument("--name", required=True)
             child.add_argument("--target-file", type=Path, required=command == "configure")
+            if command == "configure":
+                child.add_argument("--components-file", type=Path)
             child.add_argument("--backend-config", type=Path,
                                help="Private native backend JSON; store only its five nonsecret destination fields.")
         if command == "create":
@@ -312,7 +345,8 @@ def main(argv=None):
             target = read_target(args.target_file) if args.target_file else {}
             backend = read_backend(args.backend_config) if args.backend_config else None
             if args.command == "configure":
-                result = configure(args.project, name=args.name, target=target, backend=backend)
+                result = configure(args.project, name=args.name, target=target, backend=backend,
+                                   components=read_target(args.components_file) if args.components_file else None)
             else:
                 result = create(args.project, name=args.name, role=args.role, blueprint=args.blueprint,
                                 infrastructure=args.infrastructure, target=target, convert_legacy=args.convert_legacy,

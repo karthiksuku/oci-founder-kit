@@ -19,6 +19,9 @@ import sys
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
+_sbom_spec = importlib.util.spec_from_file_location("release_sbom", ROOT / "scripts/release_sbom.py")
+_sbom = importlib.util.module_from_spec(_sbom_spec)
+_sbom_spec.loader.exec_module(_sbom)
 
 
 def helpers(root: Path):
@@ -91,6 +94,7 @@ def build(root: Path, output: Path) -> dict:
               "scope": "Verified manifest bytes only; publisher authentication requires separate trusted CI attestation."}
     assets = {record["archive"]: archive, "release-manifest.json": content["release-manifest.json"],
               "BUILD-METADATA.json": (json.dumps(record, sort_keys=True, indent=2) + "\n").encode()}
+    assets["SBOM.spdx.json"] = (json.dumps(_sbom.inventory(content, record["archive"], record["sha256"], version), sort_keys=True, indent=2) + "\n").encode()
     assets["SHA256SUMS"] = "".join(f"{digest(data)}  {name}\n" for name, data in sorted(assets.items())).encode()
     flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
     if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd or os.mkdir not in os.supports_dir_fd:

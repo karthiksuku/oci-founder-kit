@@ -1,6 +1,19 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('guide search filters local registry cards without persisting the query', async ({ page }) => {
+  await page.goto('./');
+  await page.getByLabel('Find a guide').fill('private operating');
+  await expect(page.locator('#guide-search-status')).toContainText('matching guides and capabilities');
+  expect(page.url()).not.toContain('private');
+  await page.getByLabel('Find a guide').fill('understand a running application');
+  await expect(page.locator('.capability-card:visible')).toHaveCount(1);
+  await expect(page.locator('.capability-card:visible')).toContainText('--environment rehearsal');
+  await expect(page.locator('.capability-card:visible .example-tag')).not.toContainText('oci-verified');
+  await page.getByLabel('Find a guide').fill('');
+  await expect(page.locator('.capability-card:visible')).toHaveCount(7);
+});
+
 test('all goal/agent choices produce useful distinct prompts and preserve the brief', async ({ page }) => {
   await page.goto('./');
   await page.locator('.brief-details summary').click();
@@ -143,7 +156,7 @@ test('editable Taskboard is opt-in with offline creation and a separate preview 
   await expect(page.locator('#checkpoint-title')).toContainText('editable Taskboard');
   await expect(page.locator('#generated-prompt')).toHaveValue(/project’s app\/ and terraform\//);
   await page.getByText('Prefer the terminal?', { exact: true }).click();
-  await expect(page.locator('#install-command')).toContainText('project.py start');
+  await expect(page.locator('#install-command')).toContainText('kit.py start');
   await expect(page.locator('#install-command')).toContainText('--blueprint fullstack-container');
   await expect(page.locator('#install-command')).not.toContainText('local_preview');
   await expect(page.locator('#taskboard-preview')).toContainText('python3 local_preview.py start');
@@ -259,8 +272,8 @@ test('new generic app, existing migration and continue have coherent commands an
   await page.locator('input[name="project"][value="continue"]').check();
   await expect(page.locator('#stack-help')).toContainText('does not create or replace an app');
   await page.locator('#stage').selectOption('cutover');
-  await expect(page.locator('#install-command')).toContainText('project.py status --project .');
-  await expect(page.locator('#install-command')).toContainText('project.py resume --project .');
+  await expect(page.locator('#install-command')).toContainText('kit.py environment list --project .');
+  await expect(page.locator('#install-command')).toContainText('kit.py next --project . --environment ENVIRONMENT');
   await expect(page.locator('#install-command')).not.toContainText('git clone');
   await expect(page.locator('#checkpoint-title')).toContainText('migration cutover');
   await expect(page.locator('#generated-prompt')).toHaveValue(/not evidence of completion or approval/);

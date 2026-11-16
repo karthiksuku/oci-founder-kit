@@ -17,7 +17,7 @@ WORKLOAD = {CI, "oci_load_balancer_load_balancer", "oci_core_network_security_gr
             "oci_core_subnet", "oci_core_internet_gateway", "oci_core_nat_gateway", "oci_core_service_gateway",
             "oci_core_route_table", "oci_core_security_list", "oci_psql_db_system", "oci_objectstorage_bucket",
             "oci_ons_notification_topic", "oci_ons_subscription", "oci_monitoring_alarm",
-            "oci_apigateway_gateway", "oci_apigateway_deployment"}
+            "oci_apigateway_gateway", "oci_apigateway_deployment", "oci_queue_queue"}
 PARENTS = {"oci_load_balancer_backend_set": ("load_balancer_id", "oci_load_balancer_load_balancer"),
            "oci_load_balancer_backend": ("load_balancer_id", "oci_load_balancer_load_balancer"),
            "oci_load_balancer_listener": ("load_balancer_id", "oci_load_balancer_load_balancer"),
@@ -138,6 +138,12 @@ def _verify(plan, stack, binding, kind):
         entry = (plan.get("variables") or {}).get(name)
         return entry.get("value") if isinstance(entry, dict) else None
 
+    if binding.get("component_role") == "worker":
+        files.require(binding["blueprint"] == "saas-essentials" and variable("name") == binding["environment"]
+                      and variable("web_compartment_ocid") == binding.get("web_compartment_id")
+                      and target["compartment_id"] != binding.get("web_compartment_id"),
+                      "Worker runtime identity and database environment must match the explicit component binding.")
+
     def iam_scope(address):
         base = address.split("[", 1)[0]
         if base in {"oci_identity_dynamic_group.runtime", "oci_identity_dynamic_group.app"}:
@@ -146,15 +152,17 @@ def _verify(plan, stack, binding, kind):
             compartment = target["compartment_id"]
         elif binding["blueprint"] == "fullstack-container" and base == "oci_identity_policy.runtime_secrets":
             compartment = (variable("production") or {}).get("security_compartment_ocid")
-        elif binding["blueprint"] == "web-container" and base == "oci_identity_policy.registry":
+        elif binding["blueprint"] in {"web-container", "saas-essentials"} and base == "oci_identity_policy.registry":
             compartment = (variable("registry") or {}).get("compartment_ocid")
-        elif binding["blueprint"] == "web-container" and base == "oci_identity_policy.secrets":
+        elif binding["blueprint"] in {"web-container", "saas-essentials"} and base == "oci_identity_policy.secrets":
             matched = re.fullmatch(r"oci_identity_policy\.secrets\[(.+)\]", address)
             key = json.loads(matched[1]) if matched else None
             references = variable("secret_references")
             files.require(isinstance(key, str) and isinstance(references, dict) and isinstance(references.get(key), dict),
                           "The secret policy lacks an explicit reviewed scope.")
             compartment = references[key].get("compartment_ocid")
+        elif binding["blueprint"] == "saas-essentials" and base == "oci_identity_policy.queue":
+            compartment = target["compartment_id"]
         else:
             raise files.ImageGateError("This IAM resource is outside the known workload blueprint; review it separately.")
         region = variable("home_region")
@@ -229,6 +237,6 @@ def _verify(plan, stack, binding, kind):
     files.require(bool(images), "The plan does not establish the actual app container and selected image.")
     return {"schema": "oci-named-workload-proof/1", "scope": "reviewed-flat-blueprint",
             "resources_checked": len(checked), "image_digest": digest,
-            "compartment_id": target["compartment_id"], "provider_definition": "reviewed-exact-source",
+            "compartment_id": target["compartment_id"], "component_role": binding.get("component_role", "web"), "provider_definition": "reviewed-exact-source",
             "shared_iam_scopes": [iam_scopes[key] for key in sorted(iam_scopes)],
             "iam_authorization": "separate-owner-review-required"}

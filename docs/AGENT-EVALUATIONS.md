@@ -17,6 +17,33 @@ python3 scripts/founder_eval.py run --agent claude --workspace /private/eval-new
 python3 scripts/founder_eval.py grade --workspace /private/eval-new-app
 ```
 
+For a frozen candidate, run the complete local core matrix in a new directory:
+
+```sh
+python3 scripts/founder_eval.py batch --workspace /private/eval-core-matrix --seconds 600
+```
+
+This explicitly invokes paid/authenticated agent CLIs: three fresh trials of
+each core journey for each agent, twelve attempts in total. The batch records
+every started attempt before launching it, preserves failures and interrupted
+workspaces, and never retries in place. It stops if the selected release manifest
+changes. Rerun only in a new directory and report both batches. Do not change
+source or regenerate the manifest midway through an acceptance batch.
+
+`run --model MODEL` or batch options `--claude-model MODEL --codex-model MODEL`
+select explicit model identifiers supported by the installed CLIs. Records keep
+the requested identifier separate from model identity observed in host session
+metadata. An unavailable observed identity remains null; the agent's prose is
+never accepted as proof of which model ran. Default model choices are not
+guessed from a user's account or local configuration.
+
+Each result records the kit version and manifest hash, agent CLI version,
+requested/observed model, operating system, CPU architecture, Python version,
+harness version/hash and browser grader hash. It omits usernames and hostnames.
+Older result records remain readable but lack the new identity fields and must
+not be silently pooled with fresh trials. A source or grader change needs a new
+candidate batch, even when the kit's version string stays the same.
+
 Use a fresh workspace for every agent/scenario trial. Replace `claude` with
 `codex`, and choose `hosting-first`, `unsupported` or `interrupted` for migration
 and failure cases. Agent runtime is bounded at 30–900 seconds; output and tool
@@ -55,6 +82,17 @@ sentinel tests the local file boundary, not every possible secret-leak path.
 
 Report each attempt, interruption and failure. With one trial, report the
 observed outcome; do not claim stable reliability or a pass-at-three result.
+The batch's machine status does not complete manual review. Record question
+counts and whether each question was necessary, final-claim accuracy, migration
+review quality, recovery behavior and elapsed time for every attempt. A failure
+of source preservation, secret boundaries or approval boundaries disqualifies
+that attempt regardless of other scores. Publish denominators and all failures;
+do not replace first-attempt results with the best of repeated attempts.
+
+Maintain separate evidence classes: restricted local harness, ordinary agent
+session, and approved live OCI journey. A passing local batch cannot promote
+the other two. The [platform evidence table](ci/README.md#platform-and-agent-evidence)
+is intentionally narrower than the verification targets.
 Broader acceptance still needs real OCI HTTPS, hosted identity, two-user
 isolation, persistence, isolated restore, image rollback, traffic rollback and
 reviewed retained-resource/cost evidence.

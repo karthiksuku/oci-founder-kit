@@ -20,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTORIES = {"skills", "scripts", "docs", "blueprints", "examples", "tests",
+DIRECTORIES = {"skills", "scripts", "docs", "blueprints", "examples", "tests", "recipes",
                ".claude-plugin", ".codex-plugin"}
 FILES = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "SECURITY.md",
          "CHANGELOG.md", "CONTRIBUTING.md", "plugin.json", ".gitignore", "release-manifest.json"}

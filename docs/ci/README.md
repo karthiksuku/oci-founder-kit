@@ -1,21 +1,24 @@
 # Validation and release artifacts
 
-The kit ships three reviewed GitHub Actions templates here:
+The kit ships reviewed GitHub Actions templates here:
 [checks.workflow.yml](checks.workflow.yml),
 [validate.workflow.yml](validate.workflow.yml) and
-[release.workflow.yml](release.workflow.yml). These templates are not active
+[release.workflow.yml](release.workflow.yml), plus
+[dependency-review.workflow.yml](dependency-review.workflow.yml). These templates are not active
 workflows. This release does not claim hosted CI runs or artifact attestations.
 A maintainer credential permitted to manage workflows must publish them before
 GitHub can run them. Do not bypass that permission or claim provenance before a
 successful trusted run and independent artifact verification.
 
-After reviewing all three templates, copy them together into a checkout:
+After reviewing the templates, copy them together into a checkout:
 
 ```sh
 mkdir -p .github/workflows
 cp docs/ci/checks.workflow.yml .github/workflows/checks.yml
 cp docs/ci/validate.workflow.yml .github/workflows/validate.yml
 cp docs/ci/release.workflow.yml .github/workflows/release.yml
+cp docs/ci/dependency-review.workflow.yml .github/workflows/dependency-review.yml
+cp docs/ci/dependabot.yml .github/dependabot.yml
 ```
 
 The commands above replace files at those exact destinations; compare existing
@@ -69,7 +72,7 @@ python3 scripts/release_archive.py --output-dir /tmp/founder-kit-release
 ```
 
 This creates the versioned `.tar.gz`, `release-manifest.json`,
-`BUILD-METADATA.json` and `SHA256SUMS`. Only verified manifest-listed source files
+`BUILD-METADATA.json`, `SBOM.spdx.json` and `SHA256SUMS`. Only verified manifest-listed source files
 enter the archive. Unlisted local files, credentials, plans and state are never
 discovered for packaging. Changed listed bytes, symlinks and existing output
 paths are refused. A failed write leaves partial assets for review.
@@ -88,36 +91,101 @@ separate artifacts with different bytes and different verification requirements.
 
 ## Trusted release provenance
 
-`release.yml` runs on publication of a tagged GitHub release. It runs all checks,
-then requires an exact `vMAJOR.MINOR.PATCH` tag matching the plugin version and a
-commit in main's reviewed history. Configure the **release** environment with
-required reviewers and protected release tags. Creating an environment name in
-YAML does not create those protections for you.
+`release.yml` runs on a push of an already reviewed version tag. All tests run
+before building the archive. The version must match the plugin metadata, and
+the source commit must be in main's reviewed history. Configure protected release
+tags and the **release** environment with required reviewers before activation;
+naming an environment in YAML does not configure these protections.
 
-Only the publication job receives `contents: write`, `attestations: write` and
-`id-token: write`. It builds the assets once from the verified manifest, generates
-GitHub provenance for each exact file, verifies the signer workflow/source
-commit/tag using `gh attestation verify`, uploads those bytes without overwrite,
-then downloads them to compare their digests. It does not create or move tags,
-create another release, rebuild during upload, alter a latest-release pointer,
-or delete/replace assets after a failure. A partial upload needs owner review.
-Forked repositories do not publish through the supplied release entry point.
+The sequence is **reviewed tag → tests → build → empty draft → attest → attach →
+download and authenticate → publish**. The publication job alone receives
+`contents: write`, `attestations: write` and `id-token: write`. It rechecks remote
+tag identity, refuses existing/partly populated releases, never overwrites an
+asset, and verifies every downloaded asset against the expected source commit,
+tag, repository, signer workflow and its local SHA-256. It publishes a preview
+without changing the latest-release pointer, then verifies public metadata and
+tag identity again. A failed run leaves its draft and assets for owner review;
+it never deletes or replaces evidence to make a rerun pass.
 
-To verify a downloaded archive, select the exact tag and commit, check
-`SHA256SUMS`, then run a command with the real version and commit substituted:
+[Immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)
+lock assets and tags when the draft is published. Enable that setting only after
+the complete draft sequence passes in the authorized repository. Existing
+releases do not retroactively receive these guarantees. The template does not
+change repository settings or claim a SLSA level.
+
+Use a trusted checkout's consumer verifier with independently selected source
+identity and archive digest. Do not execute a verifier extracted from an
+unverified download. Replace all placeholders before running:
 
 ```sh
-gh attestation verify oci-founder-kit-VERSION.tar.gz \
-  --repo karthiksuku/oci-founder-kit \
-  --signer-workflow karthiksuku/oci-founder-kit/.github/workflows/release.yml \
-  --source-ref refs/tags/vVERSION --source-digest COMMIT_SHA \
-  --deny-self-hosted-runners
+python3 scripts/verify_release.py --assets /path/to/downloads \
+  --repo karthiksuku/oci-founder-kit --workflow .github/workflows/release.yml \
+  --tag vVERSION --commit COMMIT_SHA --archive-sha256 ARCHIVE_SHA256
 ```
 
-Do not run the literal placeholders. Extract into a fresh directory only after
-verification, then run its `scripts/release_manifest.py check` before installing.
-A local archive or an uploaded checksum file must never be described as attested
-unless this verification succeeds for that artifact and expected source.
+The verifier requires exactly the versioned archive, manifest, build metadata,
+SPDX inventory and checksum file. It checks byte identity and authenticated
+provenance for every asset using `gh attestation verify`, with the repository,
+workflow, source ref, source commit and signer commit bound explicitly. Missing
+attestations fail; there is no checksum-only fallback. The CLI's normal trusted
+root and network configuration are used. GitHub credentials remain under normal
+CLI management; do not put tokens in arguments or release files.
+
+Extract only after verification, into a fresh directory, then run the extracted
+`scripts/release_manifest.py check` before installation. GitHub's automatically
+generated source tarballs have different bytes and are not these uploaded
+artifacts. Where immutable release attestations are available, GitHub's
+[release integrity check](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/verify-release-integrity)
+provides an additional release-level check.
+
+## Dependency inventory and review
+
+`SBOM.spdx.json` is deterministic SPDX 2.3 generated from the exact archived
+file bytes. Every file has a SHA-256 entry; the archive package carries the
+archive digest. npm lock declarations, directly pinned Python requirements and
+Terraform lock declarations are identified separately from bundled files.
+Unresolved Python transitives, unlocked dependencies, Docker base layers and OS
+packages are explicitly outside this source inventory. The fixed inventory
+creation timestamp supports reproducibility and is not a claimed build date.
+The release workflow creates both build provenance for the inventory and an
+SBOM attestation binding the inventory to the actual archive.
+
+The credential-free image job builds the public Taskboard and ordinary web
+reference images, selects each exact local image ID, then scans it with pinned
+Syft. These separate SPDX inventories include discoverable installed language
+and OS packages and are retained as CI artifacts for 14 days. An image scan is
+neither an OCIR publication nor a deployed-workload inventory. Catalogers can miss
+packages; a source SBOM must never be substituted for this runtime scan. The kit
+does not scan or upload a founder's application inventory automatically.
+
+Dependency review checks PR diffs for known high/critical vulnerabilities in
+runtime, development and unknown scopes. It needs GitHub dependency graph/review
+availability. It does not silently pass missing service access and does not
+post PR comments. License acceptance remains a separate source review; the
+vulnerability check does not establish license clearance or comprehensive
+vulnerability coverage.
+
+The [Dependabot template](dependabot.yml) proposes weekly action, npm, CI Python,
+Terraform and Docker updates. Review each PR, source, license, changed behavior
+and tests; there is no automatic merge. Pinning direct SDK requirements does
+not lock Python transitive resolution. New recipes with additional manifests
+need explicit update coverage rather than an assumed repository-wide guarantee.
+
+## Platform and agent evidence
+
+| Combination | Recorded evidence | Remaining gate |
+| --- | --- | --- |
+| Linux, Python 3.12 | Candidate clean installation and v0.5/v0.6 upgrade checks; exact completed results in the [preview record](https://github.com/karthiksuku/oci-founder-kit/releases/tag/v0.7.0) | Preserve application and saved-record bytes on each frozen candidate |
+| Linux, Python 3.11 | Hosted validation target in the template | Successful hosted run required |
+| macOS, Python 3.13 | Hosted installation/upgrade target in the template | Successful hosted run required |
+| Windows / WSL2 | No runtime acceptance recorded | Dedicated installation, permissions and agent trials required |
+| Claude Code and Codex, restricted local harness | Three-trial core matrices, individual attempts and separate manual outcomes are recorded in the [preview record](https://github.com/karthiksuku/oci-founder-kit/releases/tag/v0.7.0) | A machine pass is not founder-success acceptance; review reporting defects and scope limits |
+| Ordinary Claude Code / Codex sessions on OCI | No complete new-app or hosting-first acceptance recorded | Approved sandbox, HTTPS/sign-in/isolation/persistence/restore/rollback |
+
+Installed CLI versions are not a tested support claim. New evaluation results
+record exact kit, CLI, requested/observed model, platform and grader identities.
+Unknown model identity remains unknown. [Evaluation instructions](../AGENT-EVALUATIONS.md)
+keep restricted harness, ordinary agent and live-cloud results separate.
 
 ## Reviewed public dependencies
 
@@ -134,8 +202,12 @@ reproducibility claim does not claim those test environments are reproducible.
 | [Setup Node](https://github.com/actions/setup-node/tree/v7.1.0) | 7.1.0 | `949feb2413d6458794dcd2491c4babbbce0c15c1` |
 | [Setup Terraform](https://github.com/hashicorp/setup-terraform/tree/v4.0.1) | 4.0.1 | `dfe3c3f87815947d99a8997f908cb6525fc44e9e` |
 | [Build provenance](https://github.com/actions/attest-build-provenance/tree/v4.2.2) | 4.2.2 | `4d101475d8b20a2381f78447822ac1eab6504dd8` |
+| [Attest / SBOM](https://github.com/actions/attest/tree/v4.1.0) | 4.1.0 | `59d89421af93a897026c735860bf21b6eb4f7b26` |
+| [Dependency review](https://github.com/actions/dependency-review-action/tree/v5.0.0) | 5.0.0 | `a1d282b36b6f3519aa1f3fc636f609c47dddb294` |
+| [Image SBOM](https://github.com/anchore/sbom-action/tree/v0.24.3) | 0.24.3 | `66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c` |
 
-Actions execute from their publishers; their source is not copied into this kit.
+The image cataloger is [Syft 1.57.1](https://github.com/anchore/syft/releases/tag/v1.57.1);
+its version is explicitly pinned in addition to the SBOM action. Actions execute from their publishers; their source is not copied into this kit.
 The signer-test pins are [OCI SDK 2.191.0](https://pypi.org/project/oci/2.191.0/),
 [cryptography 50.0.2](https://pypi.org/project/cryptography/50.0.2/) and
 [pyOpenSSL 26.4.0](https://pypi.org/project/pyOpenSSL/26.4.0/), checked against

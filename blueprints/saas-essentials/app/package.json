@@ -1,0 +1,28 @@
+{
+  "name": "oci-customer-requests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional customer-request SaaS reference: authenticated attachments, durable inbox/outbox and OCI Queue worker",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "worker": "node src/worker.js",
+    "migrate": "node src/migrate.js"
+  },
+  "dependencies": {
+    "connect-pg-simple": "10.0.0",
+    "express": "5.2.1",
+    "express-session": "1.19.0",
+    "oci-common": "2.142.2",
+    "oci-objectstorage": "2.142.2",
+    "oci-queue": "2.142.2",
+    "oci-secrets": "2.142.2",
+    "openid-client": "6.8.9",
+    "pg": "8.23.1"
+  },
+  "license": "UPL-1.0"
+}

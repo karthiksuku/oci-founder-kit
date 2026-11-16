@@ -90,9 +90,9 @@ export function handoff(raw: Selection) {
     summary: continuing ? `Focus: ${stages[input.stage].label.toLowerCase()}. Your agent checks the evidence before continuing.` : taskboard ? 'An editable Node.js/PostgreSQL app, installed skills, then a separate local Docker preview.' : tasks[input.task].goal,
     prerequisites: continuing
       ? ['The same app folder and your coding agent.', 'Existing progress is context; current checks establish what is ready.', 'A missing local project record is a recovery step, not a reason to recreate the app.']
-      : [input.project === 'new' ? 'A new or empty app folder, outside the kit checkout.' : 'An existing app folder; an empty folder also works for OCI setup.', 'Linux, macOS or WSL2; Git, Python 3.11+ and your coding agent account.', taskboard ? 'Running the preview also needs local Docker and Compose.' : 'Your app’s runtime for local tests. OCI access can be configured later.'],
+      : [input.project === 'new' ? 'A new or empty app folder, outside the kit checkout.' : 'An existing app folder; an empty folder also works for OCI setup.', 'Git, Python 3.11+ and your coding agent account. Linux is tested; macOS/WSL2 acceptance is pending.', taskboard ? 'Running the preview also needs local Docker and Compose.' : 'Your app’s runtime for local tests. OCI access can be configured later.'],
     terminalHelp: continuing
-      ? 'Run from the same app folder. Status reads local observations; resume refreshes local records without running app tests or cloud operations. If this kit version or its saved project record is absent, use the continuation prompt to inspect and recover the existing project first.'
+      ? 'Run from the same app folder. List the existing environments first, then replace ENVIRONMENT with the intended named target. Next refreshes local records without running app tests or cloud operations. For an older project with no named environments, omit the flag only after inspection. If this kit version or its saved project record is absent, use the continuation prompt to inspect and recover the existing project first.'
       : taskboard
         ? 'Run from outside the target project. Replace the example path with a new folder under an existing parent, or an empty existing folder. Creation is offline; existing files are never overwritten. Starting the preview is a separate step.'
         : input.project === 'new' ? 'Run from outside the target project. Use a new folder under an existing parent or an empty existing folder. The helper creates the project record and skills, with no generated app unless you explicitly chose Taskboard.' : 'Run from outside your app folder. The target folder must already exist. Replace the example path with its absolute path. If already installed, choose Continue; do not remove existing files to make installation pass.',
@@ -111,7 +111,7 @@ export function createPrompt(raw: Selection & { brief: string }): string {
     'Inspect the project and any existing OCI Founder Kit installation first. If installed, check its status and use its current skills; do not reinstall or overwrite it.',
     input.project === 'new' ? 'I am starting a new project. Use my intended empty project folder; preserve any existing files if the folder is not empty.' : 'I am working in an existing project. Preserve its source, instructions, services and uncommitted work.',
     ...(taskboard ? [
-      `I explicitly choose the editable Node.js/PostgreSQL Taskboard starter. From a kit clone outside my target project, run python3 scripts/project.py start --project /absolute/path/to/my-app --task build --mode new --agent ${input.agent} --blueprint fullstack-container, replacing the example path with my intended project path.`,
+      `I explicitly choose the editable Node.js/PostgreSQL Taskboard starter. From a kit clone outside my target project, run python3 scripts/kit.py start --project /absolute/path/to/my-app --task build --mode new --agent ${input.agent} --blueprint fullstack-container, replacing the example path with my intended project path.`,
       'Use a new folder under an existing parent or an empty existing folder. Refuse any overwrite. If the app already exists, inspect it and continue without regenerating it.',
       'Creation copies files and skills offline; it does not start Docker or deploy anything. Edit the project’s app/ and terraform/ files, not the hidden kit’s reference copy.',
       'From the created project, use python3 local_preview.py start when Docker and Compose are available. Explain missing prerequisites; do not claim the preview ran if it did not.',
@@ -135,7 +135,7 @@ export function resumePrompt(raw: Selection): string {
   return [
     `Use ${entry} to continue this project’s ${input.task === 'setup' ? 'OCI setup' : input.task === 'migrate' ? 'migration to OCI' : 'local app build and OCI preparation'}.`,
     'Inspect the existing code, project instructions, kit installation status and docs/PROGRESS.md first. Use the installed skills; do not reinstall, regenerate the app or overwrite existing work.',
-    'If the installed kit provides scripts/project.py, read its status for this project. A missing saved record requires inspection of existing work, not a fresh app creation. Keep local records private.',
+    'Inspect scripts/kit.py environment list first. Select the intended named environment explicitly for status and next; never fall back to legacy progress or choose production automatically. A missing saved record requires inspection of existing work, not a fresh app creation. Keep local records private.',
     ...(input.task !== 'setup' ? [input.stack === 'taskboard' ? 'Continue editing this project’s Taskboard app/ and terraform/ files. Keep its Node.js/PostgreSQL stack; do not edit the hidden kit’s reference copy.' : stackInstructions[input.stack]] : []),
     ...(input.stage !== 'auto' ? [`My requested focus is ${stages[input.stage].label.toLowerCase()}. This selection is not evidence of completion or approval.`, `Evidence to check: ${stages[input.stage].evidence}`, 'Verify prerequisites and earlier unfinished checkpoints before continuing this stage.'] : []),
     'Treat recorded results as evidence to review, not proof of current readiness. If the progress record is missing, reconstruct a short record from the code and actual checks without inventing completed work.',
@@ -147,7 +147,7 @@ export function resumePrompt(raw: Selection): string {
 }
 
 export function installCommand(agent: Agent, stack: Stack = 'existing', project: Project = 'existing'): string {
-  if (project === 'continue') return ['python3 .oci-founder-kit/scripts/project.py status --project .', 'python3 .oci-founder-kit/scripts/project.py resume --project .'].join('\n');
+  if (project === 'continue') return ['python3 .oci-founder-kit/scripts/kit.py environment list --project .', '# Replace ENVIRONMENT with the existing target you intend to continue.', 'python3 .oci-founder-kit/scripts/kit.py next --project . --environment ENVIRONMENT'].join('\n');
   return [`git clone ${repository}.git`, stack === 'taskboard' ? 'python3 oci-founder-kit/scripts/blueprint.py create fullstack-container \\' : 'python3 oci-founder-kit/scripts/install.py \\', `  --project /absolute/path/to/my-app --agent ${agent}`, 'cd /absolute/path/to/my-app'].join('\n');
 }
 
@@ -157,7 +157,7 @@ export function projectCommand(raw: Selection): string {
   const stack = input.stack === 'nextjs' || input.stack === 'fastapi' ? input.stack : input.stack === 'existing' ? 'custom' : 'auto';
   return [
     `git clone ${repository}.git`,
-    'python3 oci-founder-kit/scripts/project.py start \\',
+    'python3 oci-founder-kit/scripts/kit.py start \\',
     `  --project /absolute/path/to/my-app --mode ${input.project} \\`,
     `  --task ${input.task} --agent ${input.agent} --stack ${stack}${input.stack === 'taskboard' ? ' --blueprint fullstack-container' : ''}`,
     'cd /absolute/path/to/my-app',

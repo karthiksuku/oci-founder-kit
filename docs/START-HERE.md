@@ -89,11 +89,12 @@ The agent must recheck current evidence and earlier prerequisites.
 With a saved local project record, inspect or refresh it from the app folder:
 
 ```sh
-python3 .oci-founder-kit/scripts/project.py status --project .
-python3 .oci-founder-kit/scripts/project.py resume --project .
+python3 .oci-founder-kit/scripts/kit.py environment list --project .
+python3 .oci-founder-kit/scripts/kit.py status --project . --environment rehearsal
+python3 .oci-founder-kit/scripts/kit.py next --project . --environment rehearsal
 ```
 
-`status` is read-only; `resume` refreshes the local observations. Both return one
+Select the existing target explicitly; `rehearsal` is an example name. Legacy projects with no named environments may omit the flag only after inspection. `status` is read-only; `next` refreshes the local observations. Both return one
 next action without running app tests or cloud operations. If the record is
 missing, inspect the app and initialize it with `start --mode existing`; do not
 recreate it. For an older installed kit, follow the [reviewed update path](INSTALL.md#update-or-remove-a-project-installation) first.
@@ -104,7 +105,9 @@ Use the website's continuation prompt, or paste:
 Use oci-kit to continue this project. Read its instructions, current changes and
 docs/PROGRESS.md if present. Inspect the existing kit installation before trying
 to install anything. Preserve the app's framework, services and uncommitted work.
-If the installed project helper is available, read its status. Check whether
+If the unified helper is available, list environments and select the intended
+named environment explicitly for status and next. Never silently choose production
+or legacy progress. Check whether
 recorded evidence still matches the current source. Continue the next unfinished
 local checkpoint and update the progress record with actual
 results. Explain missing facts together when they block the next step. Cloud

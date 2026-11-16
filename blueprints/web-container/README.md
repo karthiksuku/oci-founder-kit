@@ -11,8 +11,8 @@ From a reviewed kit checkout or installed `.oci-founder-kit/` bundle:
 
 ```sh
 python3 scripts/blueprint.py inspect web-container
-python3 scripts/blueprint.py attach web-container --project /path/to/app --directory deploy/oci --dry-run
-python3 scripts/blueprint.py attach web-container --project /path/to/app --directory deploy/oci
+python3 scripts/blueprint.py attach web-container --project /path/to/app --directory deploy/rehearsal --dry-run
+python3 scripts/blueprint.py attach web-container --project /path/to/app --directory deploy/rehearsal
 ```
 
 Use the installed helper's actual path when running from your app. The selected
@@ -22,7 +22,7 @@ does not install skills, run your app or contact OCI. A failed copy leaves its
 partial directory for review; do not delete app files to retry. Existing v1
 `fullstack-container` creation remains the independent Taskboard starter.
 
-Your deployment target is now `deploy/oci/terraform/`. Configure its private
+Your deployment target is now `deploy/rehearsal/terraform/`. Configure its private
 variable file and keep application edits in your original source tree. Named
 environment gates require the reviewed Terraform source files; infrastructure
 code customizations need separate reviewed support. Follow the
@@ -126,18 +126,29 @@ and pull IAM before deploying.
 Local provider checks need initialized pinned providers and no cloud credentials:
 
 ```sh
-terraform -chdir=deploy/oci/terraform init -backend=false -lockfile=readonly
-terraform -chdir=deploy/oci/terraform validate
-terraform -chdir=deploy/oci/terraform test
+terraform -chdir=deploy/rehearsal/terraform init -backend=false -lockfile=readonly
+terraform -chdir=deploy/rehearsal/terraform validate
+terraform -chdir=deploy/rehearsal/terraform test
 ```
 
 The included tests use mocked providers and do not establish OCI runtime success.
-Use the installed approval gate for remote-state operations and the saved cloud
-plan. For example, from the application root:
+Before remote-state operations, use the installed
+[workflow guide](../../docs/WORKFLOW.md#review-and-deploy): create the named
+environment bound to `deploy/rehearsal/terraform`, copy its canonical backend
+declaration, and bind its complete private target and seven-field backend file.
+Then, from the application root, prepare the offline initialization request:
 
 ```sh
-python3 .oci-founder-kit/skills/oci-deploy/scripts/deploy_gate.py plan --dir deploy/oci/terraform
+python3 .oci-founder-kit/scripts/kit.py release init --project . --environment rehearsal \
+  --backend-config .oci-kit/rehearsal-backend.json
 ```
+
+Substitute the selected environment and its actual private paths. Review the
+returned initialization packet before requesting approval and `release run`.
+After initialization, `release plan` prepares a separate remote planning request;
+its approved `release run` produces the resource plan, which needs its own exact
+approval for `release apply`. Follow each handoff in the workflow guide. A direct
+`deploy_gate.py plan` command does not authorize native backend operations.
 
 Before any apply, review the exact target, changes, permissions, dated estimate,
 retained resources and rollback approach. Approve that exact plan through the

@@ -4,7 +4,21 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.6.0 preview
+## 0.7.0 preview
+
+The [unified workflow](WORKFLOW.md) connects the existing helpers. The generated
+[capability registry and platform table](CAPABILITIES.md) is the canonical source
+for current commands, prerequisites, evidence labels and limits. It also drives
+website capability cards. The broader inventory below explains inherited features.
+
+New in this preview: additive packaging recipes, separately reviewed foundation
+components, bounded OCI operating reads, optional Usage API projections, safe
+support export, release records and rollback preparation, and an optional
+[SaaS essentials integration](../blueprints/saas-essentials/README.md). Native
+scheduling remains experimental; cloud acceptance and effective IAM are separate
+from local tests. Release automation is prepared, not activated without a
+workflow-authorized credential.
+
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
@@ -33,7 +47,8 @@ establish a completed migration or a production deployment.
 | Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | [Dated host evidence](HOOKS.md) is bound to the tested script; changed hooks require normal host review. Local guards do not establish arbitrary shell coverage |
 
 Actual results and skipped checks for this release are in
-[RELEASE-0.6.0.md](RELEASE-0.6.0.md). Earlier release evidence remains dated in
+[RELEASE-0.7.0.md](RELEASE-0.7.0.md). Earlier release evidence remains dated in
+[RELEASE-0.6.0.md](RELEASE-0.6.0.md) and
 [RELEASE-0.5.0.md](RELEASE-0.5.0.md).
 
 Credential-free validation and trusted-release provenance workflows are prepared

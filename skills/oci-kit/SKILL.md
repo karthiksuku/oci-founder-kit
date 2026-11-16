@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Start building on OCI
@@ -36,9 +36,9 @@ local app development. For migration: inventory dependencies, preserve source
 behavior, retain its database/storage/identity, adapt and test OCI hosting, then
 stage/cut over with rollback. Migrate data only in a later separately tested step.
 
-Use the local `scripts/project.py` helper from the reviewed kit root to establish
+Use the local `scripts/kit.py` interface from the reviewed kit root to establish
 or inspect the project checklist. For a new generic app, use
-`python3 scripts/project.py start --project PATH --task build --mode new --agent both --stack auto`,
+`python3 scripts/kit.py start --project PATH --task build --mode new --agent both --stack auto`,
 selecting `nextjs`, `fastapi` or `custom` when the user requested that stack.
 Use the actual coding-agent option when known. This creates an empty project and
 skills; implement the app afterward. The target must be new with an existing
@@ -72,8 +72,12 @@ or establish OCI access. Local development remains useful before cloud setup.
 
 When continuing a project, inspect existing instructions, installation metadata,
 uncommitted changes and its progress record before installing or redoing work.
-From the app, use `python3 .oci-founder-kit/scripts/project.py status --project .`
-when available; `resume --project .` refreshes the private observations. These
+From the app, use `python3 .oci-founder-kit/scripts/kit.py environment list --project .`
+first. Select the intended existing environment explicitly for
+`status --project . --environment NAME` and `next --project . --environment NAME`.
+Never silently choose production or fall back to legacy progress. Legacy records
+with no named targets can omit the flag only after inspection. `next` refreshes
+the private observations. These
 return one `next_action` but never execute it. A website focus or a saved record
 is context, not a completed check or approval. Recheck earlier prerequisites and
 stale results before continuing the requested stage.
@@ -99,9 +103,9 @@ do not create Taskboard. Follow [explicit environments](../../docs/ENVIRONMENTS.
 create named source/rehearsal/production records, separate infrastructure roots
 and backend keys, and pass `--environment` on every environment operation.
 Convert legacy observations with a private backup; never copy approvals or passing
-checkpoints into another environment. Use `project.py doctor` for workload checks,
-`verify` for bounded read-only runtime/migration checks, and `dashboard` for the
-private local view. A health response is not proof of sign-in, persistence or
+checkpoints into another environment. Use `kit.py doctor` for workload checks,
+`verify` for bounded read-only runtime/migration checks, `observe --live` for
+explicit bounded OCI reads, and `observe` for the private local view. A health response is not proof of sign-in, persistence or
 recovery. Test the real browser flows, exact deployed digest and isolated recovery
 before claiming the hosting journey complete. Promote the tested digest and retain
 one active scheduler/worker owner. Source rollback and traffic changes require
@@ -136,3 +140,48 @@ Give the app changes, actual commands/check results, OCI readiness blockers,
 plan status, deployment URL only if verified, running cost basis, residual risks
 and next action. Preserve unknowns and partial failures; report remaining resources
 and recovery steps. Never mark a checklist complete without its evidence.
+
+Match each result to its actual command, target and evidence. A successful exit
+with empty console output is not an interruption: inspect the documented report
+or saved progress. Call an operation interrupted only when a timeout, process
+failure, lost response or other recorded event supports that description. If the
+outcome is unknown, say so and inspect state before retrying a possible write.
+
+Report tests in their recorded order. Do not describe a test as a pre-change
+baseline if it ran only afterward, or describe a later successful check as proof
+that an earlier operation succeeded. Distinguish source inspection, local tests,
+declared configuration and observed live state in the final handoff.
+
+When a tool refuses a file or operation, inspect its documented contract before
+choosing an alternative. One denied path does not establish that every other
+path is forbidden. Preserve the completed work in a permitted location and state
+the specific limitation without broadening access or inventing restrictions.
+
+
+## One application lifecycle
+
+Use the [unified workflow](../../docs/WORKFLOW.md) and the dated
+[capability registry](../../docs/CAPABILITIES.md). Inspect existing configuration,
+return missing nonsecret choices together, and reuse valid saved answers. Expose
+safe error codes with phase, responsible party, recovery and recheck commands.
+`--json --non-interactive` blocks unresolved decisions instead of guessing.
+
+Package Next.js standalone, FastAPI or an existing Dockerfile through reviewed
+additive recipes. Preserve app files; inspect proposed files before local
+adoption. Build/test separately, verify exact architecture, health and image
+contents, then use the existing image publication gate. Prepare or reuse scoped
+foundation components and hand their outputs into private configuration. Imported
+outputs never prove live readiness; obtain current read-only evidence.
+
+Record accepted images and prepare rollback through `kit.py release`; a rollback
+proposal only changes local target selection after review. New backend/resource
+plans retain their exact cloud approval boundaries. Use `support export` only for
+its allowlisted preview and optional private file; do not upload automatically.
+
+The optional SaaS essentials pack is an integration example. Keep an existing
+app, queues, schedules, identity and storage intact. Web and worker require
+separate runtime compartments, reviewed artifacts and state. Transfer worker
+ownership separately. Queue delivery can duplicate: use durable inbox/outbox,
+leases, fencing and idempotent effects. Native scheduling stays experimental
+until its exact Functions artifact and invocation path is accepted. Never silently
+create image tags or fall back from an unverified native scheduler.

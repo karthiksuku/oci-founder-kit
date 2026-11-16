@@ -1,0 +1,52 @@
+x-app: &app
+  build:
+    context: ..
+    dockerfile: saas-essentials/app/Dockerfile
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]
+  environment: &environment
+    APP_MODE: sandbox
+    SAAS_ENVIRONMENT: local
+    DATABASE_URL: postgresql://requests:${PREVIEW_DB_PASSWORD:?Set a private local password}@db:5432/requests
+    DATABASE_SSL: "false"
+    WEBHOOK_SECRET: ${PREVIEW_WEBHOOK_SECRET:?Set a private random local webhook secret}
+    WEBHOOK_OWNER_ID: sandbox
+services:
+  db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: requests
+      POSTGRES_USER: requests
+      POSTGRES_PASSWORD: ${PREVIEW_DB_PASSWORD:?Set a private local password}
+    volumes: [requests-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "requests", "-d", "requests"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  setup:
+    <<: *app
+    command: ["node", "saas-essentials/app/src/migrate.js"]
+    depends_on:
+      db: {condition: service_healthy}
+  web:
+    <<: *app
+    ports: ["127.0.0.1:${PREVIEW_PORT:-8088}:8080"]
+    environment:
+      <<: *environment
+      HOST: 0.0.0.0
+      PORT: "8080"
+    depends_on:
+      setup: {condition: service_completed_successfully}
+  worker:
+    <<: *app
+    command: ["node", "saas-essentials/app/src/local-worker.js"]
+    environment:
+      <<: *environment
+      SAAS_LOCAL_ENABLE_JOBS: "true"
+    depends_on:
+      setup: {condition: service_completed_successfully}
+volumes:
+  requests-data:

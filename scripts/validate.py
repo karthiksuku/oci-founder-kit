@@ -133,6 +133,21 @@ def check_links(problems: list[str]) -> None:
                 problems.append(f"{md.relative_to(ROOT)}: broken link {target}")
 
 
+def check_capabilities(problems: list[str]) -> None:
+    import capabilities
+    import kit
+    try:
+        value = capabilities.registry()
+        for row in value["capabilities"]:
+            kit.parser().parse_args(row["command"])
+            if not (ROOT / row["guide"]).is_file():
+                problems.append("capabilities: missing guide " + row["guide"])
+        if (ROOT / "docs/CAPABILITIES.md").read_text() != capabilities.table(value):
+            problems.append("capabilities: regenerate the support table with scripts/capabilities.py --write-table")
+    except (ValueError, OSError, KeyError, TypeError):
+        problems.append("capabilities: invalid public registry or command snippet")
+
+
 def check_secrets(problems: list[str]) -> None:
     for path in iter_files(".md", ".py", ".json", ".yaml", ".yml", ".txt"):
         if path == Path(__file__).resolve():
@@ -172,6 +187,7 @@ def main() -> int:
     if len(set(versions.values())) != 1:
         problems.append(f"versions differ: {versions}")
     check_links(problems)
+    check_capabilities(problems)
     check_secrets(problems)
     check_example(problems)
     try:

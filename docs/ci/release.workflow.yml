@@ -1,7 +1,7 @@
 name: Attested release assets
 on:
-  release:
-    types: [published]
+  push:
+    tags: ['v*']
 permissions:
   contents: read
 concurrency:
@@ -47,6 +47,12 @@ jobs:
           python3 scripts/release_manifest.py check
       - name: Build exact manifest-listed assets
         run: python3 scripts/release_archive.py --output-dir "$RUNNER_TEMP/oci-kit-release"
+      - name: Create an empty draft for the reviewed existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 docs/ci/publish_release.py --phase draft --assets "$RUNNER_TEMP/oci-kit-release" --tag "$RELEASE_TAG"
       - name: Attest the archive and its exact public metadata
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -54,8 +60,14 @@ jobs:
             ${{ runner.temp }}/oci-kit-release/*.tar.gz
             ${{ runner.temp }}/oci-kit-release/release-manifest.json
             ${{ runner.temp }}/oci-kit-release/BUILD-METADATA.json
+            ${{ runner.temp }}/oci-kit-release/SBOM.spdx.json
             ${{ runner.temp }}/oci-kit-release/SHA256SUMS
-      - name: Publish the same bytes without overwriting assets
+      - name: Bind the source inventory to the exact archive
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: ${{ runner.temp }}/oci-kit-release/*.tar.gz
+          sbom-path: ${{ runner.temp }}/oci-kit-release/SBOM.spdx.json
+      - name: Attach, download, authenticate and publish the draft
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -63,4 +75,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          python3 docs/ci/publish_release.py --assets "$RUNNER_TEMP/oci-kit-release" --tag "$RELEASE_TAG"
+          python3 docs/ci/publish_release.py --phase publish --assets "$RUNNER_TEMP/oci-kit-release" --tag "$RELEASE_TAG"

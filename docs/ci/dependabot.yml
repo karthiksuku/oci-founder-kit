@@ -1,0 +1,40 @@
+# Copy to .github/dependabot.yml only through a reviewed workflow-authorized change.
+# Proposals only: no automatic merge. Review licenses, sources and runtime tests.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directories:
+      - /site
+      - /blueprints/fullstack-container/app
+      - /examples/migrate-nextjs
+      - /tests/browser-migration
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: pip
+    directory: /docs/ci
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: terraform
+    directories:
+      - /blueprints/foundation/terraform
+      - /blueprints/fullstack-container/registry
+      - /blueprints/fullstack-container/terraform
+      - /blueprints/web-container/terraform
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: docker
+    directories:
+      - /blueprints/fullstack-container/app
+      - /examples/migrate-container
+      - /examples/migrate-nextjs
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

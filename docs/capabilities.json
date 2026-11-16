@@ -1,0 +1,188 @@
+{
+  "schema": "oci-kit-capabilities/1",
+  "checked_on": "2026-11-16",
+  "entrypoint": "python3 .oci-founder-kit/scripts/kit.py",
+  "platforms": [
+    {
+      "id": "linux",
+      "evidence": "local-tested",
+      "scope": "Installation and upgrade; individual runtime checks carry separate evidence."
+    },
+    {
+      "id": "macos",
+      "evidence": "unverified",
+      "scope": "POSIX implementation; clean-machine acceptance pending."
+    },
+    {
+      "id": "wsl2",
+      "evidence": "unverified",
+      "scope": "Linux environment required; clean-machine acceptance pending."
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "continue",
+      "title": "Continue the right environment",
+      "summary": "Inspect your existing project and select one next action.",
+      "command": [
+        "next",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/WORKFLOW.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Existing project record",
+        "Explicit environment"
+      ],
+      "limitations": [
+        "Progress is not approval or live verification."
+      ]
+    },
+    {
+      "id": "package",
+      "title": "Package your application",
+      "summary": "Review Next.js, FastAPI or Docker packaging without replacing your app.",
+      "command": [
+        "package",
+        "inspect",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "recipes/README.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Reviewed application commands",
+        "Application runtime",
+        "Docker with Buildx for generated builds; reviewed Skopeo v2s2 layout"
+      ],
+      "limitations": [
+        "Container success does not establish migration compatibility."
+      ]
+    },
+    {
+      "id": "foundation",
+      "title": "Connect OCI prerequisites",
+      "summary": "Reuse an approved foundation or prepare a scoped creation plan.",
+      "command": [
+        "foundation",
+        "inspect",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "blueprints/workload-foundation/README.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "OCI account",
+        "Authorized parent compartment",
+        "Administrator for IAM changes"
+      ],
+      "limitations": [
+        "No automatic tenancy-wide grants or certificate private keys in state.",
+        "Output handoff is owner-supplied configuration; live IAM and resource acceptance remain required."
+      ]
+    },
+    {
+      "id": "observe",
+      "title": "Understand a running application",
+      "summary": "Collect bounded cloud observations and render a private operating report.",
+      "command": [
+        "observe",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal",
+        "--live"
+      ],
+      "guide": "docs/OPERATIONS.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Bound deployment receipt",
+        "Read access to selected resources"
+      ],
+      "limitations": [
+        "Missing permissions and delayed costs remain unknown.",
+        "Service-contract and refusal tests are local; live workload readback acceptance is pending."
+      ]
+    },
+    {
+      "id": "release",
+      "title": "Update with a recovery path",
+      "summary": "Link the tested image, observed target and prior accepted revision.",
+      "command": [
+        "release",
+        "list",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/RELEASE-LIFECYCLE.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Current bound deployment and behavior evidence",
+        "Previous accepted digest for rollback"
+      ],
+      "limitations": [
+        "Rollback needs new exact cloud plans; a single-instance update may interrupt service."
+      ]
+    },
+    {
+      "id": "saas",
+      "title": "Add durable background work",
+      "summary": "An optional customer-request example with private files, jobs and webhooks.",
+      "command": [
+        "status",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "blueprints/saas-essentials/README.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "PostgreSQL",
+        "Separate worker identity",
+        "Reviewed ownership transfer"
+      ],
+      "limitations": [
+        "Native scheduling remains experimental until its exact cloud path is accepted.",
+        "PostgreSQL/HTTP and local containers exercised; OCI Queue and IAM acceptance are pending."
+      ]
+    },
+    {
+      "id": "support",
+      "title": "Share a safe support summary",
+      "summary": "Preview versions, safe error codes and evidence ages before sharing.",
+      "command": [
+        "support",
+        "export",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/OPERATIONS.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Explicit environment",
+        "Private local reports"
+      ],
+      "limitations": [
+        "Allowlisted summary only; never automatically uploads."
+      ]
+    }
+  ],
+  "versions": {
+    "python_required": ">=3.11",
+    "terraform_tested": "1.16.6",
+    "oci_provider_tested": "9.10.0",
+    "compatibility": "Existing v0.5/v0.6 commands and records; reviewed local upgrade with private backups."
+  }
+}

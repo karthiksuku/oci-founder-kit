@@ -35,7 +35,7 @@ test('Taskboard creation is explicit, editable, offline and separate from the Do
   for (const agent of ['codex', 'claude'] as Agent[]) {
     const chosen = { task: 'build', agent, stack: 'taskboard' } as const;
     const prompt = createPrompt({ ...chosen, brief: '' });
-    assert.match(prompt, /project.py start/);
+    assert.match(prompt, /kit.py start/);
     assert.match(prompt, /--blueprint fullstack-container/);
     assert.ok(prompt.includes(`--agent ${agent}`));
     assert.match(prompt, /new folder under an existing parent or an empty existing folder/);
@@ -123,8 +123,8 @@ test('new, existing and continue select distinct safe actions without substituti
   assert.match(projectCommand(existing), /--task migrate --agent claude --stack custom/);
   assert.match(createPrompt({ ...existing, brief: '' }), /Preserve its source, instructions, services and uncommitted work/);
   const continuing = { ...existing, project: 'continue' } as const;
-  assert.match(projectCommand(continuing), /project.py status --project \./);
-  assert.match(projectCommand(continuing), /project.py resume --project \./);
+  assert.match(projectCommand(continuing), /kit.py environment list --project \./);
+  assert.match(projectCommand(continuing), /kit.py next --project \./);
   assert.doesNotMatch(projectCommand(continuing), /git clone| start |install.py|blueprint/);
   assert.match(createPrompt({ ...continuing, brief: 'Keep the database.' }), /Additional context: Keep the database/);
   assert.match(handoff(continuing).terminalHelp, /missing|absent/);

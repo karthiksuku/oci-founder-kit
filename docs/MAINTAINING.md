@@ -102,8 +102,10 @@ packet. After exact owner approval, `backend-run` initializes the selected backe
 An initialized stack then uses an approved `backend-plan --operation plan` /
 `backend-run` pair to generate a resource plan. Do not invoke remote Terraform
 initialization or planning directly, even to test the gate. Its current contract
-is a canonical empty OCI declaration, exactly seven private settings, an existing
-APIKey profile and the default workspace. Migration, arbitrary state push,
+is a canonical empty OCI declaration, the reviewed private settings, an existing
+APIKey or SecurityToken profile and the default workspace. Temporary sessions
+must remain valid for the approved operation; expiry, reauthentication or changed
+identity requires a fresh check and invalidates affected plans. Migration, arbitrary state push,
 workspace changes and version cleanup are outside this general backend operation.
 The separate synthetic rehearsal supports only its generated state and exact
 version cleanup.
@@ -130,7 +132,7 @@ A private/versioned bucket and passing mocked commands do not establish effectiv
 IAM or restore behavior. Never publish account-specific policy/group details as
 fixtures; use synthetic examples and link public primary documentation.
 
-[Release evidence](RELEASE-0.6.0.md) records the current preview's checks and limits.
+[Release evidence](RELEASE-0.7.0.md) records the current preview's checks and limits.
 The [CI and provenance guide](ci/README.md) describes the prepared validation,
 platform and release workflows. Their definitions and local results do not imply
 a successful GitHub run or an authenticated release artifact.

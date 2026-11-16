@@ -162,70 +162,132 @@ class ReleasePublicationBoundary(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name)
         self.publisher = module('publication_test', ROOT / 'docs/ci/publish_release.py')
-        self.names = ['oci-founder-kit-9.8.7.tar.gz', 'release-manifest.json', 'BUILD-METADATA.json', 'SHA256SUMS']
+        self.names = self.publisher.verifier.expected_names('v9.8.7')
         for name in self.names:
             (self.base / name).write_text('Synthetic public artifact')
-        (self.base / 'BUILD-METADATA.json').write_text(json.dumps({'version': '9.8.7', 'archive': self.names[0]}))
-        self.environment = {'GITHUB_EVENT_NAME': 'release', 'GH_REPO': 'example/kit', 'GITHUB_SHA': 'a' * 40}
+        (self.base / 'BUILD-METADATA.json').write_text(json.dumps({'version': '9.8.7', 'archive': self.names[0], 'sha256': 'b' * 64}))
+        self.environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v9.8.7', 'GH_REPO': 'example/kit', 'GITHUB_SHA': 'a' * 40}
+        self.calls = []
+        self.uploaded = False
+        self.published = False
 
-    def main(self):
-        with mock.patch.object(sys, 'argv', ['publish_release.py', '--assets', str(self.base), '--tag', 'v9.8.7']):
-            self.publisher.main()
+    def command(self, *args):
+        self.calls.append(args)
+        if args[1] == 'api':
+            return json.dumps({'object': {'type': 'commit', 'sha': 'a' * 40}})
+        if args[1:3] == ('release', 'view'):
+            return json.dumps({'tagName': 'v9.8.7', 'isDraft': not self.published,
+                               'assets': [{'name': n} for n in self.names] if self.uploaded else []})
+        if args[1:3] == ('release', 'upload'):
+            self.uploaded = True
+        if args[1:3] == ('release', 'download'):
+            name = args[args.index('--pattern') + 1]
+            shutil.copyfile(self.base / name, Path(args[args.index('--dir') + 1]) / name)
+        if args[1:3] == ('release', 'edit'):
+            self.published = True
+        return ''
 
-    def test_nonrelease_context_refuses_before_network_or_publication(self):
+    def invoke(self, phase='publish'):
+        self.publisher.main(['--assets', str(self.base), '--tag', 'v9.8.7', '--phase', phase])
+
+    def test_non_tag_context_refuses_before_network_or_publication(self):
         with mock.patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'pull_request'}, clear=True), mock.patch.object(self.publisher, 'run') as run:
             with self.assertRaises(SystemExit):
-                self.main()
+                self.invoke()
             run.assert_not_called()
 
+    def test_draft_creation_cannot_create_or_move_tag(self):
+        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=self.command), contextlib.redirect_stdout(io.StringIO()):
+            self.invoke('draft')
+        create = next(row for row in self.calls if row[1:3] == ('release', 'create'))
+        self.assertIn('--verify-tag', create)
+        self.assertIn('--draft', create)
+        self.assertNotIn('--target', create)
+        self.assertFalse(self.published)
+
     def test_attestation_failure_prevents_upload(self):
-        def run(*args):
-            if args[1:3] == ('release', 'view'):
-                return json.dumps({'tagName': 'v9.8.7', 'isDraft': False})
-            if args[1:3] == ('attestation', 'verify'):
-                raise SystemExit('Synthetic verification failure')
-            self.fail('Publication reached before attestation acceptance')
-        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=run):
-            with self.assertRaises(SystemExit):
-                self.main()
+        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=self.command), mock.patch.object(self.publisher.verifier, 'verify', side_effect=ValueError('Synthetic failure')):
+            with self.assertRaises(ValueError):
+                self.invoke()
+        self.assertFalse(self.uploaded)
+        self.assertFalse(self.published)
 
-    def test_exact_downloaded_bytes_verified_and_upload_never_overwrites(self):
-        calls = []
-        def run(*args):
-            calls.append(args)
-            if args[1:3] == ('release', 'view'):
-                return json.dumps({'tagName': 'v9.8.7', 'isDraft': False})
-            if args[1:3] == ('release', 'download'):
-                name = args[args.index('--pattern') + 1]
-                destination = Path(args[args.index('--dir') + 1])
-                shutil.copyfile(self.base / name, destination / name)
-            return ''
-        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=run), contextlib.redirect_stdout(io.StringIO()):
-            self.main()
-        attestations = [row for row in calls if row[1:3] == ('attestation', 'verify')]
-        self.assertEqual(len(attestations), 4)
-        self.assertTrue(all('--source-digest' in row and '--signer-workflow' in row and '--source-ref' in row for row in attestations))
-        upload = [row for row in calls if row[1:3] == ('release', 'upload')]
-        self.assertEqual(len(upload), 1)
-        self.assertNotIn('--clobber', upload[0])
-        self.assertEqual(sum(row[1:3] == ('release', 'download') for row in calls), 4)
+    def test_download_verification_precedes_publication_and_no_overwrite(self):
+        verifications = []
+        def verify(*args):
+            self.assertFalse(self.published)
+            verifications.append(args)
+        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=self.command), mock.patch.object(self.publisher.verifier, 'verify', side_effect=verify), contextlib.redirect_stdout(io.StringIO()):
+            self.invoke()
+        self.assertTrue(self.published)
+        self.assertEqual(len(verifications), 2)
+        self.assertEqual(sum(row[1:3] == ('release', 'download') for row in self.calls), 5)
+        self.assertFalse(any('--clobber' in row or 'delete' in row for row in self.calls))
 
-    def test_failed_download_identity_does_not_delete_or_replace_assets(self):
-        calls = []
-        def run(*args):
-            calls.append(args)
-            if args[1:3] == ('release', 'view'):
-                return json.dumps({'tagName': 'v9.8.7', 'isDraft': False})
-            if args[1:3] == ('release', 'download'):
-                name = args[args.index('--pattern') + 1]
-                destination = Path(args[args.index('--dir') + 1])
-                (destination / name).write_text('Changed public bytes')
-            return ''
-        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=run):
+    def test_failed_download_verification_leaves_draft_unpublished(self):
+        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=self.command), mock.patch.object(self.publisher.verifier, 'verify', side_effect=[{}, ValueError('download mismatch')]):
+            with self.assertRaises(ValueError):
+                self.invoke()
+        self.assertTrue(self.uploaded)
+        self.assertFalse(self.published)
+
+    def test_existing_or_partial_release_never_replaced(self):
+        for published in (True, False):
+            self.uploaded, self.published = True, published
+            with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', side_effect=self.command), mock.patch.object(self.publisher.verifier, 'verify') as verify:
+                with self.assertRaises(SystemExit):
+                    self.invoke()
+                verify.assert_not_called()
+
+    def test_remote_tag_change_blocks_draft(self):
+        with mock.patch.dict(os.environ, self.environment, clear=True), mock.patch.object(self.publisher, 'run', return_value=json.dumps({'object': {'type': 'commit', 'sha': 'c' * 40}})) as run:
             with self.assertRaises(SystemExit):
-                self.main()
-        self.assertEqual(sum(row[1:3] == ('release', 'upload') for row in calls), 1)
-        self.assertFalse(any('--clobber' in row or 'delete' in row for row in calls))
+                self.invoke('draft')
+        self.assertEqual(run.call_count, 1)
+
+
+class ConsumerVerification(unittest.TestCase):
+    setUp = ReleaseArchive.setUp
+    build = ReleaseArchive.build
+
+    def test_explicit_source_and_digest_bind_every_asset(self):
+        verifier = module('verify_test', ROOT / 'scripts/verify_release.py')
+        record, output = self.build()
+        client = mock.Mock(return_value=subprocess.CompletedProcess([], 0))
+        result = verifier.verify(output, 'example/kit', '.github/workflows/release.yml', 'v9.8.7', 'a' * 40, record['sha256'], client)
+        self.assertEqual(result['status'], 'verified')
+        self.assertEqual(client.call_count, 5)
+        for call in client.call_args_list:
+            command = call.args[0]
+            for flag in ('--source-digest', '--signer-digest', '--source-ref', '--signer-workflow', '--signer-repo', '--deny-self-hosted-runners'):
+                self.assertIn(flag, command)
+
+    def test_changed_asset_and_duplicate_checksums_refused_before_network(self):
+        verifier = module('verify_test', ROOT / 'scripts/verify_release.py')
+        record, output = self.build()
+        client = mock.Mock()
+        sums = output / 'SHA256SUMS'
+        sums.write_text(sums.read_text() + sums.read_text().splitlines()[0] + '\n')
+        with self.assertRaises(ValueError):
+            verifier.verify(output, 'example/kit', '.github/workflows/release.yml', 'v9.8.7', 'a' * 40, record['sha256'], client)
+        client.assert_not_called()
+
+    def test_unavailable_provenance_never_falls_back_to_hashes(self):
+        verifier = module('verify_test', ROOT / 'scripts/verify_release.py')
+        record, output = self.build()
+        client = mock.Mock(return_value=subprocess.CompletedProcess([], 1))
+        with self.assertRaises(ValueError):
+            verifier.verify(output, 'example/kit', '.github/workflows/release.yml', 'v9.8.7', 'a' * 40, record['sha256'], client)
+
+    def test_sbom_covers_actual_files_and_exact_archive(self):
+        record, output = self.build()
+        inventory = json.loads((output / 'SBOM.spdx.json').read_text())
+        self.assertEqual(inventory['packages'][0]['checksums'][0]['checksumValue'], record['sha256'])
+        with tarfile.open(output / record['archive']) as bundle:
+            members = {m.name.split('/', 1)[1]: hashlib.sha256(bundle.extractfile(m).read()).hexdigest() for m in bundle}
+        listed = {item['fileName'][2:]: item['checksums'][0]['checksumValue'] for item in inventory['files']}
+        self.assertEqual(members, listed)
+        self.assertIn('Does not resolve Python transitives', inventory['comment'])
 
 
 if __name__ == '__main__':

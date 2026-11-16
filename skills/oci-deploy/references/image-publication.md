@@ -36,9 +36,20 @@ setup; do not put credentials in command arguments or chat.
 
 ## Create the empty private repository
 
-Use the blueprint's `registry/` stack with `immutable_tags = false`. Prepare its
-plan through `oci-deploy`, review the scope and cost, obtain approval of that
-exact hash, then apply it. Retain the original creation receipt privately.
+For the generic web-container workflow, use the separate
+[foundation registry component](../../../blueprints/workload-foundation/README.md)
+to prepare an empty private repository. The Taskboard starter also has its own
+[registry stack](../../../blueprints/fullstack-container/registry/main.tf),
+with `immutable_tags = false` for this digest-only path. Prepare the selected
+stack's plan through `oci-deploy`, review the scope and cost, obtain approval of
+that exact hash, then apply it. Retain the original creation receipt privately.
+
+Reusing an existing repository is supported by this publication gate only when
+its original successful creation receipt from this kit is available and matches
+the selected repository. Importing a repository identifier through foundation
+configuration does not produce that receipt. If it is absent, prepare a separate
+reviewed repository creation or retain the existing publication workflow; do not
+invent a receipt or substitute an update-only receipt.
 
 Digest publication does not require changing `immutable_tags`: the destination
 is the content digest and the client must preserve it. It never assigns or

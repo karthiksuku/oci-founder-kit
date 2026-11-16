@@ -44,7 +44,7 @@ prepares initialization offline. The owner approves its hash before `backend-run
 After initialization, prepare `backend-plan --operation plan` with the chosen
 variable files/targets, approve that operation, and use `backend-run` to generate
 the resource plan. Its separate resource-plan hash needs separate approval before
-`apply`. The supported path uses an existing APIKey profile and the default
+`apply`. The supported path uses an existing APIKey or SecurityToken profile and the default
 workspace; follow the linked workflow instead of direct remote Terraform commands.
 
 Keep the previous immutable image digest and source revision. Review application
@@ -96,3 +96,67 @@ Start with [read-only troubleshooting](../skills/oci-ready/references/troublesho
 Keep one hypothesis, the evidence gathered, the next safe check and the stopping
 condition. Redact source data and credentials before sharing an issue. Record
 the final result and next action in the [progress record](PROGRESS.md).
+
+
+## Collect current operating evidence
+
+Use the [unified interface](WORKFLOW.md) with the intended named environment:
+
+```sh
+python3 .oci-founder-kit/scripts/kit.py observe --project . --environment rehearsal --live
+python3 .oci-founder-kit/scripts/kit.py observe --project . --environment rehearsal
+```
+
+The first command performs bounded read-only OCI metadata/Monitoring requests.
+The second renders a private static HTML dashboard from saved evidence without
+network requests. No background polling or automatic telemetry is installed.
+Use `--component worker` to observe an explicitly configured worker independently.
+The collector requires the latest bound successful apply receipt; an interrupted,
+failed, ambiguous, stale or wrong-environment receipt requires review first.
+
+Readback checks the actual Container Instance, container image digest, selected
+load-balancer health, certificate expiry, recent work requests and a bounded CPU
+metric window. It verifies resource identity/compartment before accepting the
+image. Missing metadata, denied monitoring, partial responses and missing samples
+stay unknown. Certificate metadata does not establish hostname/chain validity.
+Raw logs and arbitrary service error messages are not collected or exported.
+Read the [Container Instance metric contract](https://docs.oracle.com/en-us/iaas/Content/container-instances/container-instance-metrics.htm)
+and the [resource health API](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/lb/load-balancer-health/get.html).
+
+Observation is bounded to 20 client requests, 120 seconds overall and the existing
+bounded client-output limit. Each request checks temporary-session consistency;
+expiry, refresh or identity change requires a fresh observation. The live mode
+label identifies an actual CLI read path, not proof of successful reads. Injected
+test clients are labeled separately and cannot establish cloud image acceptance.
+Reports become stale after 24 hours or a change to source, kit or environment.
+
+For optional Usage API reads add `--cost-config /private/path/cost-period.json`.
+The private JSON contains exactly `tenant_id`, `period_start_utc` and
+`period_end_utc`. Choose completed UTC-midnight dates, at most 31 days apart.
+The query filters the selected compartment/region and recorded resource IDs;
+returned rows must match the scope and one explicit currency. Empty, truncated,
+unreadable or mixed-currency responses remain unknown, never zero. Reported cost
+can lag and is not the final invoice. This does not discover every retained or
+shared billable resource: keep the separate inventory and migration overlap
+estimate. The [Usage API contract](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/usage-api/usage-summary/request-summarized-usages.html)
+is distinct from pricing estimates and budget alerts.
+
+Use [release records](RELEASE-LIFECYCLE.md) to connect a tested image, source
+fingerprint, deployment receipt and observed target. Prepare rollback to the
+previous accepted digest through a new proposal and exact cloud plans, then
+verify app behavior. The default single-instance deployment can interrupt service
+on update or rollback. Retained database writes and external effects need their
+own recovery/reconciliation procedure.
+
+## Export a support summary
+
+```sh
+python3 .oci-founder-kit/scripts/kit.py support export --project . --environment rehearsal
+python3 .oci-founder-kit/scripts/kit.py support export --project . --environment rehearsal --write
+```
+
+Inspect the preview before sharing the optional saved JSON. Its allowlist contains
+kit/Python/platform versions, capability evidence states, safe error codes and
+evidence ages. It excludes account identifiers, environment names, domains,
+application source, credentials, raw logs and Terraform state. No upload occurs;
+use a private security-reporting route for security issues.

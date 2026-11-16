@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 - 2026-11-16
+
+- Added the project-local lifecycle interface, explicit continuation, safe structured errors and a shared capability registry.
+- Added reviewed additive packaging recipes and separate foundation stacks with private environment handoff.
+- Added bounded read-only resource observations, Usage API projections, private support export and release/rollback records.
+- Added an optional customer-request SaaS example with private attachments, durable PostgreSQL/Queue work, signed webhooks and a separately bound worker. Native scheduling remains experimental.
+- Prepared draft-first release provenance, exact-archive SBOMs, dependency review and 12-attempt agent evaluation batches. Workflow activation still requires an authorized credential.
+- Preserved v0.5/v0.6 commands and saved records; configuration updates retain private backups and invalidate affected plans.
+- See [0.7.0 evidence](docs/RELEASE-0.7.0.md) for actual checks and pending cloud/platform acceptance.
+
 ## 0.6.0 - 2026-11-16
 
 - Attach a reusable HTTPS web-container target while preserving the founder's application, database, storage and authentication.

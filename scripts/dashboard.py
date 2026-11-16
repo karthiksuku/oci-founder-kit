@@ -34,6 +34,7 @@ def view(store, p) -> dict:
     if len(names) > 200:
         raise ValueError("Dashboard evidence exceeds its bound.")
     observations = {}
+    latest_seen = {}
     stale = unreadable = 0
     for name in sorted(names):
         if not name.endswith(".json"):
@@ -45,7 +46,7 @@ def view(store, p) -> dict:
             continue
         schema = data.get("schema")
         if schema not in {"oci-workload-readiness/1", "oci-runtime-probe/1", "oci-migration-parity/1",
-                          "oci-production-check/1", "oci-operating-costs/1"}:
+                          "oci-production-check/1", "oci-operating-costs/1", "oci-operating-observation/1"}:
             continue
         observed = data.get("observed_at")
         if (data.get("environment") != store.environment or data.get("target_sha256") != target_hash
@@ -53,8 +54,63 @@ def view(store, p) -> dict:
                 or type(observed) is not int or not 0 <= now - observed <= FRESH_SECONDS):
             stale += 1
             continue
+        selection = schema + ("/" + str(data.get("component_role")) if schema == "oci-operating-observation/1" else "")
+        if observed < latest_seen.get(selection, -1):
+            continue
+        tied = observed == latest_seen.get(selection)
+        latest_seen[selection] = observed
+        observations.pop(selection, None)
+        if tied:
+            unreadable += 1
+            continue
         # Never forward arbitrary payloads, raw receipt fields, resource labels or errors to HTML.
-        if schema == "oci-operating-costs/1":
+        if schema == "oci-operating-observation/1":
+            component = data.get("component_role")
+            if (component not in {"web", "worker"} or data.get("status") not in {"passed", "failed", "unknown"}
+                    or data.get("mode") not in {"live-read-only", "injected-test-client"}
+                    or not p.valid_hash(data.get("receipt_sha256"))):
+                unreadable += 1
+                continue
+            configs = p.helper("environments").component_configs(store.environment_config)
+            selected = next((c for c in configs if c["component_role"] == component), None)
+            if selected is None:
+                unreadable += 1
+                continue
+            try:
+                _, receipt_hash = p.helper("operations").receipt_at(store, p, component=component)
+                if receipt_hash != data["receipt_sha256"]:
+                    raise ValueError("Deployment changed since observation.")
+            except (ValueError, OSError, KeyError, TypeError):
+                stale += 1
+                continue
+            checks = data.get("checks")
+            identifiers = {"container_instance", "image_identity", "load_balancer", "certificate_expiry", "recent_work_requests", "metrics"}
+            if (not isinstance(checks, list) or len(checks) != len(identifiers)
+                    or {c.get("id") for c in checks if isinstance(c, dict)} != identifiers
+                    or any(c.get("status") not in {"passed", "failed", "unknown"} for c in checks)):
+                unreadable += 1
+                continue
+            image_passed = next(c["status"] for c in checks if c["id"] == "image_identity") == "passed"
+            verified = (data["mode"] == "live-read-only" and data.get("image_identity_verified") is True and image_passed
+                        and data.get("observed_image_digest") == selected["target"].get("image_digest")
+                        and isinstance(data.get("observed_image_digest"), str))
+            item = {"observed_at": observed, "status": data["status"], "mode": data["mode"],
+                    "image_identity_verified": verified, "component_role": component,
+                    "failed_checks": sum(c["status"] == "failed" for c in checks),
+                    "checks": [{"id": c["id"], "status": c["status"]} for c in checks]}
+            costs = data.get("costs")
+            if data["mode"] == "live-read-only" and isinstance(costs, dict) and costs.get("status") == "reported":
+                amount = costs.get("reported_amount")
+                try:
+                    dates = [dt.datetime.fromisoformat(costs[key].replace("Z", "+00:00")) for key in ("period_start_utc", "period_end_utc")]
+                    dated = all(d.tzinfo is not None for d in dates) and dates[0] < dates[1] <= dt.datetime.now(dt.timezone.utc)
+                except (ValueError, TypeError, KeyError, AttributeError):
+                    dated = False
+                if (dated and type(amount) in {int, float} and math.isfinite(amount) and abs(amount) <= 10 ** 12
+                        and isinstance(costs.get("currency"), str) and re.fullmatch(r"[A-Z]{3}", costs["currency"])):
+                    item["costs"] = {key: costs[key] for key in ("reported_amount", "currency", "period_start_utc", "period_end_utc")}
+            schema += "/" + component
+        elif schema == "oci-operating-costs/1":
             keys = ("estimated_monthly_usd", "observed_period_usd", "overlap_monthly_usd")
             amounts = {key: data.get(key) for key in keys}
             dates = {}
@@ -99,7 +155,7 @@ def view(store, p) -> dict:
     return {"schema": "oci-local-dashboard/1", "environment": store.environment,
             "role": progress["role"], "blueprint": progress["blueprint"],
             "selected_image_digest": store.environment_config["target"].get("image_digest"),
-            "deployed_image_identity": "not-independently-verified", "deployment": steps.get("deployment", "unobserved"),
+            "deployed_image_identity": "OCI-readback-matched" if observations.get("oci-operating-observation/1/web", {}).get("image_identity_verified") else "not-independently-verified", "deployment": steps.get("deployment", "unobserved"),
             "backup_and_rollback_evidence": steps.get("recovery", "not-recorded"),
             "observations": observations, "stale_reports": stale, "unreadable_reports": unreadable,
             "next_action": progress["next_action"]["id"], "generated_at": now,
@@ -110,10 +166,14 @@ def view(store, p) -> dict:
 def page(data: dict) -> bytes:
     escape = lambda value: html.escape(str(value), quote=True)
     observations = data["observations"]
-    rows = "".join(f"<tr><th>{escape(schema)}</th><td>{escape(item.get('status', 'owner-recorded'))}</td>"
-                   f"<td>{escape(item.get('failed_checks', '—'))}</td></tr>"
+    rows = "".join(f"<tr><th>{escape(schema)}</th><td>{escape(item.get('status', 'owner-recorded'))} · {escape(item.get('mode', 'owner-recorded'))}</td>"
+                   f"<td>{escape(item.get('failed_checks', '—'))}</td><td>{escape(dt.datetime.fromtimestamp(item['observed_at'], dt.timezone.utc).isoformat())}</td></tr>"
                    for schema, item in observations.items())
     costs = observations.get("oci-operating-costs/1", {})
+    observed_costs = observations.get("oci-operating-observation/1/web", {}).get("costs", {})
+    reported = (f"{observed_costs['currency']} {observed_costs['reported_amount']:,.2f}" if observed_costs else "Unknown")
+    diagnostics = "".join(f"<li>{escape(item['component_role'])}: {escape(check['id'])} — {escape(check['status'])}</li>"
+                          for item in observations.values() if "component_role" in item for check in item["checks"])
     money = lambda key: "Unknown" if costs.get(key) is None else f"USD {costs[key]:,.2f}"
     document = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -130,7 +190,8 @@ p,small{{color:#bdcde1}}.value{{font-size:1.5rem;color:#fff}}footer{{margin-top:
 <section><h2>Recovery evidence</h2><p>{escape(data['backup_and_rollback_evidence'])}</p><small>Review isolated restore and rollback results.</small></section>
 <section><h2>Next action</h2><p class="value">{escape(data['next_action'])}</p><small>{data['stale_reports']} stale · {data['unreadable_reports']} unreadable reports</small></section></div>
 <section><h2>Selected image digest</h2><code>{escape(data['selected_image_digest'] or 'Not selected')}</code><p>Selection alone does not establish which image is deployed.</p></section>
-<section><h2>Current observations</h2><table><thead><tr><th>Report</th><th>Result</th><th>Failed checks</th></tr></thead><tbody>{rows or '<tr><td colspan="3">No current bound reports. Run doctor or verify for this environment.</td></tr>'}</tbody></table></section>
+<section><h2>Current observations</h2><table><thead><tr><th>Report</th><th>Result</th><th>Failed checks</th><th>Observed UTC</th></tr></thead><tbody>{rows or '<tr><td colspan="4">No current bound reports. Run doctor or verify for this environment.</td></tr>'}</tbody></table><ul>{diagnostics}</ul></section>
+<section><h2>Usage API reported cost</h2><p class="value">{escape(reported)}</p><small>{escape(observed_costs.get('period_start_utc', 'Period unknown'))} — {escape(observed_costs.get('period_end_utc', ''))}</small><p>Selected receipt resources only. Reporting may lag; this is not the final invoice or a spending cap. Missing billing access never means zero.</p></section>
 <div class="grid"><section><h2>Estimated monthly cost</h2><p class="value">{money('estimated_monthly_usd')}</p></section>
 <section><h2>Observed period cost</h2><p class="value">{money('observed_period_usd')}</p><small>{escape(costs.get('period_start_utc', 'Period unknown'))} — {escape(costs.get('period_end_utc', ''))}</small></section>
 <section><h2>Migration overlap / month</h2><p class="value">{money('overlap_monthly_usd')}</p></section></div>

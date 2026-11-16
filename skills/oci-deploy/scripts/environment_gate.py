@@ -19,7 +19,7 @@ def source_binding():
     names = ("skills/oci-deploy/scripts/environment_gate.py", "scripts/project.py",
              "scripts/environments.py", "scripts/migration.py", "scripts/readiness.py",
              "skills/oci-deploy/scripts/named_workload.py")
-    templates = [path.relative_to(ROOT).as_posix() for blueprint in ("web-container", "fullstack-container")
+    templates = [path.relative_to(ROOT).as_posix() for blueprint in ("web-container", "fullstack-container", "saas-essentials")
                  for path in sorted((ROOT / "blueprints" / blueprint / "terraform").glob("*.tf"))]
     return {name: files.sha((ROOT / name).read_bytes()) for name in (*names, *templates)}
 
@@ -57,12 +57,13 @@ def candidates(stack, env, p):
         identity, configs = inspect_project(project, env, p)
         if configs:
             projects.append(project)
-        for config in configs:
-            if config["infrastructure"] is None:
-                continue
-            infrastructure = project / config["infrastructure"]
-            if stack == infrastructure or infrastructure in stack.parents:
-                matches.append((project, identity, config, configs))
+        for parent_config in configs:
+            for config in env.component_configs(parent_config):
+                if config["infrastructure"] is None:
+                    continue
+                infrastructure = project / config["infrastructure"]
+                if stack == infrastructure or infrastructure in stack.parents:
+                    matches.append((project, identity, config, configs))
     return matches, projects
 
 
@@ -87,13 +88,17 @@ def select(stack, *, project=None, environment=None, backend=None):
         identity, configs = inspect_project(project, env, p)
         chosen = [config for config in configs if config["name"] == environment]
         files.require(len(chosen) == 1, "The selected environment does not exist in this project.")
-        config = chosen[0]
+        parent_config = chosen[0]
+        env.validate_isolation(parent_config, configs)
+        roles = [item for item in env.component_configs(parent_config)
+                 if item["infrastructure"] is not None and stack == project / item["infrastructure"]]
+        files.require(len(roles) == 1, "Select the exact reviewed infrastructure root for this environment component.")
+        config = roles[0]
         files.require(config["role"] != "source" and config["infrastructure"] is not None,
                       "The retained source cannot be used as an OCI deployment target.")
         files.require(stack == project / config["infrastructure"] and len(matches) == 1
                       and matches[0][0] == project and matches[0][2]["name"] == environment,
                       "The selected environment does not match this exact infrastructure root.")
-        env.validate_isolation(config, configs)
         target = config["target"]
         files.require(TARGET_FIELDS.issubset(target),
                       "Configure the environment region, compartment, profile and authentication before cloud operations.")
@@ -110,7 +115,9 @@ def select(stack, *, project=None, environment=None, backend=None):
         return {"schema": "oci-deploy-environment-binding/1", "project_path": str(project),
                 "project_identity": identity, "environment": environment, "role": config["role"],
                 "blueprint": config["blueprint"],
-                "infrastructure": config["infrastructure"], "configuration_sha256": p.digest(p.canonical(config)),
+                "infrastructure": config["infrastructure"], "configuration_sha256": p.digest(p.canonical(parent_config)),
+                "component_role": config["component_role"],
+                **({"web_compartment_id": parent_config["target"]["compartment_id"]} if config["component_role"] == "worker" else {}),
                 "backend": selected_backend, "target": dict(target),
                 "sources": source_binding()}
     except files.ImageGateError:
@@ -138,6 +145,8 @@ def recheck(stack, binding, backend=None, target=None):
         if binding["blueprint"] == "web-container":
             comparable |= {"port", "health_path", "origin", "availability_domain", "certificate_id",
                            "vcn_id", "app_subnet_id", "lb_subnet_id", "app_private_ip"}
+        if binding.get("component_role") == "worker":
+            comparable |= {"availability_domain", "vcn_id", "app_subnet_id", "app_private_ip"}
         files.require(all(target.get(key) == expected[key] for key in comparable & expected.keys()),
                       "The planned image or selected workload settings differ from this environment.")
     return current

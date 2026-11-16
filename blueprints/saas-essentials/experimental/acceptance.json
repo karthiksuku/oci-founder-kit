@@ -1,0 +1,15 @@
+{
+  "schema": "oci-kit-experimental-adapter/1",
+  "adapter": "resource-scheduler-function-queue",
+  "status": "blocked",
+  "reviewed_on": "2026-11-16",
+  "provider_version": "9.10.0",
+  "schedule_contract": "Hourly or less frequent, UTC, static wakeup payload; coalesce latest due occurrence from PostgreSQL cursor",
+  "blocking_evidence": [
+    "Functions image/source_details contract has not passed a live test with the kit's digest-only publication gate",
+    "Function runtime packaging and isolated resource-principal permissions have not passed live acceptance",
+    "Schedule-scoped invocation and 202-to-enqueue-to-job tracing have not passed live acceptance"
+  ],
+  "fallback": "Keep the existing scheduler during hosting migration. Use the explicitly owned worker's durable cursor for the reference app only.",
+  "forbidden_fallbacks": ["Create mutable tags", "Relax image identity verification", "Grant tenancy-wide Functions administration", "Take over an existing scheduler automatically"]
+}

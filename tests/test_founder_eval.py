@@ -49,7 +49,23 @@ class EvaluationTests(unittest.TestCase):
         with mock.patch.object(evaluation, "fixed_command", return_value={"exit_code": 0}) as command:
             evaluation.call(self.path, {"operation": "action", "action": "environment", "environment": "rehearsal"})
             self.assertEqual(command.call_args.args[0][-1], "deploy/rehearsal/terraform")
+            self.assertEqual(command.call_args.args[0][0], ROOT / "scripts/kit.py")
+            self.assertIn("--json", command.call_args.args[0])
+            self.assertIn("--non-interactive", command.call_args.args[0])
             self.assertNotIn("--live", command.call_args.args[0])
+
+    def test_canonical_continuation_refuses_legacy_after_named_environment_and_recovers(self):
+        start = evaluation.call(self.path, {"operation": "action", "action": "start"})
+        self.assertEqual(start["exit_code"], 0, start.get("output"))
+        created = evaluation.call(self.path, {"operation": "action", "action": "environment", "environment": "rehearsal"})
+        self.assertEqual(created["exit_code"], 0, created.get("output"))
+        unselected = evaluation.call(self.path, {"operation": "action", "action": "status"})
+        self.assertEqual(unselected["exit_code"], 3)
+        self.assertEqual(json.loads(unselected["output"])["error"]["code"], "ENVIRONMENT_REQUIRED")
+        selected = evaluation.call(self.path, {"operation": "action", "action": "resume", "environment": "rehearsal"})
+        self.assertEqual(selected["exit_code"], 0, selected.get("output"))
+        self.assertEqual(json.loads(selected["output"])["environment"], "rehearsal")
+        self.assertEqual(json.loads(selected["output"])["continuation_command"][-2:], ["--environment", "rehearsal"])
 
     def test_symlink_and_large_file_refused(self):
         target = self.path / "app/README.md"
@@ -191,6 +207,71 @@ class EvaluationTests(unittest.TestCase):
             result = evaluation.app_test(self.path, value)
         self.assertEqual(result["status"], "unavailable")
         client.assert_not_called()
+
+
+class EvaluationIdentityAndBatch(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_model_option_does_not_relax_tool_boundaries(self):
+        for agent in ("claude", "codex"):
+            command = evaluation.agent_command(agent, self.root, "synthetic-model-1")
+            self.assertEqual(command[command.index("--model") + 1], "synthetic-model-1")
+            self.assertNotIn("dangerously", " ".join(command))
+        with self.assertRaises(ValueError):
+            evaluation.agent_command("codex", self.root, "--untrusted-option")
+
+    def test_version_parser_never_exports_banner_or_host_details(self):
+        from subprocess import CompletedProcess
+        with mock.patch.object(evaluation.subprocess, "run", return_value=CompletedProcess([], 0, b"CLI 1.2.3 private-synthetic-host", b"")):
+            self.assertEqual(evaluation.cli_version("codex"), "1.2.3")
+        with mock.patch.object(evaluation.subprocess, "run", return_value=CompletedProcess([], 1, b"1.2.3", b"")), self.assertRaises(ValueError):
+            evaluation.cli_version("codex")
+
+    def test_model_claim_in_assistant_text_is_not_session_identity(self):
+        log = self.root / "transcript.jsonl"
+        log.write_text(json.dumps({"type": "assistant", "model": "invented-model"}) + "\n")
+        self.assertIsNone(evaluation.observed_model(log))
+        with log.open("a") as stream:
+            stream.write(json.dumps({"type": "system", "subtype": "init", "model": "actual-model"}) + "\n")
+        self.assertEqual(evaluation.observed_model(log), "actual-model")
+
+    def test_batch_records_all_twelve_fresh_attempts_including_failure(self):
+        (self.root / "release-manifest.json").write_text("synthetic-manifest")
+        called = []
+        def prepare(path, scenario):
+            self.assertFalse(path.exists())
+            path.mkdir(mode=0o700)
+        def run(agent, path, seconds, model):
+            called.append(path)
+            if len(called) == 2:
+                raise ValueError("private-failure-content")
+            return {"status": "passed", "elapsed_seconds": 1, "identity": {}, "checks": {"preserved": True}}
+        with mock.patch.object(evaluation, "ROOT", self.root), mock.patch.object(evaluation, "verify_sources"), \
+             mock.patch.object(evaluation, "prepare", side_effect=prepare), mock.patch.object(evaluation, "run", side_effect=run):
+            result = evaluation.batch(self.root / "batch", 30)
+        self.assertEqual(len(set(called)), 12)
+        self.assertEqual(result["passed_attempts"], 11)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["attempts"][1]["status"], "incomplete")
+        self.assertNotIn("private-failure-content", json.dumps(result))
+        self.assertEqual(result["manual_review"], "pending")
+        self.assertFalse(result["live_cloud_acceptance"])
+
+    def test_batch_stops_on_manifest_change_without_reusing_old_results(self):
+        manifest = self.root / "release-manifest.json"
+        manifest.write_text("initial")
+        def run(*args):
+            manifest.write_text("changed")
+            return {"status": "passed", "elapsed_seconds": 1, "identity": {}, "checks": {}}
+        with mock.patch.object(evaluation, "ROOT", self.root), mock.patch.object(evaluation, "verify_sources"), \
+             mock.patch.object(evaluation, "prepare"), mock.patch.object(evaluation, "run", side_effect=run):
+            result = evaluation.batch(self.root / "batch", 30)
+        self.assertEqual(result["status"], "interrupted")
+        self.assertEqual(len(result["attempts"]), 1)
+        self.assertEqual(evaluation.read(self.root / "batch/batch.json")["status"], "interrupted")
 
 
 if __name__ == "__main__":

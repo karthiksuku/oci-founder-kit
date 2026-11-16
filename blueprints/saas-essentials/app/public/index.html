@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer requests</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+  <script src="/jobs.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <h1>Customer requests</h1>
+    <nav aria-label="Account"><a id="sign-in" href="/auth/login" hidden>Sign in</a><button id="sign-out" type="button" hidden>Sign out</button><span id="account-state"></span></nav>
+    <p class="sub">Track customer requests, attach private files and follow background processing.</p>
+  </header>
+  <main>
+    <form hidden id="new-task" class="new-task" autocomplete="off">
+      <label for="title" class="visually-hidden">New request</label>
+      <input id="title" name="title" maxlength="200" placeholder="Describe your request" required>
+      <button type="submit">Add</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <ul id="tasks" class="tasks"></ul>
+    <p id="empty" class="empty" hidden>No requests yet. Add your first request above.</p>
+    <section aria-labelledby="processing-heading"><h2 id="processing-heading">Processing and summaries</h2><p>Accepted work stays durable while a worker is paused or recovering.</p><ul id="processing" aria-live="polite"></ul></section>
+  </main>
+  <footer class="foot"><span id="health">Checking the database…</span></footer>
+</body>
+</html>

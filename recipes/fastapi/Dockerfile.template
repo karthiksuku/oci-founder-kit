@@ -1,0 +1,10 @@
+# Review the existing locked requirements and application before building.
+FROM ${base_image}
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+COPY --chown=65532:65532 . .
+USER 65532:65532
+EXPOSE ${port}
+CMD ["python", "-m", "uvicorn", "${entrypoint}", "--host", "0.0.0.0", "--port", "${port}"]

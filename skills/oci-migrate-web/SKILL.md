@@ -4,7 +4,7 @@ description: Migrate an existing Vercel or Netlify web application to Oracle Clo
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Migrate a web app to OCI
@@ -95,6 +95,17 @@ restart, uploads, background work, logs, backup/restore and update/rollback.
 Keep the original deployment and data intact during verification. Present the
 traffic-switch plan and rollback conditions; switch only after approval.
 Source shutdown and deletion require a separate explicit decision.
+
+Treat scheduler/worker ownership declarations as intended configuration until
+observed at both source and target. A local `jobs_owner=source` or disabled target
+flag does not prove which schedulers are actually running, that no worker is
+still processing, or that duplicate effects are impossible. Keep the intended
+owner explicit, and report unobserved runtime ownership as unknown. Before an
+approved ownership transfer, collect current provider evidence, drain or stop
+the old owner as reviewed, verify the new owner and exercise duplicate-effect
+prevention and rollback. Record the observations and their age separately from
+configuration; preserve existing scheduling when that evidence or the transfer
+approval is unavailable.
 
 Use the [migration acceptance record](../../docs/MIGRATION-ACCEPTANCE.md) to
 capture source/target behavior, retained providers, data rehearsal and rollback.
