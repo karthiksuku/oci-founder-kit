@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.4.1"
+  version: "0.5.0"
 ---
 
 # Start building on OCI
@@ -35,13 +35,24 @@ then deploy and verify. The order can overlap: missing cloud access does not blo
 local app development. For migration: inventory dependencies, preserve source
 behavior, adapt and test, rehearse data movement, then stage/cut over with rollback.
 
-For an explicitly chosen new Taskboard app, use
-`python3 scripts/blueprint.py create fullstack-container --project PATH --agent both`
-from the kit root. Use the appropriate single-agent option when requested. The
-target must be new or empty and outside the kit. Creation is offline; its output
-lists the next commands and marks runtime checks as not run. Work on the created
-project's `app/` and `terraform/`, not the bundled example. Do not select Taskboard
-over a requested Next.js/FastAPI stack or an existing application.
+Use the local `scripts/project.py` helper from the reviewed kit root to establish
+or inspect the project checklist. For a new generic app, use
+`python3 scripts/project.py start --project PATH --task build --mode new --agent both --stack auto`,
+selecting `nextjs`, `fastapi` or `custom` when the user requested that stack.
+Use the actual coding-agent option when known. This creates an empty project and
+skills; implement the app afterward. The target must be new with an existing
+parent or empty, and outside the kit. Preserve partial results on failure.
+
+For an existing app, use `start --mode existing` with the appropriate `--task`
+(`build`, `migrate` or `setup`) and project/agent/stack arguments. It reuses an
+installed kit and preserves source. Inspect existing instructions and installation
+status first; if saved choices already exist, resume rather than overwriting them.
+
+Taskboard is an explicit choice: add `--blueprint fullstack-container` only to
+`--task build --mode new --stack auto`. Do not select it over Next.js/FastAPI or
+an existing application. Creation is offline and does not run the app, install
+dependencies or prove readiness. Work on the created project's `app/` and
+`terraform/`, not the bundled example. Start its Docker preview separately.
 
 For the bundled Taskboard, inspect `scripts/blueprint.py inspect fullstack-container`
 from the kit root and follow the [local preview guide](../../blueprints/fullstack-container/LOCAL.md).
@@ -60,10 +71,27 @@ or establish OCI access. Local development remains useful before cloud setup.
 
 When continuing a project, inspect existing instructions, installation metadata,
 uncommitted changes and its progress record before installing or redoing work.
-Recheck stale evidence against the current app source. A missing progress file
-is a reason to establish a short record, not to discard working code. Continue
-the next unfinished checkpoint and end with one actionable next step. A prior
-progress entry or approval never authorizes a different cloud plan.
+From the app, use `python3 .oci-founder-kit/scripts/project.py status --project .`
+when available; `resume --project .` refreshes the private observations. These
+return one `next_action` but never execute it. A website focus or a saved record
+is context, not a completed check or approval. Recheck earlier prerequisites and
+stale results before continuing the requested stage.
+
+If state is missing, inspect the app and initialize it with `start --mode existing`.
+For a legacy kit without this helper, follow the [update guide](../../docs/INSTALL.md#update-or-remove-a-project-installation)
+from a reviewed new release first; never recreate the app or force an overwrite.
+The updater's `check`, `apply` and `recover` preserve app/unowned files and refuse
+owned-file edits or registered hooks. Legacy installations need a clean matching
+`--baseline` checkout. The exact-list release hashes are not publisher signatures.
+
+Keep machine state, raw evidence and update backups in private `.oci-kit/`, with
+its ignore file intact; never force-add it. Use `project.py record` only after an
+actual authorized check and a private evidence file, following the
+[progress guide](../../docs/PROGRESS.md#private-project-checklist). Owner-recorded
+assertions are not independently verified. Changed source/helpers/evidence become
+stale. Do not record cloud approval or production acceptance as an ordinary pass.
+Keep a deliberately redacted `docs/PROGRESS.md`, then state one actionable next
+step. A prior progress entry or approval never authorizes a different cloud plan.
 
 ## Authorization and security
 

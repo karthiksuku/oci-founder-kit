@@ -22,11 +22,20 @@ Verify these controls against the running app:
   Review inherited tenancy/ancestor IAM and operator membership; a private
   bucket alone does not establish who can read state. Use the
   [approved backend workflow](../skills/oci-deploy/references/backend-state.md)
-  before remote initialization or planning. Live lock/version/recovery acceptance
-  remains pending for the kit; collect your own evidence before relying on it.
+  before remote initialization or planning. A bounded synthetic OCI rehearsal
+  verified writes, lock contention and historical-version recovery on 14 November
+  2026, followed by separately approved exact-version cleanup. This does not
+  establish your workload's inherited IAM, application state or recovery.
 - Restart persistence, dependency failure behavior, useful readiness checks,
   actionable alarms and bounded retries.
 - A restored backup and rehearsed application rollback, with measured recovery.
+
+For the hardened Taskboard, use the [HTTPS acceptance checker](../blueprints/fullstack-container/PRODUCTION.md#bounded-https-checker).
+Its default mode makes four anonymous reads. The explicit two-user exercise
+checks authorization, CSRF and authenticated attachment round trips with synthetic
+data. It removes only confirmed synthetic task rows; uploaded object versions
+can remain. Preserve its private report and separately review retention/cleanup.
+It does not automate hosted login, restart, restore, rollout or OCI operations.
 
 ## Update and rollback
 
@@ -75,7 +84,9 @@ from a Terraform exit code.
 Versioned state buckets retain prior state and lock history after normal updates
 or lock release. Review retained bytes, exact object versions and deletion
 permissions independently. State migration, state push, workspace changes, lock
-repair and version-specific cleanup have no gated implementation yet. Do not
+repair and general version-specific cleanup have no gated implementation yet.
+The separate synthetic backend rehearsal supports only its own recorded exact
+versions under a separate approval. Do not
 substitute a broad recursive delete or workspace deletion, and do not remove a
 shared state bucket as part of application teardown.
 

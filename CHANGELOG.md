@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 - 2026-11-16
+
+- Guide new, existing and continuing projects through private progress, stale-evidence checks and one next action.
+- Add inline setup help, stage-aware continuation and a clearer mobile/desktop handoff on the founder site.
+- Distribute an explicit integrity-checked file list and track installation ownership; preview, apply or recover local kit upgrades while preserving app edits.
+- Add a bounded HTTPS acceptance checker for the hardened Taskboard, with explicit synthetic writes and retained-object reporting.
+- Harden hook Git inspection, private project paths and token-shaped filename handling.
+- See [0.5.0 evidence](docs/RELEASE-0.5.0.md) for verification and remaining workload acceptance.
+
 ## 0.4.1 - 2026-11-15
 
 - Exclude additional known credential/configuration paths, Terraform backup variants and logs from project installation and starter creation.

@@ -1,58 +1,94 @@
 # Install OCI Founder Kit
 
-Install the kit into the application you want to build or migrate, then start
-Claude Code or Codex in that application directory. You need Git, Python 3.11+
-and your own installed coding tool and account. OCI credentials are configured
-separately when you are ready to connect to your tenancy.
+Choose **New project**, **Existing project** or **Continue** in the
+[founder guide](https://karthiksuku.github.io/oci-founder-kit/#start), then open
+Claude Code or Codex in your application folder. You need Git, Python 3.11+ and
+your own coding tool and account. The project helper supports Linux, macOS and
+WSL2. OCI access can be configured after local development starts.
 
-Install or create from a fresh, reviewed source checkout. The distribution
-filter excludes named credential/configuration files, Terraform working files
-and logs; it is not a content sanitizer or a Git-tracked-files allowlist. Other
-eligible files added inside the kit's source directories can be copied, even
-when untracked. Keep private JSON, session exports and all operational data
-outside that checkout. Review the resulting project before sharing it.
+Use a fresh, reviewed release checkout outside your app. Installation and
+creation copy only the exact files listed in `release-manifest.json`, checking
+their SHA-256 bytes first. Missing or changed listed files are refused; extra
+unlisted files are not added to the installed bundle. These hashes detect byte
+changes, **not publisher authenticity or secret safety**. The manifest is not a
+signature. Keep operational data and credentials outside the source checkout,
+and review the resulting project before sharing it.
+
+## Start a new project
+
+For a new app in your chosen stack, clone the kit once or reuse a reviewed clone:
+
+```sh
+git clone https://github.com/karthiksuku/oci-founder-kit.git
+python3 oci-founder-kit/scripts/project.py start \
+  --project /absolute/path/to/my-app --task build --mode new \
+  --agent both --stack nextjs
+cd /absolute/path/to/my-app
+```
+
+Use `--stack nextjs`, `fastapi`, `custom` or `auto`. The choice is advisory:
+this command creates the empty project, local skills and private progress state;
+your coding agent implements the app. It does not generate Taskboard or replace
+a requested framework. The target must be a new child of an existing parent,
+or an empty existing directory outside the kit. Nonempty targets are refused.
+
+The JSON result has one `next_action`. Follow that instruction in your coding
+agent; a listed command is guidance, not something the helper executed. No app
+tests, dependency installation or cloud operations run. If setup fails, preserve
+any partial folder and inspect the failure before retrying.
 
 ## Create a new editable starter
 
-Choose this path specifically for the included Node.js/PostgreSQL Taskboard.
-It creates app source, infrastructure templates, agent instructions and a local
-kit snapshot in your own project. It does not replace an existing application
-or implement a requested Next.js/FastAPI stack.
+Choose this path explicitly for the included Node.js/PostgreSQL Taskboard.
+From outside your app, clone the kit once or reuse your reviewed clone:
 
 ```sh
 git clone https://github.com/karthiksuku/oci-founder-kit.git
-python3 oci-founder-kit/scripts/blueprint.py create fullstack-container \
-  --project /absolute/path/to/my-app --agent both
+python3 oci-founder-kit/scripts/project.py start \
+  --project /absolute/path/to/my-app --task build --mode new \
+  --agent both --stack auto --blueprint fullstack-container
 cd /absolute/path/to/my-app
+```
+
+The blueprint flag is required for Taskboard. It cannot be combined with a
+Next.js/FastAPI stack selection. The same new-or-empty target rules apply.
+Creation copies app source, infrastructure, agent skills and local project state
+offline. It enables no hooks, installs no dependencies and starts no services.
+
+With local Docker and Compose available, start the preview separately:
+
+```sh
 python3 local_preview.py start
 ```
 
-The target must be new with an existing parent, or an empty existing directory,
-outside the kit. Creation refuses occupied or unsafe destinations. Use
-`--dry-run` to validate the source and target without writing files. If creation
-fails during publication, it retains any partial destination for you to review;
-it does not delete or overwrite those files. Preserve that folder and choose a
-new empty destination after resolving the error. Creation requires Python 3.11+ on
-Linux, macOS or WSL2; native Windows creation refuses unsupported filesystem
-operations. Starting the app requires the Docker/Compose versions in the
-[local preview guide](../blueprints/fullstack-container/LOCAL.md).
+Follow the [preview requirements](../blueprints/fullstack-container/LOCAL.md).
+Edit **your project's `app/` and `terraform/`**; `.oci-founder-kit/` is the toolkit
+snapshot. Run `start` again after app edits to rebuild. `stop` preserves the
+local database and private settings. This is an unauthenticated local sandbox,
+not a deployed app.
 
-Edit the new project's `app/`, use its root README for commands, and record real
-results in its `docs/PROGRESS.md`. The `.oci-founder-kit/` directory is the
-toolkit snapshot, not the app you should customize. Creation installs selected
-skills locally but enables no hooks, installs no dependencies, runs no app or
-tests, reads no cloud credentials and makes no network or OCI calls.
+The lower-level `scripts/blueprint.py create fullstack-container` command remains
+available, including its `--dry-run` option. It exports the app and skills without
+initializing the new project checklist. `project.py` has no `--dry-run` flag.
 
 ## Project installation
 
-Clone the kit outside your app directory. Set `--project` to an existing
-application folder; create an empty folder first if you are starting a new app.
+Clone the kit outside your existing app, or reuse a reviewed clone. Set
+`--project` to the existing application folder:
 
 ```sh
 git clone https://github.com/karthiksuku/oci-founder-kit.git
-python3 oci-founder-kit/scripts/install.py --project /absolute/path/to/my-app --agent both
+python3 oci-founder-kit/scripts/project.py start \
+  --project /absolute/path/to/my-app --task build --mode existing \
+  --agent both --stack custom
 cd /absolute/path/to/my-app
 ```
+
+Use `--task migrate` for an existing hosted app, or `--task setup` for OCI access
+and foundation work. Setup can use an empty existing folder. Existing mode
+preserves app files and reuses an installed kit instead of reinstalling it.
+If saved project choices already exist, use `resume`; a different task, agent,
+stack or blueprint is not silently written over them.
 
 Choose the coding tool you use:
 
@@ -62,111 +98,163 @@ Choose the coding tool you use:
 | `--agent claude` | `.claude/skills/` |
 | `--agent both` | Both directories |
 
-The installer copies the toolkit into `.oci-founder-kit/`. Its generated skill
-entries point back to that bundle so scripts, diagrams, references and blueprints
-stay together. Installation makes no network calls or cloud changes and does
-not edit global settings, `AGENTS.md`, `CLAUDE.md` or existing skills. It refuses
-occupied destinations instead of overwriting them.
+The installer copies the toolkit into `.oci-founder-kit/`. Generated entry
+skills point to that snapshot. It preserves app instructions, global settings
+and unrelated skills, refusing occupied destinations. The project helper adds
+private state under `.oci-kit/`; its own ignore file excludes those contents
+from ordinary Git additions. Do not force-add them or publish raw reports.
 
-Add `--dry-run` to preview the selected agents and skill names without writing
-files. The Git clone itself requires internet access; subsequent agent and OCI
-operations have their own connectivity and account requirements.
+## Kit-only installation
+
+The existing installer still works when you only want skills and the bundle:
+
+```sh
+python3 oci-founder-kit/scripts/install.py --project /absolute/path/to/my-app --agent both
+```
+
+The target must already exist. Add `--dry-run` to preview the selected agents
+and skill names without writing files. This does not create a project progress
+record. Initialize one later with `project.py start --mode existing`; do not
+reinstall or delete working app files. Git clone, coding-agent sessions and
+later OCI operations have their own network and account requirements.
 
 ## Start your first session
 
 Launch your coding tool from the app directory. If the new skills do not appear,
 open a fresh session.
 
-In **Codex**, use:
-
-```text
-$oci-kit Build my app on OCI. Help me set up access and the required foundation.
-```
-
-In **Claude Code**, use:
-
-```text
-/oci-kit Build my app on OCI. Help me set up access and the required foundation.
-```
+| Codex | Claude Code |
+| --- | --- |
+| `$oci-kit Build my app on OCI.` | `/oci-kit Build my app on OCI.` |
 
 For migration, replace the goal with “Migrate this Vercel application to OCI,
-starting with a repository assessment.” For credentials or an existing tenancy,
-start with “Check my OCI access and help me prepare a dedicated compartment.”
-See [the start guide](START-HERE.md) for complete task prompts and what to expect.
+starting with a repository assessment.” For setup, use “Check my OCI access and
+help me prepare a dedicated compartment.” The [start guide](START-HERE.md)
+provides full prompts, first checkpoints and continuation guidance.
 
-The agent can build locally while cloud setup is incomplete. Account enrollment,
-identity verification and administrator bootstrap use your own account or an
-authorized administrator. Never paste private keys or tokens into chat. The
-kit prepares reviewed plans; every cloud write requires approval of its exact
-target, permissions, resources and costs.
+## Continue a project
+
+From the same application folder, inspect the local record:
+
+```sh
+python3 .oci-founder-kit/scripts/project.py status --project .
+```
+
+`status` reads observations without updating the project record. To refresh the
+record and receive the next action:
+
+```sh
+python3 .oci-founder-kit/scripts/project.py resume --project .
+```
+
+Neither command runs app tests, contacts OCI or grants approval. Known private
+paths are excluded from content reads; other source files are hashed locally.
+This is not a secret detector. `start --mode continue` is an alias for resume and uses the saved
+choices. Changed source, helper code or evidence makes earlier records stale.
+See [recording actual evidence](PROGRESS.md#private-project-checklist).
+
+For an installation with no project state, initialize it once with
+`project.py start --mode existing`, using the intended task, agent and stack.
+For an older kit without `project.py`, review and update it first using the new
+source helper below. Do not recreate an existing app to obtain a progress file.
 
 ## Claude Code plugin alternative
 
-The complete kit is also a Claude Code plugin:
+The kit is also a Claude Code plugin:
 
 ```sh
 claude plugin marketplace add karthiksuku/oci-founder-kit
 claude plugin install oci-founder-kit@oci-founder-kit-marketplace
 ```
 
-Invoke the plugin entry with `/oci-founder-kit:oci-kit`. This differs from the
-project-local `/oci-kit` command. Choose one delivery method for a given scope
-to avoid duplicate skill entries. The project installer does not install or
-configure the plugin marketplace.
+Invoke the plugin entry with `/oci-founder-kit:oci-kit`; project-local skills
+use `/oci-kit`. Choose one delivery method per scope to avoid duplicate entries.
+The project installer does not configure the plugin marketplace. Project-local
+commands above assume a `.oci-founder-kit/` installation.
 
 ## Update or remove a project installation
 
-The installed bundle is a snapshot. Updating the original Git checkout does
-not update an application that already has `.oci-founder-kit/`.
-
-Inspect its version and entry skills without changing anything:
+An installed kit is a snapshot. Updating its original checkout does not update
+the app's `.oci-founder-kit/`. First inspect the installation from the app:
 
 ```sh
 python3 .oci-founder-kit/scripts/install.py --project . --status
 ```
 
-The manifest fingerprint identifies public release metadata; it is not proof
-of publisher authenticity or an integrity check of every installed file.
+Read the new release notes and obtain a separate, reviewed **new release source**
+outside the app. Run the updater from that new source, not from the old bundle:
 
-1. Review the new [release notes](https://github.com/karthiksuku/oci-founder-kit/releases).
-   Check your app's version-control status and preserve any changes you made
-   inside the installed bundle or generated skill entries.
-2. Inspect `.oci-founder-kit/installation.json` to identify the agents and skill
-   names installed by this copy. Keep unrelated skills and agent configuration.
-3. Preserve any private Terraform state, working plans and receipts before
-   replacing the bundle. Removing the kit does not destroy cloud resources;
-   teardown is a separate approved operation.
-4. If you enabled [optional hooks](HOOKS.md), use their uninstall command first.
-   Remove only this kit's bundle and its matching generated skill folders,
-   then run the installer from the reviewed new checkout. Do not delete the
-   whole `.agents/`, `.claude/` or `skills/` directory.
-5. Open a fresh agent session and confirm the expected skill is available.
+```sh
+python3 /absolute/path/to/oci-founder-kit-new/scripts/update.py check \
+  --project /absolute/path/to/my-app
+```
 
-To uninstall, follow the same review and preservation steps and omit the final
-reinstall. There is no force-overwrite or automatic uninstall command.
+`check` stages and verifies the replacement in a temporary directory, reports
+owned-file changes, and does not change the app. After reviewing that report:
+
+```sh
+python3 /absolute/path/to/oci-founder-kit-new/scripts/update.py apply \
+  --project /absolute/path/to/my-app
+```
+
+The updater changes only owned kit files and generated skill entries. It keeps
+application code, unrelated files and `.oci-kit/` project state. Edited or missing
+owned files, collisions with unowned files and registered kit hooks are refusals,
+not permission to overwrite. Preserve and reconcile local edits first. Uninstall
+kit hooks with the installed hook helper before updating, following the
+[hook guide](HOOKS.md); review their new commands through the normal trust flow
+if you enable them afterward. The updater does not grant hook trust.
+
+Legacy installations such as **v0.4.1** lack the new per-file ownership list.
+For both `check` and `apply`, add
+`--baseline /absolute/path/to/oci-founder-kit-v0.4.1`: a separate clean Git checkout
+of the exact installed version. Its index and tracked working bytes must match
+its release commit. An arbitrary folder or edited checkout is not a baseline.
+Inspect the installed version first; use its matching release rather than
+assuming every legacy installation is v0.4.1.
+
+Updates retain a private backup/journal under `.oci-kit/updates/`. If an
+interruption leaves a recovery marker, preserve that directory and use the
+same reviewed new-source updater:
+
+```sh
+python3 /absolute/path/to/oci-founder-kit-new/scripts/update.py recover \
+  --project /absolute/path/to/my-app
+```
+
+Recovery restores the previous owned files for an interrupted update, or verifies
+a completed update and clears its stale marker. Unexpected post-update edits
+cause refusal. It is not an arbitrary downgrade command. Inspect the result,
+open a fresh agent session and recheck project evidence after an update.
+
+For manual uninstall, inspect `installation.json`, preserve private data and
+local changes, then remove only the kit-owned bundle files and matching generated
+entry files. Keep unrelated `.agents/`, `.claude/`, instructions and skills.
+Removing the kit does not destroy cloud resources or cancel cloud charges;
+cleanup remains a separately reviewed operation.
 
 ## Optional local hooks
 
-The basic installation does not change agent settings or enable hooks. See the
-[hook guide](HOOKS.md) for staged secret checks, offline readiness, targeted
-validation and cloud-operation reminders. Review the commands and use your
-agent's normal trust flow before enabling them. Existing hooks are preserved.
+The basic installation does not change agent settings or enable hooks. The
+[hook guide](HOOKS.md) covers staged content checks, readiness, targeted validation
+and cloud-operation reminders. Review the exact commands and use the agent's
+normal trust flow before enabling them. Existing hooks are preserved.
 
 ## Platform and troubleshooting notes
 
-- **Linux:** the fresh-install and local runtime tests in the
-  [0.2.1 evidence](RELEASE-0.2.1.md) ran here.
-- **macOS:** the installer uses standard-library Python and project-local files;
-  a fresh-user macOS run is not recorded in this release.
-- **Windows:** use Python 3.11+ (`py -3` can replace `python3`) and a valid absolute
-  Windows app path. Native Windows execution and credential ACLs remain untested.
+- Project state, editable creation and the update/recovery workflow require the
+  supported local filesystem operations on Linux, macOS or WSL2. Use WSL2 for
+  these workflows on Windows; native Windows behavior is not established here.
+- Installation refusal: check the target folder, existing kit ownership and
+  symlinked paths. Preserve conflicts rather than deleting unknown files.
+- Missing state: inspect the app and initialize with `start --mode existing`;
+  missing state is not a reason to replace the app.
+- Update refusal: inspect owned edits, hooks, release integrity, legacy baseline
+  and any interrupted update before retrying.
+- Read the release evidence for tested platforms and limitations; a platform
+  listed as supported by a helper is not a claim of fresh-user acceptance here.
 
-If installation refuses, verify that the app directory exists and is outside
-the source kit, and that the target bundle or skill names are not already
-occupied. Symlinked discovery directories are refused. Do not remove an existing
-skill without checking who owns it and preserving any local edits.
-
-For authentication failures use the [credential guide](../skills/oci-ready/references/credentials.md).
-For deployment limits and tested capabilities read [the status](ROADMAP.md).
-Send only redacted diagnostics when reporting a problem; keep credentials,
-Terraform state and private receipts out of GitHub issues.
+Use the [credential guide](../skills/oci-ready/references/credentials.md) for
+access problems and [capability status](ROADMAP.md) for deployment boundaries.
+Share only deliberately redacted diagnostics. Keep credential files, state,
+raw evidence and update backups out of GitHub issues.

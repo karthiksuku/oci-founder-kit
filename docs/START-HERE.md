@@ -1,9 +1,11 @@
 # Start here: let your agent build or migrate
 
-Install the kit as described in the root [README](../README.md), then open Claude
-Code or Codex in your application repository. You can also tell the agent to read
-the repository URL and perform that installation locally. The kit is source code
-and skills, not a hosted service. Your coding-tool account and OCI account are separate.
+Choose **New project**, **Existing project** or **Continue** in the
+[founder guide](https://karthiksuku.github.io/oci-founder-kit/#start). Copy its prompt
+into Claude Code or Codex in your intended app folder. The guide shows the first
+expected result and relevant prerequisites; it does not inspect your machine or
+mark work complete. The [installation guide](INSTALL.md) provides matching terminal
+commands. Your coding-tool account and OCI account are separate.
 
 ## New application
 
@@ -14,6 +16,13 @@ help me authenticate to OCI, prepare a dedicated compartment and scoped IAM,
 and review the design against OCI's Well-Architected Framework.
 Show the exact deployment plan and recurring cost before making cloud changes.
 ```
+
+For a fresh app, `project.py start --mode new --task build` creates an empty
+project, local skills and a private checklist. `--stack nextjs` or `--stack fastapi`
+records the requested stack; your agent still implements it. Taskboard requires
+the explicit `--blueprint fullstack-container` choice. For an existing app, use
+`--mode existing` so the helper preserves its code and reuses an installed kit.
+Use the full path/agent arguments from the installation guide.
 
 The agent starts local development while you complete any account enrollment or
 administrator steps. It chooses a maintainable architecture based on the workload,
@@ -52,6 +61,11 @@ service contracts. The agent must ask for the missing facts without requesting
 secret values. Keeping an external database or identity service can be a valid
 first migration stage; show what remains external and why.
 
+Initialize a migration checklist with `project.py start --mode existing --task migrate`
+and the appropriate project/agent/stack arguments. It records local context and
+installs the kit if absent; it does not assess the app, migrate data or
+execute the next command for you.
+
 Use the [migration acceptance record](MIGRATION-ACCEPTANCE.md) to compare source
 and target behavior, rehearse data changes and define rollback before cutover.
 
@@ -62,22 +76,43 @@ an arbitrary Vercel application or migrate provider-managed data.
 
 ## Resume an existing project
 
-Open the same application folder and use the website's resume prompt, or paste:
+Open the same application folder and choose **Continue** on the site. Optionally
+select a focus such as local workflow, access, design/cost or deployment
+verification. Your selection is context, not a completed checkpoint or approval.
+The agent must recheck current evidence and earlier prerequisites.
+
+With a saved local project record, inspect or refresh it from the app folder:
+
+```sh
+python3 .oci-founder-kit/scripts/project.py status --project .
+python3 .oci-founder-kit/scripts/project.py resume --project .
+```
+
+`status` is read-only; `resume` refreshes the local observations. Both return one
+next action without running app tests or cloud operations. If the record is
+missing, inspect the app and initialize it with `start --mode existing`; do not
+recreate it. For an older installed kit, follow the [reviewed update path](INSTALL.md#update-or-remove-a-project-installation) first.
+
+Use the website's continuation prompt, or paste:
 
 ```text
 Use oci-kit to continue this project. Read its instructions, current changes and
 docs/PROGRESS.md if present. Inspect the existing kit installation before trying
 to install anything. Preserve the app's framework, services and uncommitted work.
-Check whether recorded evidence still matches the current source. Continue the
-next unfinished local checkpoint and update the progress record with actual
+If the installed project helper is available, read its status. Check whether
+recorded evidence still matches the current source. Continue the next unfinished
+local checkpoint and update the progress record with actual
 results. Explain missing facts together when they block the next step. Cloud
 changes still need fresh approval of the exact plan; old progress is not approval.
 Never request credential values. Finish with one clear next action.
 ```
 
-Progress is maintained in your application, not measured by the website. A
-bookmark can retain only the chosen task, agent and stack. It does not save your
-brief, project files, credentials, completion status or approval decisions.
+Progress is maintained in your application, not measured by the website. Keep
+raw evidence and machine state private in `.oci-kit/`; use the
+[progress guide](PROGRESS.md) for recording results and a shareable summary. A
+bookmark retains only allowlisted project mode, task, agent, stack and focus.
+It does not save your brief, project files, credentials, completion status or
+approval decisions.
 
 ## OCI credentials and initial setup
 
@@ -117,13 +152,16 @@ protected state and validate the running controls and recovery before real users
 
 - Skill missing: restart the agent session, check installation.json in
   `.oci-founder-kit`, or open the source `skills/oci-kit/SKILL.md` directly.
-- Existing install: the installer refuses overwrites. In a clean version-controlled
-  app, review the new kit release, remove only its installed bundle and matching
-  generated entry folders, then reinstall. Preserve app code and other skills.
+- Existing install: use the [new-source updater](INSTALL.md#update-or-remove-a-project-installation)
+  to check changes before applying them. It refuses edited owned files and
+  registered hooks, preserves app/unowned files, and provides interrupted-update
+  recovery. Legacy installs need a clean matching baseline checkout.
 - Login or region failure: use the doctor's redacted result and official credential
   instructions. Do not send config files, token files or Terraform state to issues.
 - Denied or unknown checks: the agent should explain the specific administrator
   action or unverified capability; it must not claim full readiness.
+- Stale project evidence: source, helper code or evidence changed. Recheck it and
+  record actual new results; a JSON status cannot grant deployment approval.
 - Invalid app build: keep cloud deployment stopped and resolve local failures.
 - Failed infrastructure apply: preserve the private receipt, inspect state and
   produce a recovery plan. Never automatically destroy shared resources.

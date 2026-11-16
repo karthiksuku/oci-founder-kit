@@ -26,7 +26,8 @@ npm audit
 ```
 
 The build includes Astro's TypeScript check. Browser tests exercise all task and
-agent combinations, task checkpoints, editable-starter commands, initial and
+agent combinations, new/existing/continue journeys, evidence-focused stages,
+inline source excerpts, task checkpoints, editable-starter commands, initial and
 resume clipboard success/fallback, bookmark/reload/history behavior, mobile
 navigation, keyboard access, light/dark layout, local-only brief handling and automated accessibility
 checks. Automated checks supplement visual and assistive-technology review.
@@ -58,7 +59,7 @@ build alone does not establish a live deployment.
   it to the user's clipboard. Do not enter credentials in a project brief.
 - Only the selected display theme is saved in local storage. Storage failures
   are harmless and do not prevent use of the site.
-- Task, agent and stack choices are allowlisted and retained in the URL fragment,
+- Project mode, task, agent, stack and continuation focus choices are allowlisted and retained in the URL fragment,
   alongside the page anchor. Reload and browser history restore these choices;
   unknown values fall back to defaults and unknown parameters are discarded.
   The fragment contains no brief, project path, credential or completion state.
@@ -66,12 +67,21 @@ build alone does not establish a live deployment.
   interpreted as markup. Clipboard denial selects the text for manual copying.
 - The workflow illustration explains a sequence; it does not report a real
   deployment. Example cards state their actual verification level.
-- The handoff panel describes expected first results and offers a resume prompt.
+- The handoff panel describes expected first results, requirements and a resume prompt.
+  New / Existing / Continue paths produce distinct project-helper commands; only
+  explicit Taskboard selection supplies the blueprint flag. The optional focus
+  matches the progress guide, sets context only and never marks a stage complete.
   Progress lives in the application's `docs/PROGRESS.md`; the site does not read
   it or mark any check complete. A resume prompt requires current cloud approval.
 - Editable Taskboard is an explicit Build choice. Its command creates app source
   and skills offline in a new or empty project; Docker preview startup is a
   separate step. Generic Build, Next.js and FastAPI do not select this starter.
+- Inline installation, Docker and OCI-access help is built from selected public
+  Markdown sections at build time. There is no browser fetch or second copy of
+  the source commands. Excerpts are rendered as escaped prose, code, lists and
+  tables, with complete-source and return-to-prompt links.
+- Full prompts use native details controls. Copy is visible before the full text;
+  clipboard denial opens the text for selection and keyboard copying.
 - Without JavaScript the default prompt, terminal commands, path content and
   documentation links remain available.
 - The local Astro runner disables Astro telemetry for builds and previews.

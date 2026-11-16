@@ -7,6 +7,7 @@ replace the source repository's development workflow.
 Run the repository checks:
 
 ```sh
+python3 scripts/release_manifest.py check
 python3 scripts/validate.py
 python3 -m unittest discover -s tests -v
 claude plugin validate .
@@ -22,6 +23,39 @@ and tests are separate:
 npm --prefix blueprints/fullstack-container/app ci
 npm --prefix blueprints/fullstack-container/app test
 ```
+
+The hardened checker has a real local HTTPS integration test using the app's
+production routes, signed sessions and CSRF middleware with synthetic backing
+stores. After installing the locked app dependencies, run:
+
+```sh
+FOUNDER_KIT_PRODUCTION_CHECK_LOCAL=1 python3 -m unittest discover -s tests -p test_production_check.py
+```
+
+This does not connect to OCI or an identity provider. TLS keys are generated
+privately at runtime; no private key fixture is distributed.
+
+## Distribution manifest
+
+Installation uses only files listed in release-manifest.json and checks their
+SHA-256 hashes. Unknown files, including untracked eligible JSON, are not copied.
+This is integrity checking, not publisher authentication or content sanitization.
+Obtain the source from the intended repository/release and review its contents.
+
+After source changes, stage only reviewed public paths, then regenerate the
+manifest from those Git-indexed paths and the current worktree bytes:
+
+```sh
+python3 scripts/release_manifest.py create
+python3 scripts/release_manifest.py check
+git add release-manifest.json
+```
+
+Regenerate after any listed byte changes, including versions and release notes.
+Check that index and worktree agree before publication. Do not add private files
+to the index merely to include them. Keep audit reports and operational evidence
+outside the source tree. Verify installation and update from a clean release
+archive as well as the working checkout.
 
 The real PostgreSQL integration suite requires a deliberately selected test
 database through `TEST_DATABASE_URL`. It drops and recreates its fixture tables;
@@ -96,7 +130,7 @@ A private/versioned bucket and passing mocked commands do not establish effectiv
 IAM or restore behavior. Never publish account-specific policy/group details as
 fixtures; use synthetic examples and link public primary documentation.
 
-[Release evidence](RELEASE-0.4.1.md) records the current preview's checks and limits.
+[Release evidence](RELEASE-0.5.0.md) records the current preview's checks and limits.
 The [optional CI template](ci/validate.workflow.yml) is not installed as an Actions
 workflow, so there is no GitHub Actions pass to infer from local results.
 

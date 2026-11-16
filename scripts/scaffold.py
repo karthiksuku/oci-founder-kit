@@ -8,6 +8,7 @@ partial destination files remain for manual review; they are never unlinked.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import os
 from pathlib import Path
@@ -126,6 +127,16 @@ npm --prefix app test
 Creation did not run these commands, inspect credentials or verify OCI readiness.
 Record actual results and the next action in [docs/PROGRESS.md](docs/PROGRESS.md).
 
+If created through project.py, resume the private workflow with:
+
+```sh
+python3 .oci-founder-kit/scripts/project.py resume --project .
+```
+
+For a direct blueprint.py creation, initialize progress first with the installed
+project.py start command using --project . --task build --mode existing --agent both.
+Progress lives in ignored .oci-kit/; checkpoints do not approve cloud changes.
+
 ## Continue with your coding agent
 
 Open this project in Codex and use `$oci-kit`, or in Claude Code use `/oci-kit`
@@ -180,6 +191,11 @@ Use this project's terraform/ or registry/ as the target. Do not deploy or edit
 the hidden toolkit's bundled app instead of app/. Creation verified no hosted
 identity, OCI access, deployment or recovery; record actual checks in
 [docs/PROGRESS.md](docs/PROGRESS.md).
+
+After a reviewed deployment, production_check.py can check the exact HTTPS
+origin with anonymous reads. Its explicit two-user exercise writes synthetic
+app data; see the installed hardened guide for private session inputs and
+retained-object cleanup. It does not establish production readiness by itself.
 """, encoding="utf-8")
     (stage / "AGENTS.md").write_text("""# Working on this app
 
@@ -218,7 +234,7 @@ after performing each check; keep secret values and private receipts outside it.
 """, encoding="utf-8")
     ignored = ["# Local development and private cloud files", ".local-preview/", "node_modules/",
                ".next/", ".vercel/", ".netlify/", "__pycache__/", "*.pyc"]
-    private_patterns = ["*.pem", "*.key",
+    private_patterns = ["*.pem", "*.key", ".oci-kit/",
                "*.p12", "*.pfx", ".oci/", ".docker/", ".aws/", ".ssh/", ".azure/", ".kube/",
                ".npmrc", ".npmrc.*", ".npmrc~", ".pypirc", ".pypirc.*", ".pypirc~",
                ".git-credentials", ".git-credentials.*", ".git-credentials~", ".netrc", ".netrc.*", ".netrc~",
@@ -254,7 +270,7 @@ def export_sources(root: Path, name: str) -> tuple[object, list[tuple[Path, Path
             selected.append((source, Path("LICENSE")))
         elif relative.parts[:2] == ("blueprints", name):
             exported = Path(*relative.parts[2:])
-            if exported.parts[0] in {"app", "terraform", "registry"} or exported.as_posix() in {"local_preview.py", "compose.local.yaml"}:
+            if exported.parts[0] in {"app", "terraform", "registry"} or exported.as_posix() in {"local_preview.py", "compose.local.yaml", "production_check.py"}:
                 selected.append((source, exported))
     required = {Path(value) for value in ("LICENSE", "app/package.json", "app/src/server.js",
                                         "terraform/versions.tf", "registry/main.tf",
@@ -266,11 +282,17 @@ def export_sources(root: Path, name: str) -> tuple[object, list[tuple[Path, Path
 
 def prepare(root: Path, name: str, stage: Path, agent: str) -> dict:
     installer, selected = export_sources(root, name)
+    manifest = installer.manifest_module()
+    release = manifest.verified(root, installer.distributable)
     for source, relative in selected:
         destination = stage / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, destination)
-        destination.chmod(0o755 if source.stat().st_mode & 0o111 else 0o644)
+        name_in_release = source.relative_to(root).as_posix()
+        data = manifest.read_file(root, name_in_release)
+        if hashlib.sha256(data).hexdigest() != release[name_in_release]["sha256"]:
+            raise ValueError("Source changed during creation.")
+        destination.write_bytes(data)
+        destination.chmod(0o755 if release[name_in_release]["executable"] else 0o644)
     installation = installer.install(stage, agent)
     guidance(stage, installation)
     return installation

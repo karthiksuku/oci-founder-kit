@@ -81,7 +81,7 @@ working-tree symlinks. Cleaning a working file does not clean a secret already
 staged in the index. Stage corrected content and rerun the check.
 
 Private artifacts include keys, real `.env` files, Terraform variable/state/plan/backend
-files, credential folders and private gate receipts. Example files are permitted
+files, credential folders, `.oci-kit/` project records and private gate receipts. Example files are permitted
 by filename but still scanned for secrets. Placeholder values such as
 `<set-locally>` and `${VARIABLE}` are accepted; a sample filename is not a blanket
 exception. Findings show paths and rule identifiers, never matched values.
@@ -170,7 +170,17 @@ through the installer afterward. No application code or OCI command was executed
 These cases do not establish coverage of arbitrary shell commands or every host
 version. See the [dated release follow-up](RELEASE-0.3.4.md).
 
-Codex loaded the four current event definitions without configuration errors,
-with its project layer active, and reported all four hooks untrusted. Normal
-owner review remains required. Trusted Codex runtime is still unverified;
-adapter tests and schema loading do not establish that result.
+On 16 November 2026, Codex 0.162.1 exercised the current hook script in an isolated
+project. Its SHA-256 is
+`70dd653ca755ccab6112de0f6b2978b918d94dab0a651de6793db9a1fae18bb5`.
+All four commands were reviewed individually through normal `/hooks` controls;
+read-only host inspection then confirmed enabled/trusted definitions with no
+configuration errors. No trust-store edits or bypass were used.
+
+Actual SessionStart context appeared, and one synthetic Terraform command was
+explicitly denied by PreToolUse before its marker could be created. No cloud
+command ran. PostToolUse and Stop were trusted but not separately runtime-verified
+in this probe. The private fixture retained 0.4.1 bundle metadata while using this
+exact current script; this is hook-script evidence, not a full 0.5.0 agent-session
+acceptance result. Review and trust your own installation's commands through the
+host's controls; trust is not automatically transferred between projects or edits.

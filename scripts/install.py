@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -22,10 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DIRECTORIES = {"skills", "scripts", "docs", "blueprints", "examples", "tests",
                ".claude-plugin", ".codex-plugin"}
 FILES = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "SECURITY.md",
-         "CHANGELOG.md", "CONTRIBUTING.md", "plugin.json", ".gitignore"}
+         "CHANGELOG.md", "CONTRIBUTING.md", "plugin.json", ".gitignore", "release-manifest.json"}
 SKIP = {".git", ".terraform", ".gate", "node_modules", "__pycache__", ".venv",
         "venv", "dist", "build", "work", "receipts", ".oci", ".local-preview", ".next", ".vercel", ".netlify",
-        ".docker", ".aws", ".ssh", ".azure", ".kube", "credentials", "keys"}
+        ".docker", ".aws", ".ssh", ".azure", ".kube", ".oci-kit", "credentials", "keys"}
 AGENTS = {"codex": ".agents", "claude": ".claude"}
 
 
@@ -55,21 +56,20 @@ def safe_parent(path: Path, project: Path) -> None:
         path = path.parent
 
 
+def manifest_module():
+    spec = importlib.util.spec_from_file_location("kit_release_manifest", Path(__file__).with_name("release_manifest.py"))
+    module = importlib.util.module_from_spec(spec)
+    previous = sys.dont_write_bytecode
+    try:
+        sys.dont_write_bytecode = True
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous
+    return module
+
+
 def source_files() -> list[Path]:
-    files = []
-    # A directory symlink is never traversed, even if it points within the kit.
-    def walk(directory: Path) -> None:
-        for child in sorted(directory.iterdir()):
-            if child.is_symlink():
-                continue
-            if child.is_dir():
-                if (child.name.lower() not in SKIP and not child.name.lower().startswith(".env")
-                        and (directory != ROOT or child.name in DIRECTORIES)):
-                    walk(child)
-            elif child.is_file() and distributable(child):
-                files.append(child)
-    walk(ROOT)
-    return files
+    return [ROOT / name for name in manifest_module().verified(ROOT, distributable)]
 
 
 def release_metadata(root: Path) -> dict:
@@ -92,8 +92,8 @@ def read_json_file(path: Path) -> dict:
         raise ValueError("Metadata must be a regular file.")
     fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     with os.fdopen(fd, "rb") as stream:
-        raw = stream.read(65537)
-    if len(raw) > 65536:
+        raw = stream.read(1024 * 1024 + 1)
+    if len(raw) > 1024 * 1024:
         raise ValueError("Metadata exceeds limit.")
     result = json.loads(raw)
     if not isinstance(result, dict):
@@ -137,9 +137,14 @@ def install(project: Path, agent: str, dry_run: bool = False) -> dict:
     bundle = project / ".oci-founder-kit"
     if bundle.exists() or bundle.is_symlink():
         raise ValueError(".oci-founder-kit already exists; review/remove the old install before reinstalling.")
+    manifest = manifest_module()
+    release = manifest.verified(ROOT, distributable)
+    allowed_skills = {Path(name).parts[1] for name in release
+                      if name.startswith("skills/") and name.count("/") == 2 and name.endswith("/SKILL.md")}
     selected = list(AGENTS) if agent == "both" else [agent]
     skills = sorted(p for p in (ROOT / "skills").iterdir()
                     if p.is_dir() and not p.is_symlink()
+                    and p.name in allowed_skills
                     and not (p / "SKILL.md").is_symlink() and (p / "SKILL.md").is_file())
     entries = []
     for name in selected:
@@ -158,12 +163,15 @@ def install(project: Path, agent: str, dry_run: bool = False) -> dict:
     with tempfile.TemporaryDirectory(prefix=".oci-kit-install-", dir=project) as temporary:
         staged = Path(temporary) / "bundle"
         staged.mkdir()
-        for source in source_files():
-            destination = staged / source.relative_to(ROOT)
+        for name, entry in release.items():
+            source = ROOT / name
+            destination = staged / name
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, destination)
-            # Keep executable helpers usable while dropping special permission bits.
-            destination.chmod(0o755 if source.stat().st_mode & 0o111 else 0o644)
+            data = manifest.read_file(ROOT, name)
+            if hashlib.sha256(data).hexdigest() != entry["sha256"]:
+                raise ValueError("Release changed while staging; no install published.")
+            destination.write_bytes(data)
+            destination.chmod(0o755 if entry["executable"] else 0o644)
         # There is no force mode: existing configuration and skills are preserved.
         if bundle.exists() or bundle.is_symlink():
             raise ValueError("Installation destination appeared during setup; refusing overwrite.")
@@ -191,6 +199,12 @@ def install(project: Path, agent: str, dry_run: bool = False) -> dict:
                 if metadata.is_file():
                     (destination / "agents").mkdir()
                     shutil.copyfile(metadata, destination / "agents" / "openai.yaml")
+            owned = {".oci-founder-kit/" + name: entry["sha256"] for name, entry in release.items()}
+            for _, destination in entries:
+                for path in destination.rglob("*"):
+                    if path.is_file():
+                        owned[path.relative_to(project).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+            report["owned_files"] = owned
             (bundle / "installation.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         except Exception:
             for path in reversed(created):

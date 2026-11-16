@@ -4,15 +4,18 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.4.1 preview
+## 0.5.0 preview
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
 | Claude Code/Codex installation | Project-local installer, source bundle, discoverable entry skills; Claude plugin alternative | Installer tests and plugin validation; coding agents require their own account |
+| Project progress | New/existing/continue workflows, private checkpoints, source/evidence freshness and one next action | Offline consumer tests; records remain owner assertions, never deployment approval or independent production verification |
+| Release integrity and updates | Explicit file manifest, installation ownership, update preview, conflict refusal and interruption recovery | Local integrity, legacy-upgrade and recovery tests; hashes do not authenticate the publisher, and user-edited toolkit files require reconciliation |
 | OCI access | Credential setup guide, offline doctor and opt-in IAM read probes | Unit tests with recorded/mocked responses; no real user credentials in fixtures; live read-only region/compartment access verified against the configured sandbox |
 | Compartment foundation | Terraform child compartment and inspection policy for an existing developer group | Provider validation, scoped-policy tests and live read-only plan; no cloud apply performed; workload provisioning grants remain a separate reviewed plan |
 | Well-Architected design | Source-backed five-pillar review with evidence and risk decisions | Agent guidance, not Oracle certification or an automatic deployed-control audit |
 | Build | Local app workflow, container/PostgreSQL/storage reference, optional HTTPS/OIDC/Vault configuration and private registry stage | Real local PostgreSQL and signed-OIDC tests; live deploy/identity/recovery/teardown remain workload acceptance |
+| Hardened app checks | Anonymous HTTPS checks and opt-in two-session synthetic task/file exercise | Real local HTTPS application routes with synthetic backing stores; hosted login, OCI storage, restart/restore and retained-version deletion are separate acceptance |
 | Local starter | Editable Taskboard project creation with local agent skills, PostgreSQL Compose preview and blueprint inspection | Creation performs no network or runtime operations; actual local app and cloud acceptance remain distinct |
 | Web migration | Static scanner, runnable Next.js production-server/standalone packaging example and staged cutover workflow | Shared local HTTP checks cover the stateless example; arbitrary apps and hosted provider features need their own build, data rehearsal and target verification |
 | Other clouds | IaC/SDK scanner and OCI mapping for AWS, Azure and Google Cloud | Provider-type fixture tests; map documentation freshness remains dated in the source |
@@ -21,11 +24,11 @@ establish a completed migration or a production deployment.
 | Image publication | Exact digest-only destination, private registry, validated image content, one-use receipt and remote manifest verification | Fake-client regressions, a local TLS registry probe and live OCI digest publication with independent content readback. Legacy tags require verified immutability |
 | Managed hostname rehearsal | Optional API Gateway HTTPS entry point with restricted ingress and separate hostname bootstrap | Provider validation and mocked plans; live routing, hosted identity and gateway recovery remain unverified |
 | Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
-| Founder website | Build/migrate/setup prompts, task-specific checkpoints, resume prompts, bookmarkable choices and explicit editable starter path | Static browser experience; brief stays ephemeral, progress is maintained in the app, and no account is connected |
-| Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | Current Claude host probes cover the four events, with [PostToolUse evidence limits](HOOKS.md) documented. Codex trusted runtime remains unverified |
+| Founder website | New/existing/continue paths, stage-aware prompts, contextual setup help, bookmarkable choices and explicit starter selection | Static browser experience; brief stays ephemeral, progress is private in the app, and no account is connected |
+| Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | [Dated host evidence](HOOKS.md) is bound to the tested script; changed hooks require normal host review. Local guards do not establish arbitrary shell coverage |
 
 Actual results and skipped checks for this release are in
-[RELEASE-0.4.1.md](RELEASE-0.4.1.md).
+[RELEASE-0.5.0.md](RELEASE-0.5.0.md).
 
 An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
 installed as an Actions workflow because the publication credential lacks that

@@ -67,8 +67,10 @@ def bounded_read(path: Path, root: Path, limit: int = MAX_BLOB) -> bytes:
 def run_git(project: Path, args: list[str], limit: int = MAX_BLOB, timeout: int = 5) -> bytes:
     """Fixed read commands only; bounded output, duration and no stderr disclosure."""
     env = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
-    env.update({'GIT_TERMINAL_PROMPT': '0', 'GIT_OPTIONAL_LOCKS': '0'})
-    proc = subprocess.Popen(['git', '-C', str(project), '--no-pager', *args],
+    # Partial clones must report missing objects, never fetch them or run helpers.
+    env.update({'GIT_TERMINAL_PROMPT': '0', 'GIT_OPTIONAL_LOCKS': '0',
+                'GIT_NO_LAZY_FETCH': '1', 'GIT_ALLOW_PROTOCOL': ''})
+    proc = subprocess.Popen(['git', '-c', 'core.fsmonitor=false', '-C', str(project), '--no-pager', *args],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                             stdin=subprocess.DEVNULL, env=env)
     expired = threading.Event()
@@ -98,7 +100,7 @@ def private_path(name: str) -> bool:
     parts = Path(name).parts
     low = name.lower()
     base = Path(low).name
-    if any(p.lower() in {'.oci', '.aws', '.docker', '.ssh', '.azure', '.kube', '.gate', '.hooks',
+    if any(p.lower() in {'.oci', '.aws', '.docker', '.ssh', '.azure', '.kube', '.oci-kit', '.gate', '.hooks',
                         '.local-preview', 'credentials', 'private-receipts'} for p in parts):
         return True
     if low.endswith('.claude/settings.local.json'):
@@ -360,7 +362,7 @@ def validate_paths(project: Path, names: list[str], *, cache_path: Path | None =
                 continue
             cache[key] = {'hash': digest, 'at': time.time()}
             text = data.decode('utf-8')
-            rel = path.relative_to(project).as_posix()
+            rel = display_path(path.relative_to(project).as_posix())
             result['checked'] += 1
             try:
                 if suffix == '.py':

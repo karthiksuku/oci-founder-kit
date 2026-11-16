@@ -133,8 +133,9 @@ Run app tests and build the image. Use the
 [image publication gate](../../skills/oci-deploy/references/image-publication.md)
 to prepare a private layout and approve an exact digest upload to the private
 registry, without assigning a remote tag. Keep its original creation receipt;
-`immutable_tags = false` is compatible with digest publication. Live OCI digest
-publication remains unverified until the actual attempt passes its checks. Pin `app_image`
+`immutable_tags = false` is compatible with digest publication. One separately
+approved OCI digest publication passed its content checks; that does not verify
+your image or destination. Verify your own publication receipt and pin `app_image`
 to the verified receipt's immutable `@sha256:` digest; production rejects mutable
 tags. For default load-balancer ingress, fill `production.tfvars` with the
 certificate, public origin, OIDC client identifier and secret references, never
@@ -248,6 +249,84 @@ change its hostname and therefore requires a new exact callback registration.
 
 ## Validate the running application
 
+The supplied `production_check.py` checks this hardened Taskboard API over HTTPS.
+It makes no OCI API calls and does not deploy, restart, restore or change IAM.
+From this blueprint directory (or your generated project's root), start with
+anonymous reads:
+
+```sh
+python3 production_check.py --url https://<actual-app-hostname> \
+  --out /private/acceptance-read.json
+```
+
+Use the exact HTTPS origin, including its port if needed, with no path, query,
+fragment or embedded credentials. The default checks `/healthz`, `/readyz`, the
+signed-out production session response and rejection of an unsigned API request.
+It does not follow redirects, use environment proxies or disable TLS verification.
+An explicitly selected `--ca-file` can add a private CA; the owned PEM file must
+have mode `0600` or `0400` and no symlink components.
+
+For a separately authorized synthetic application exercise, sign in through the
+normal browser flow as **two dedicated test users**. Locally store each session's
+single `__Host-taskboard` Cookie header value in a private JSON file outside all
+Git repositories. Do not put cookies, passwords or tokens in chat or command
+arguments. The file has exactly this shape; replace placeholders privately:
+
+```json
+{
+  "schema": "oci-production-sessions/1",
+  "origin": "https://<actual-app-hostname>",
+  "users": {
+    "a": "__Host-taskboard=<first-test-session-cookie-value>",
+    "b": "__Host-taskboard=<second-test-session-cookie-value>"
+  }
+}
+```
+
+Use an owned regular file with mode `0600` or `0400`, without symlink components.
+The origin must exactly match `--url`, and the two cookies must differ. This
+private-file workflow supports Linux, macOS and WSL2. The runner obtains CSRF
+proofs from `/auth/session` in memory; no CSRF value needs to be saved in the file.
+Then explicitly permit the limited application writes:
+
+```sh
+python3 production_check.py --url https://<actual-app-hostname> \
+  --exercise --sessions-file /private/test-sessions.json \
+  --out /private/acceptance-exercise.json
+```
+
+`--exercise` creates two uniquely named synthetic tasks and uploads one small
+file through the authenticated app. It checks owner CRUD, reciprocal user
+isolation, missing-CSRF/cross-origin rejection, input rejection, upload ownership
+and authenticated download bytes. It refuses external upload URLs and redirects.
+It deletes only task rows whose IDs and generated titles it has confirmed, then
+checks absence through their owner's API. Lost create responses, changed rows or
+failed cleanup remain unknown; review the run before repeating it.
+
+Task deletion retains bucket objects and versions. The report flags that
+obligation and includes `cleanup.retained_object_name` only after validating the
+strict synthetic object-name contract. That name is a cleanup hint, not deletion
+approval. Any retained-version cleanup needs its own exact review; the runner
+does not call Object Storage or remove versions. A report can show successful
+scoped checks while also reporting retained objects.
+
+The sanitized `oci-production-check/1` JSON includes each check's
+`passed`/`failed`/`unknown`/`skipped` status, timestamps, a generated run ID, target
+origin hash, local runner SHA-256 and cleanup outcome. Cookies, CSRF values,
+response bodies and the target hostname are omitted. `--out` creates a new
+mode-0600 report before requests and refuses existing files; the same sanitized
+result is printed. Exit codes are `0` for passed checks in the selected scope,
+`1` for observed failure, `2` for invalid input/output setup, and `3` for unknown
+request or cleanup outcomes. Every report sets
+`production_readiness_established` to `false`.
+
+This runner does **not** establish hosted OIDC login/callback correctness,
+session expiry/logout, a specific deployed image, real IAM/network isolation,
+restart persistence, restore or permanent cleanup. Complete the checks below
+and retain their separate evidence. Its local test suite uses the real HTTPS
+app and session/CSRF middleware with synthetic stores and pre-created test
+sessions; it does not establish OCI or hosted-provider behavior.
+
 Use synthetic data and two independently signed-in test users. Record each result
 in the [progress record](../../docs/PROGRESS.md), keeping raw account details private.
 
@@ -296,7 +375,9 @@ their own rehearsed procedure.
 Prepare cleanup through `backend-plan --operation destroy-plan`, obtain approval
 and run it through `backend-run`, then review and approve its separate resource
 destroy plan before `destroy`. Inventory retained versions/backups and shared
-resources before deletion. The kit has no gated state-version deletion operation.
+resources before deletion. The kit has a separately approved exact-version
+cleanup for its fixed synthetic backend rehearsal; it does not provide arbitrary
+application-state or upload-bucket version deletion.
 The separate registry, previous image digests, state bucket, identity resources
 and Vault secrets remain until their individual retention/cleanup plans are
 approved; destroying the app stack does not establish that they were removed.

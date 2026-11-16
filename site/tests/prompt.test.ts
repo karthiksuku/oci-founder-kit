@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { checkpoint, createPrompt, defaultSelection, installCommand, normalizeSelection, readFragment, resumePrompt, selectionFragment, type Agent, type Task } from '../src/lib/prompt.ts';
+import { checkpoint, createPrompt, defaultSelection, installCommand, normalizeSelection, projectCommand, readFragment, resumePrompt, selectionFragment, stages, handoff, type Agent, type Task } from '../src/lib/prompt.ts';
 
 for (const agent of ['codex', 'claude'] as Agent[]) {
   for (const task of ['build', 'migrate', 'setup'] as Task[]) {
@@ -35,7 +35,8 @@ test('Taskboard creation is explicit, editable, offline and separate from the Do
   for (const agent of ['codex', 'claude'] as Agent[]) {
     const chosen = { task: 'build', agent, stack: 'taskboard' } as const;
     const prompt = createPrompt({ ...chosen, brief: '' });
-    assert.match(prompt, /blueprint.py create fullstack-container/);
+    assert.match(prompt, /project.py start/);
+    assert.match(prompt, /--blueprint fullstack-container/);
     assert.ok(prompt.includes(`--agent ${agent}`));
     assert.match(prompt, /new folder under an existing parent or an empty existing folder/);
     assert.match(prompt, /Refuse any overwrite/);
@@ -76,7 +77,7 @@ test('fragments round-trip only public choices and preserve supported anchors', 
     for (const agent of ['codex', 'claude'] as Agent[]) {
       const chosen = { task, agent, stack: 'fastapi' } as const;
       for (const anchor of ['', 'start', 'guides', 'examples', 'main']) {
-        assert.deepEqual(readFragment(selectionFragment(chosen, anchor)), { anchor, selection: chosen });
+        assert.deepEqual(readFragment(selectionFragment(chosen, anchor)), { anchor, selection: normalizeSelection(chosen) });
       }
     }
   }
@@ -105,4 +106,57 @@ test('a requested new stack does not authorize replacing an existing one', () =>
     const prompt = createPrompt({ task: 'build', agent: 'codex', stack, brief: '' });
     assert.match(prompt, /For an existing app, assess its current stack before recommending changes/);
   }
+});
+
+
+test('new, existing and continue select distinct safe actions without substituting a framework', () => {
+  for (const stack of ['choose', 'nextjs', 'fastapi'] as const) {
+    const chosen = { task: 'build', agent: 'codex', stack, project: 'new' } as const;
+    assert.match(createPrompt({ ...chosen, brief: '' }), /starting a new project/);
+    assert.doesNotMatch(projectCommand(chosen), /blueprint|fullstack-container/);
+    assert.match(projectCommand(chosen), /--mode new/);
+    assert.match(projectCommand(chosen), new RegExp(`--stack ${stack === 'choose' ? 'auto' : stack}`));
+  }
+  assert.match(projectCommand({ task: 'build', agent: 'claude', stack: 'taskboard', project: 'new' }), /--blueprint fullstack-container/);
+  const existing = { task: 'migrate', agent: 'claude', stack: 'existing', project: 'existing' } as const;
+  assert.match(projectCommand(existing), /--mode existing/);
+  assert.match(projectCommand(existing), /--task migrate --agent claude --stack custom/);
+  assert.match(createPrompt({ ...existing, brief: '' }), /Preserve its source, instructions, services and uncommitted work/);
+  const continuing = { ...existing, project: 'continue' } as const;
+  assert.match(projectCommand(continuing), /project.py status --project \./);
+  assert.match(projectCommand(continuing), /project.py resume --project \./);
+  assert.doesNotMatch(projectCommand(continuing), /git clone| start |install.py|blueprint/);
+  assert.match(createPrompt({ ...continuing, brief: 'Keep the database.' }), /Additional context: Keep the database/);
+  assert.match(handoff(continuing).terminalHelp, /missing|absent/);
+});
+
+test('every continuation stage requires current evidence and approval', () => {
+  for (const stage of Object.keys(stages) as (keyof typeof stages)[]) {
+    const chosen = { task: 'migrate', agent: 'claude', stack: 'existing', project: 'continue', stage } as const;
+    const prompt = createPrompt({ ...chosen, brief: '' });
+    assert.match(prompt, /Past approvals do not authorize new cloud changes/);
+    assert.match(prompt, /without inventing completed work/);
+    assert.match(prompt, /Do not change DNS/);
+    assert.ok(checkpoint(chosen).results.includes(stages[stage].evidence));
+    if (stage !== 'auto') {
+      assert.match(prompt, /This selection is not evidence of completion or approval/);
+      assert.match(prompt, /Verify prerequisites and earlier unfinished checkpoints/);
+    }
+  }
+});
+
+test('project and focus bookmarks are allowlisted context, with old links supported', () => {
+  const chosen = { task: 'migrate', agent: 'claude', stack: 'existing', project: 'continue', stage: 'cutover' } as const;
+  assert.deepEqual(readFragment(selectionFragment(chosen, 'guides')), { anchor: 'guides', selection: chosen });
+  assert.equal(normalizeSelection({ task: 'migrate', project: 'new' }).project, 'existing');
+  assert.equal(normalizeSelection({ project: 'new', stack: 'existing' }).stack, 'choose');
+  assert.equal(normalizeSelection({ project: 'existing', stack: 'taskboard' }).stack, 'existing');
+  assert.equal(normalizeSelection({ project: 'continue', stage: 'cutover', task: 'build' }).stage, 'auto');
+  assert.equal(normalizeSelection({ project: 'existing', stage: 'deployment' }).stage, 'auto');
+  assert.equal(normalizeSelection({ project: 'continue', stage: '__proto__' }).stage, 'auto');
+  const route = readFragment('#start?project=continue&stage=access&brief=private&path=private&approved=true');
+  const result = selectionFragment(route.selection, route.anchor);
+  assert.match(result, /project=continue&stage=access$/);
+  assert.doesNotMatch(result, /private|approved|path=/);
+  assert.equal(readFragment('#start?stack=taskboard').selection.project, 'new');
 });

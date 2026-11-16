@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 test('all goal/agent choices produce useful distinct prompts and preserve the brief', async ({ page }) => {
   await page.goto('./');
+  await page.locator('.brief-details summary').click();
   await page.getByLabel('The idea').fill('A booking app for independent studios.');
   for (const task of ['build', 'migrate', 'setup']) {
     await page.locator(`input[name="task"][value="${task}"]`).check();
@@ -27,6 +28,7 @@ test('all goal/agent choices produce useful distinct prompts and preserve the br
 test('clipboard success copies the current generated prompt', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('./');
+  await page.locator('.brief-details summary').click();
   await page.getByLabel('The idea').fill('A private research notebook.');
   await page.getByRole('button', { name: 'Copy prompt', exact: true }).click();
   await expect(page.locator('#copy-status')).toContainText('Copied.');
@@ -49,6 +51,7 @@ test('brief stays local, is rendered as text and never enters persistent storage
   page.on('request', request => requests.push(request.url()));
   await page.goto('./');
   const payload = '<img src="https://invalid.example/private" onerror="window.bad=true">';
+  await page.locator('.brief-details summary').click();
   await page.getByLabel('The idea').fill(payload);
   expect(await page.locator('#generated-prompt').inputValue()).toContain(payload);
   expect(await page.evaluate(() => (window as unknown as { bad?: boolean }).bad)).toBeUndefined();
@@ -86,8 +89,12 @@ for (const theme of ['dark', 'light'] as const) {
       await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
       await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
       await page.goto('./');
+      await page.locator('input[name="project"][value="new"]').check();
       await page.locator('#stack').selectOption('taskboard');
+      await page.locator('input[name="project"][value="continue"]').check();
+      await page.locator('#stage').selectOption('access');
       await page.locator('#resume-details summary').click();
+      await page.locator('#help-install summary').click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
@@ -114,7 +121,11 @@ test('without JavaScript the default prompt and guides remain usable', async ({ 
   await page.goto('http://127.0.0.1:4321/oci-founder-kit/');
   await expect(page.locator('noscript .notice')).toBeVisible();
   await expect(page.locator('noscript .notice')).toContainText('Enable JavaScript to tailor the prompt');
+  await page.locator('#prompt-details summary').click();
+  await expect(page.locator('#generated-prompt')).toBeVisible();
   expect(await page.locator('#generated-prompt').inputValue()).toContain('$oci-kit');
+  await page.locator('#help-docker summary').click();
+  await expect(page.locator('#help-docker')).toContainText('Docker must be running');
   await expect(page.locator('#checkpoint-title')).toContainText('running locally');
   await page.locator('#resume-details summary').click();
   await expect(page.locator('#resume-prompt')).toBeVisible();
@@ -132,14 +143,15 @@ test('editable Taskboard is opt-in with offline creation and a separate preview 
   await expect(page.locator('#checkpoint-title')).toContainText('editable Taskboard');
   await expect(page.locator('#generated-prompt')).toHaveValue(/project’s app\/ and terraform\//);
   await page.getByText('Prefer the terminal?', { exact: true }).click();
-  await expect(page.locator('#install-command')).toContainText('blueprint.py create fullstack-container');
+  await expect(page.locator('#install-command')).toContainText('project.py start');
+  await expect(page.locator('#install-command')).toContainText('--blueprint fullstack-container');
   await expect(page.locator('#install-command')).not.toContainText('local_preview');
   await expect(page.locator('#taskboard-preview')).toContainText('python3 local_preview.py start');
   await page.locator('input[name="agent"][value="claude"]').check();
   await expect(page.locator('#install-command')).toContainText('--agent claude');
   await page.locator('#stack').selectOption('nextjs');
   await expect(page.locator('#generated-prompt')).toHaveValue(/Next.js and TypeScript/);
-  expect(await page.locator('#generated-prompt').inputValue()).not.toContain('blueprint.py create');
+  expect(await page.locator('#generated-prompt').inputValue()).not.toContain('--blueprint fullstack-container');
   await expect(page.locator('#taskboard-preview')).toBeHidden();
   await page.locator('#stack').selectOption('taskboard');
   await page.locator('input[name="task"][value="migrate"]').check();
@@ -153,11 +165,13 @@ test('bookmark, reload and history restore choices without saving the brief', as
   await expect(page.locator('input[name="task"][value="migrate"]')).toBeChecked();
   await expect(page.locator('input[name="agent"][value="claude"]')).toBeChecked();
   await expect(page.locator('#stack')).toHaveValue('fastapi');
+  await page.locator('.brief-details summary').click();
   await page.getByLabel('The idea').fill('Synthetic project context, never in the URL.');
   await page.locator('input[name="task"][value="build"]').check();
+  await page.locator('input[name="project"][value="new"]').check();
   await page.locator('#stack').selectOption('taskboard');
   const bookmark = page.url();
-  expect(bookmark).toMatch(/#start\?task=build&agent=claude&stack=taskboard$/);
+  expect(bookmark).toMatch(/#start\?task=build&agent=claude&stack=taskboard&project=new$/);
   await page.reload();
   await expect(page.locator('#stack')).toHaveValue('taskboard');
   await expect(page.locator('#brief')).toHaveValue('');
@@ -166,7 +180,10 @@ test('bookmark, reload and history restore choices without saving the brief', as
   await expect(page.locator('#stack')).toHaveValue('fastapi');
   await expect(page.locator('input[name="task"][value="build"]')).toBeChecked();
   await page.goBack();
+  await expect(page.locator('input[name="project"][value="existing"]')).toBeChecked();
+  await page.goBack();
   await expect(page.locator('input[name="task"][value="migrate"]')).toBeChecked();
+  await page.goForward();
   await page.goForward();
   await page.goForward();
   await expect(page).toHaveURL(bookmark);
@@ -222,3 +239,81 @@ for (const allowed of [true, false]) {
     }
   });
 }
+
+
+test('new generic app, existing migration and continue have coherent commands and checkpoints', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('link', { name: 'Start building', exact: true }).click();
+  await expect(page.locator('input[name="project"][value="new"]')).toBeChecked();
+  await expect(page.locator('#stack')).toHaveValue('choose');
+  await page.locator('#stack').selectOption('nextjs');
+  await page.getByText('Prefer the terminal?', { exact: true }).click();
+  await expect(page.locator('#install-command')).toContainText('--mode new');
+  await expect(page.locator('#install-command')).toContainText('--stack nextjs');
+  await expect(page.locator('#install-command')).not.toContainText('--blueprint');
+  await expect(page.locator('#generated-prompt')).toHaveValue(/Next.js and TypeScript/);
+  await page.locator('input[name="task"][value="migrate"]').check();
+  await expect(page.locator('input[name="project"][value="existing"]')).toBeChecked();
+  await expect(page.locator('#install-command')).toContainText('--mode existing');
+  await expect(page.locator('#checkpoint-title')).toContainText('migration assessment');
+  await page.locator('input[name="project"][value="continue"]').check();
+  await expect(page.locator('#stack-help')).toContainText('does not create or replace an app');
+  await page.locator('#stage').selectOption('cutover');
+  await expect(page.locator('#install-command')).toContainText('project.py status --project .');
+  await expect(page.locator('#install-command')).toContainText('project.py resume --project .');
+  await expect(page.locator('#install-command')).not.toContainText('git clone');
+  await expect(page.locator('#checkpoint-title')).toContainText('migration cutover');
+  await expect(page.locator('#generated-prompt')).toHaveValue(/not evidence of completion or approval/);
+  await expect(page.locator('#generated-prompt')).toHaveValue(/Do not change DNS/);
+  await page.reload();
+  await expect(page.locator('#stage')).toHaveValue('cutover');
+  await page.locator('#stage').selectOption('access');
+  await page.goBack();
+  await expect(page.locator('#stage')).toHaveValue('cutover');
+  await page.locator('input[name="task"][value="build"]').check();
+  await expect(page.locator('#stage')).toHaveValue('auto');
+  await expect(page.locator('#cutover-option')).toBeDisabled();
+});
+
+test('inline help returns to the same prompt without transmitting or saving context', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', request => requests.push(request.url()));
+  await page.goto('./#start?task=setup&agent=claude&stack=existing&project=continue&stage=access');
+  await page.locator('.brief-details summary').click();
+  await page.getByLabel('The idea').fill('Synthetic context stays in this tab.');
+  await page.getByRole('button', { name: 'Help with this step' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#help-access')).toHaveAttribute('open', '');
+  await expect(page.locator('#help-access summary')).toBeFocused();
+  await expect(page.locator('#help-access')).toContainText('Never paste private key material');
+  await page.locator('#help-access').getByRole('link', { name: 'Return to my prompt' }).click();
+  await expect(page.locator('#start')).toBeFocused();
+  await expect(page.locator('#stage')).toHaveValue('access');
+  await expect(page.getByLabel('The idea')).toHaveValue('Synthetic context stays in this tab.');
+  expect(requests.every(url => new URL(url).hostname === '127.0.0.1')).toBe(true);
+  expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage, history.state]))).not.toContain('Synthetic context');
+  await page.reload();
+  await expect(page.locator('#brief')).toHaveValue('');
+  await expect(page.locator('#stage')).toHaveValue('access');
+});
+
+test('compact mobile handoff puts copy before the expandable full prompt', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./#start?task=build&agent=codex&stack=fastapi&project=new');
+  await expect(page.locator('#prompt-details')).not.toHaveAttribute('open', '');
+  await expect(page.locator('#prompt-summary')).toContainText('working local version');
+  const copy = page.getByRole('button', { name: 'Copy prompt', exact: true });
+  const fullPrompt = page.locator('#prompt-details summary');
+  const copyBox = await copy.boundingBox();
+  const promptBox = await fullPrompt.boundingBox();
+  expect(copyBox!.y).toBeLessThan(promptBox!.y);
+  await copy.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#copy-next')).toBeVisible();
+  await expect(page.locator('#copy-next')).toContainText('empty app folder');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Python and FastAPI');
+  await fullPrompt.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#generated-prompt')).toBeVisible();
+});

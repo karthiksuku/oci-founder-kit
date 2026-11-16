@@ -72,6 +72,7 @@ class Staged(unittest.TestCase):
     def test_sensitive_config_backup_and_log_paths_block_without_content_matches(self):
         names = ['.npmrc', '.pypirc', '.git-credentials', '.netrc', '.npmrc.backup',
                  '.docker/config.json', '.aws/config', '.ssh/config', '.azure/accessTokens.json',
+                 '.oci-kit/state.json', '.OcI-KiT/evidence/runtime.json', '.oci-kit/updates/journal.json',
                  '.kube/config', 'runtime.tfvars.backup', 'runtime.tfvars.json.bak', 'runtime.tfvars~',
                  'runtime.tfbackend.backup', 'runtime.tfbackend.json.old', 'runtime.tfstate.backup',
                  'runtime.tfstate~', 'diagnostic.log', 'diagnostic.log.1', 'diagnostic.log.gz', 'diagnostic.log~',
@@ -140,6 +141,40 @@ class Staged(unittest.TestCase):
         git(self.root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture')
         git(self.root, 'rm', '-q', '--', '.env')
         self.assertEqual(hooks.scan_staged(self.root)['status'], 'passed')
+
+    def test_staged_scan_does_not_execute_repository_fsmonitor(self):
+        self.stage('app.py', b'value = 1\n')
+        helper = self.root / 'fake-fsmonitor'
+        marker = self.root / 'monitor-ran'
+        helper.write_text(f'#!{sys.executable}\nfrom pathlib import Path\n'
+                          'Path(__file__).with_name("monitor-ran").write_text("synthetic")\n'
+                          'print("token\\0", end="")\n')
+        helper.chmod(0o700)
+        git(self.root, 'config', 'core.fsmonitor', str(helper))
+        self.assertFalse(marker.exists())
+        result = hooks.scan_staged(self.root)
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual(result['checked'], 1)
+        self.assertFalse(marker.exists(), 'Read-only scan invoked repository code')
+
+    def test_missing_promisor_blob_is_incomplete_without_remote_helper_execution(self):
+        self.stage('app.py', b'value = 1\n')
+        oid = git(self.root, 'rev-parse', ':app.py').decode().strip()
+        (self.root / '.git/objects' / oid[:2] / oid[2:]).unlink()
+        helper = self.root / 'fake-remote-helper'
+        marker = self.root / 'remote-helper-ran'
+        helper.write_text(f'#!{sys.executable}\nfrom pathlib import Path\nimport sys\n'
+                          'Path(__file__).with_name("remote-helper-ran").write_text("synthetic")\n'
+                          'sys.exit(1)\n')
+        helper.chmod(0o700)
+        for key, value in [('core.repositoryformatversion', '1'), ('extensions.partialClone', 'origin'),
+                           ('remote.origin.url', 'ext::' + str(helper)), ('remote.origin.promisor', 'true'),
+                           ('remote.origin.partialclonefilter', 'blob:none'), ('protocol.ext.allow', 'always')]:
+            git(self.root, 'config', key, value)
+        self.assertFalse(marker.exists())
+        result = hooks.scan_staged(self.root)
+        self.assertEqual(result['status'], 'incomplete')
+        self.assertFalse(marker.exists(), 'Offline scan invoked a promisor remote helper')
 
 
 class Guard(unittest.TestCase):
@@ -237,6 +272,29 @@ class Validation(unittest.TestCase):
             sentinel = 'ghp_' + 'H' * 30
             (root / 'bad.json').write_text('{' + sentinel)
             self.assertNotIn(sentinel, json.dumps(hooks.validate_paths(root, ['bad.json'])))
+
+    def test_validation_findings_redact_tokens_in_paths_and_event_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.hooks').mkdir()
+            sentinel = 'ghp_' + 'R' * 30
+            folder = root / ('sample-' + sentinel)
+            folder.mkdir()
+            for name, content in [('bad.json', '{invalid'), ('bad.py', 'def broken('),
+                                  ('bad.toml', 'x = ['), ('SKILL.md', 'no frontmatter')]:
+                path = folder / name
+                path.write_text(content)
+                with self.subTest(name=name), mock.patch.object(hooks, 'ROOT', root):
+                    result = hooks.validate_paths(root, [str(path)])
+                    self.assertEqual(len(result['findings']), 1)
+                    self.assertNotIn(sentinel, json.dumps(result))
+                    self.assertIn('<redacted>', result['findings'][0]['path'])
+                    event = hooks.handle_event(root, 'codex', 'PostToolUse', {
+                        'hook_event_name': 'PostToolUse', 'tool_name': 'Write',
+                        'tool_input': {'file_path': str(path)}}, {'validation'})
+                    self.assertIn('Offline syntax check', json.dumps(event))
+                    self.assertNotIn(sentinel, json.dumps(event))
+                    self.assertNotIn(sentinel, (root / '.hooks/validation-cache.json').read_text())
 
     def test_readiness_does_not_read_credentials(self):
         with tempfile.TemporaryDirectory() as tmp:

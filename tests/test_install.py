@@ -39,6 +39,15 @@ PUBLIC_TEMPLATE_PATHS = [
 ]
 
 
+def fixture_manifest(root):
+    """Explicitly approve the files in a synthetic test release."""
+    manifest = installer.manifest_module()
+    names = [p.relative_to(root).as_posix() for p in root.rglob("*")
+             if p.is_file() and not p.is_symlink()]
+    with mock.patch.object(installer, "ROOT", root):
+        manifest.write(root, manifest.build(root, names, installer.distributable))
+
+
 class Installation(unittest.TestCase):
     def test_both_agents_load_workflows_with_supporting_resources(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -150,6 +159,7 @@ class Installation(unittest.TestCase):
             outside = Path(tmp) / "private"
             outside.write_text("PRIVATE_SENTINEL")
             (skill / "agents/openai.yaml").symlink_to(outside)
+            fixture_manifest(fake_root)
             with mock.patch.object(installer, "ROOT", fake_root):
                 installer.install(Path(app), "codex")
             self.assertFalse((Path(app) / ".agents/skills/example/agents/openai.yaml").exists())
@@ -165,6 +175,7 @@ class Installation(unittest.TestCase):
             outside = Path(tmp) / "private"
             outside.write_text("---\nname: example\n---\nPRIVATE_SENTINEL")
             (skill / "SKILL.md").symlink_to(outside)
+            fixture_manifest(fake_root)
             with mock.patch.object(installer, "ROOT", fake_root):
                 result = installer.install(Path(app), "codex")
             self.assertEqual(result["skills"], [])
@@ -177,6 +188,7 @@ class Installation(unittest.TestCase):
             private.mkdir(parents=True)
             for name in ["private.auto.tfvars.json", "private.tfbackend.json", "crash.log"]:
                 (private / name).write_text("PRIVATE_SENTINEL")
+            fixture_manifest(fake_root)
             with mock.patch.object(installer, "ROOT", fake_root):
                 installer.install(Path(app), "codex")
             for name in ["private.auto.tfvars.json", "private.tfbackend.json", "crash.log"]:
@@ -189,6 +201,7 @@ class Installation(unittest.TestCase):
             private = fake_root / "blueprints/test/.local-preview"
             private.mkdir(parents=True)
             (private / "settings.json").write_text("PRIVATE_PREVIEW_SENTINEL")
+            fixture_manifest(fake_root)
             with mock.patch.object(installer, "ROOT", fake_root):
                 installer.install(Path(app), "codex")
             self.assertFalse((Path(app) / ".oci-founder-kit/blueprints/test/.local-preview").exists())
@@ -209,6 +222,7 @@ class Installation(unittest.TestCase):
                 target.write_text(canary)
             for name in PUBLIC_TEMPLATE_PATHS:
                 (base / name).write_text("<set-locally>\n")
+            fixture_manifest(fake_root)
             project = parent / "installed"
             project.mkdir()
             with mock.patch.object(installer, "ROOT", fake_root):

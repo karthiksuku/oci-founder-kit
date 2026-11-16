@@ -39,11 +39,12 @@ Requires Git and Python 3.11+. Run from a directory outside your application:
 
 ```sh
 git clone https://github.com/karthiksuku/oci-founder-kit.git
-python3 oci-founder-kit/scripts/install.py --project /absolute/path/to/my-app --agent both
+python3 oci-founder-kit/scripts/project.py start --project /absolute/path/to/my-app \
+  --task build --mode existing --agent both
 cd /absolute/path/to/my-app
 ```
 
-The application directory must already exist; it can be empty for a new app. The installer preserves existing files and skills. Choose `--agent codex` or `--agent claude` to install for one tool.
+Use `--mode existing` for your application or `--mode new` for a new empty project. The helper preserves existing files and skills and saves private progress. Choose `--agent codex` or `--agent claude` to install for one tool.
 
 Then start your coding agent inside that project:
 
@@ -64,8 +65,8 @@ clone the kit (or reuse your existing clone):
 
 ```sh
 git clone https://github.com/karthiksuku/oci-founder-kit.git
-python3 oci-founder-kit/scripts/blueprint.py create fullstack-container \
-  --project /absolute/path/to/my-app --agent both
+python3 oci-founder-kit/scripts/project.py start --project /absolute/path/to/my-app \
+  --task build --mode new --agent both --blueprint fullstack-container
 cd /absolute/path/to/my-app
 python3 local_preview.py start
 ```
@@ -82,10 +83,16 @@ Next.js/FastAPI stack when that fits better. [Creation and installation →](doc
 
 ### Come back without starting over
 
-Use the website's **resume prompt** in the same app folder. It asks your agent to
-inspect the existing installation, progress and actual test evidence, then work
-on the next unfinished checkpoint. The site can remember your selected path in
-a bookmark; your project brief stays in the current tab.
+Choose **Continue a project** on the website, or run this in your app folder:
+
+```sh
+python3 .oci-founder-kit/scripts/project.py resume --project .
+```
+
+The helper checks private progress, source changes and recorded evidence, then
+returns the next action. Changed evidence becomes stale; a saved checkpoint never
+grants cloud approval. The site can bookmark your selected path; your project
+brief stays in the current tab.
 [Start and resume guide →](docs/START-HERE.md)
 
 ## Choose your task
@@ -128,13 +135,13 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.4.1 preview.** Includes editable project creation, a task-specific start/resume guide and a runnable Next.js packaging example. Existing optional hooks, digest-bound image publication and separately approved OCI backend operations remain available. Local app behavior, persistence and logical restore have been exercised; the release evidence identifies the checks and remaining cloud validation.
+**0.5.0 preview.** Guided new, existing and continuing projects now share private progress with stale-evidence checks. The website provides contextual setup help and a shorter handoff. Release manifests keep unlisted files out of installations; update previews and recovery preserve app edits. The hardened Taskboard has a bounded HTTPS acceptance checker. Existing migration, OCI foundation and exact-plan deployment workflows remain available.
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.4.1.md)
+The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.5.0.md)
 
 ## Go deeper
 
