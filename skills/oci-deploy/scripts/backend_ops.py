@@ -2,7 +2,7 @@
 
 This reuses the image gate's private files and one-attempt receipts. It does not
 approve resource applies, state migration, state push, workspace changes or IAM.
-Only a canonical partial backend declaration, API-key profile authentication
+Only a canonical partial backend declaration, API-key or session authentication
 and the default Terraform workspace are supported by this initial path.
 """
 from __future__ import annotations
@@ -15,11 +15,17 @@ import time
 from pathlib import Path
 
 import backend_config
+import backend_auth
+import environment_gate
 import image_gate as files
 
 PLAN = "backend-plan.json"
 DECLARATION = {"terraform": {"backend": {"oci": {}}}}
 FIELDS = {"bucket", "namespace", "region", "key", "workspace_key_prefix", "auth", "config_file_profile"}
+BACKEND_ENVIRONMENT = FIELDS | {"tenancy_ocid", "user_ocid", "fingerprint", "private_key", "private_key_path",
+    "private_key_password", "sse_customer_key", "sse_customer_key_sha256", "sse_customer_algorithm", "kms_key_id",
+    "accept_local_certs", "obo_token", "obo_token_path", "use_obo_token", "domain_name_override",
+    "has_correct_domain_name", "client_host_overrides", "custom_cert_location", "test_certificates_location"}
 
 
 def require(condition, message):
@@ -41,7 +47,7 @@ def configuration(value):
                 and not text.startswith("/") and all(p not in {"", ".", ".."} for p in text.split("/")),
                 "State keys and workspace prefixes must use explicit relative object paths.")
     require(value["key"].endswith(".tfstate"), "Use an explicit .tfstate object key.")
-    require(value["auth"] == "APIKey", "This backend operation path currently requires an existing APIKey profile.")
+    require(value["auth"] in {"APIKey", "SecurityToken"}, "Use an existing APIKey or SecurityToken profile.")
     return value
 
 
@@ -49,16 +55,18 @@ def environment_binding():
     # Backend attributes are explicit; environment-based alternate auth/endpoints
     # and implicit command flags are intentionally unsupported by this path.
     forbidden = [name for name in os.environ if name.startswith(("OCI_", "TF_CLI_ARGS", "TF_LOG"))
-                 or name in {"TF_CLI_CONFIG_FILE", "TF_REATTACH_PROVIDERS"}]
+                 or name in {"TF_CLI_CONFIG_FILE", "TF_REATTACH_PROVIDERS"} or name.lower() in BACKEND_ENVIRONMENT]
     require(not forbidden, "Clear OCI/TF command, logging and provider overrides before a backend operation.")
-    selected = {name: value for name, value in os.environ.items() if name.startswith("TF_")}
+    selected = {name: value for name, value in os.environ.items() if name.startswith("TF_")
+                or name.lower() in {"home", "http_proxy", "https_proxy", "no_proxy", "all_proxy", "ssl_cert_file", "ssl_cert_dir"}}
     return files.sha(files.canonical(selected))
 
 
 def source_binding():
     folder = Path(__file__).resolve().parent
-    return {name: files.sha((folder / name).read_bytes()) for name in
-            ("backend_ops.py", "backend_config.py", "deploy_gate.py", "image_gate.py")}
+    return {**{name: files.sha((folder / name).read_bytes()) for name in
+            ("backend_ops.py", "backend_auth.py", "backend_config.py", "deploy_gate.py", "image_gate.py")},
+            **environment_gate.source_binding()}
 
 
 def snapshot(stack):
@@ -125,17 +133,29 @@ def prepare(args, gate):
         config = metadata_config(observed)
     # Validate target syntax before approval, not after consuming an attempt.
     core.validate_targets(args.target)
+    selected = environment_gate.select(args.dir, project=getattr(args, "project", None),
+                                       environment=getattr(args, "environment", None), backend=config)
+    if selected and args.operation != "init":
+        require(bool(re.fullmatch(r"sha256:[0-9a-f]{64}", selected["target"].get("image_digest", ""))),
+                "Select an immutable image digest before preparing a named workload resource plan.")
+    authentication = backend_auth.inspect(config)
     now = time.time()
     payload = {"schema": "oci-backend-operation/1", "operation": args.operation,
                "stack_path": str(args.dir), "backend": config, "backend_config_input": config_input,
                "snapshot": binding(observed), "variables": variable_files(args.dir, args.var_file),
                "targets": args.target, "terraform": core.terraform_binary(), "gate_sources": source_binding(),
+               "authentication": authentication,
+               "project_environment": selected,
                "environment_sha256": environment_binding(), "created_at_epoch": now,
-               "expires_at_epoch": now + args.max_age_minutes * 60,
+               "expires_at_epoch": backend_auth.deadline(now + args.max_age_minutes * 60, authentication),
                "resource_plan_max_age_minutes": args.max_age_minutes}
     digest = files.sha(files.canonical(payload))
     files.write_at(gate, PLAN, {"sha256": digest, "payload": payload})
-    print(f"Backend operation: {args.operation}; default workspace; APIKey profile {config['config_file_profile']}.")
+    print(f"Backend operation: {args.operation}; default workspace; {config['auth']} profile {config['config_file_profile']}.")
+    if selected:
+        print(f"Named environment: {selected['environment']} ({selected['role']}); configuration {selected['configuration_sha256']}.")
+    if config["auth"] == "SecurityToken":
+        print("Session expiry is checked locally; OCI verifies authentication during the approved run. Refresh requires a new plan.")
     print(f"OCI target: {config['region']}, namespace {config['namespace']}, bucket {config['bucket']}.")
     print(f"State key: {config['key']}; lock key: {config['key']}.lock.")
     print(f"Workspace prefix may be listed: {config['workspace_key_prefix']} (no workspace creation).")
@@ -170,6 +190,8 @@ def execute(args, gate):
     canonical_declaration(args.dir, observed)
     require(binding(observed) == payload["snapshot"], "Backend configuration or stack source changed; prepare a fresh operation.")
     config = configuration(payload["backend"])
+    selected = environment_gate.recheck(args.dir, payload.get("project_environment"), config)
+    backend_auth.validate(config, payload.get("authentication"))
     names = [v["name"] for v in payload["variables"]]
     require(variable_files(args.dir, names) == payload["variables"], "Variable files changed; prepare a fresh operation.")
     core.validate_targets(payload["targets"])
@@ -187,13 +209,16 @@ def execute(args, gate):
         receipt = {"schema": "oci-backend-receipt/1", "operation": payload["operation"], "status": "attempted",
                    "operation_sha256": digest, "started_at_epoch": now, "backend": config,
                    "snapshot": payload["snapshot"], "resource_apply_authorized": False}
+        receipt["project_environment"] = selected
+        receipt["authentication"] = payload["authentication"]
         files.write_at(receipts, receipt_name, receipt, exclusive=True)
         os.unlink(PLAN, dir_fd=gate)  # consumed before the first client invocation
         try:
             if payload["operation"] == "init":
                 require(time.time() <= expires, "Backend approval expired before initialization; no client was started.")
                 core.run_terraform(payload["terraform"], ["init", "-input=false", "-no-color",
-                                   "-backend-config=" + payload["backend_config_input"]["path"]], args.dir, args.dir / ".gate")
+                                   "-backend-config=" + payload["backend_config_input"]["path"]], args.dir, args.dir / ".gate",
+                                   backend=config, authentication=payload["authentication"], project_environment=selected)
                 after = snapshot(args.dir)
                 canonical_declaration(args.dir, after)
                 require(metadata_config(after) == config, "Initialized backend did not match the approved destination.")
@@ -202,7 +227,8 @@ def execute(args, gate):
                 core.cmd_plan(args.dir, "destroy" if payload["operation"] == "destroy-plan" else "apply",
                               names, payload["resource_plan_max_age_minutes"], "oci", payload["targets"],
                               backend_activity={"operation_sha256": digest, "binding": binding(observed),
-                                                "backend": config, "expires_at_epoch": expires})
+                                                "backend": config, "expires_at_epoch": expires,
+                                                "authentication": payload["authentication"], "project_environment": selected})
                 summary = json.loads((args.dir / ".gate" / core.SUMMARY_FILE).read_text())
                 receipt["resource_plan_sha256"] = summary["plan_sha256"]
             receipt["status"] = "completed"

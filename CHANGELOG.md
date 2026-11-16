@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 - 2026-11-16
+
+- Attach a reusable HTTPS web-container target while preserving the founder's application, database, storage and authentication.
+- Add explicit environments, distinct backend destinations, reviewed blueprint and evaluated workload binding, workload readiness, migration verification and a private operating dashboard.
+- Accept temporary OCI sessions in backend and deployment gates with expiry, rotation and identity checks.
+- Add hosting-first compatibility reports, HTTP/browser rehearsals, scheduler ownership and separate traffic/recovery reviews.
+- Add deterministic release archives, CI/provenance templates and bounded real Claude Code/Codex evaluations.
+- See [0.6.0 evidence](docs/RELEASE-0.6.0.md) for verified local behavior and pending live OCI acceptance, hosted CI and attestations.
+
 ## 0.5.0 - 2026-11-16
 
 - Guide new, existing and continuing projects through private progress, stale-evidence checks and one next action.

@@ -4,7 +4,7 @@ description: Deploy, change or tear down infrastructure on Oracle Cloud Infrastr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Approval-gated deploys on OCI
@@ -40,9 +40,16 @@ lock objects.
    Plain `plan`/`destroy-plan` refuses detected remote configuration or stale
    remote metadata. Do not call remote Terraform initialization/planning directly.
    The supported backend path uses a canonical empty `backend.tf.json`, exactly
-   seven private settings, an existing APIKey profile and the default workspace.
+   seven private settings, an existing APIKey or SecurityToken profile and the
+   default workspace. SecurityToken must retain at least ten minutes of validity;
+   token refresh or identity changes require a fresh plan and approval.
    Effective bucket IAM, versioning and recovery remain independent acceptance
    requirements; bucket privacy alone does not establish secure state.
+   For a project with [named environments](../../docs/ENVIRONMENTS.md), supply
+   `--project /path/to/app --environment rehearsal` when preparing operations.
+   The selected native backend, reviewed blueprint sources and evaluated workload
+   must match that environment. Old unbound plans cannot be reused. Foundation and
+   backend-bucket bootstrap are separate reviewed stacks outside the named app project.
    For a fixed provider-free synthetic lock/version/recovery test, use the
    separately approved [backend rehearsal](references/backend-rehearsal.md).
    For an exceptional bootstrap, an explicit `--target RESOURCE_ADDRESS` may

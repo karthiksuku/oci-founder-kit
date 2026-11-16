@@ -23,6 +23,13 @@ and get the owner's agreement where parity cannot be retained. Measure performan
 from the intended client regions; do not promise matching edge latency from a
 single-region deployment.
 
+The default is [hosting first, data later](hosting-first.md): retain the existing
+database, authentication and storage while verifying the OCI hosting target.
+Use the bounded compatibility/HTTP helper and explicit job-owner review there;
+browser workflows, isolated recovery and approved traffic rollback remain
+separate acceptance evidence. Do not copy data merely because the scanner found
+a storage or database dependency.
+
 ## Primary references
 
 - [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting): runtime operations, reverse proxy, caching, multi-instance behavior and streaming.

@@ -25,7 +25,7 @@ pending.
 Select an existing private, versioned state bucket separately from application
 uploads. Keep its creation state and receipt outside that bucket. Review:
 
-- The exact operator identity, existing API-key profile, region, namespace,
+- The exact operator identity, existing API-key or temporary-session profile, region, namespace,
   bucket, state key and lock key. The lock key is the state key plus `.lock` in
   the [pinned Terraform 1.16.6 implementation](https://github.com/hashicorp/terraform/blob/v1.16.6/internal/backend/remote-state/oci/backend.go#L18-L19).
 - Effective IAM for the bucket, including applicable tenancy and ancestor
@@ -56,10 +56,10 @@ hard spending limit.
 
 ## Supported configuration
 
-This path supports the native `oci` backend, an existing `APIKey` profile and
-the `default` workspace only. The backend supports other authentication methods,
-but this gate does not yet accept them. See the
-[HashiCorp OCI backend reference](https://developer.hashicorp.com/terraform/language/backend/oci).
+This path supports the native `oci` backend, existing `APIKey` or `SecurityToken`
+profiles and the `default` workspace. Other backend authentication methods remain
+unsupported by this gate. See the
+[Terraform 1.16 OCI backend reference](https://developer.hashicorp.com/terraform/language/v1.16.x/backend/oci).
 
 Use Terraform 1.16.6 for the reference's verified local command behavior. Review
 all Terraform, modules, providers and external data sources first. Source hashes
@@ -84,7 +84,7 @@ It must contain exactly these seven nonempty string fields:
 | `region` | The bucket's actual OCI region |
 | `key` | Explicit relative object path ending in `.tfstate` |
 | `workspace_key_prefix` | Explicit prefix Terraform may list; no workspace creation is authorized |
-| `auth` | `APIKey` |
+| `auth` | `APIKey` or `SecurityToken` |
 | `config_file_profile` | Existing local OCI profile name |
 
 Replace every example placeholder, including the fictional `replace-region-1`.
@@ -96,10 +96,71 @@ remain private.
 
 Use a clean process environment. The gate refuses `OCI_*`, `TF_CLI_ARGS*`,
 Terraform logging, alternate CLI configuration and provider reattachment
-overrides. It refuses redirected `TF_DATA_DIR`, non-default `TF_WORKSPACE`,
+overrides, including unprefixed backend credential, endpoint, on-behalf-of-token
+and TLS-bypass settings. Home-directory, proxy and certificate environment
+settings are fingerprinted so a changed process context requires a fresh plan.
+It refuses redirected `TF_DATA_DIR`, non-default `TF_WORKSPACE`,
 non-default cached workspace selection, cloud blocks and provider-defined
 `state_store` configuration. Do not work around those checks or silently switch
 the selected identity. Review any changed environment and prepare a fresh packet.
+
+### Temporary browser sessions
+
+Use the normal [Oracle CLI browser sign-in](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm)
+on the owner's computer:
+
+```sh
+oci session authenticate --region <region> --profile-name FOUNDER
+oci session validate --profile FOUNDER --auth security_token
+```
+
+The owner completes browser/MFA interaction. The kit does not collect credentials,
+refresh sessions or perform sign-in on the owner's behalf. Set `auth` to
+`SecurityToken` and `config_file_profile` to `FOUNDER` in the private backend
+settings. Set the same authentication and profile in the workload's Terraform
+variables and reviewed provider configuration. Authentication does not establish
+the permissions needed for deployment or state isolation.
+
+Native backend execution uses `~/.oci/config`; an alternate configuration checked
+by the readiness doctor is not automatically usable here. The selected profile
+must explicitly contain `tenancy`, `user`, `region`, `key_file` and
+`security_token_file`; `fingerprint` is optional. This path refuses inherited
+profile fields, inline secrets, encrypted signing keys and extra profile
+overrides. Credential paths must be absolute or start with `~/`, without parent
+traversal. Configuration, signing key and token files must be owned by the current
+user, owner-only, bounded in size and have no symlinks or extra hard links; their
+immediate parent directories must be owner-only. Keep these files outside Git.
+
+Preparation and every remote Terraform invocation check token format, local
+identity consistency and a minimum ten-minute remaining lifetime. The decoded
+`sub` and `tenant` claims must match the profile; these are the fields used by
+the [Oracle CLI session implementation](https://github.com/oracle/oci-cli/blob/master/src/oci_cli/cli_session.py).
+These offline checks do not verify the token signature, service acceptance or
+effective IAM. OCI verifies authentication during approved requests. The minimum
+remaining lifetime is a startup guard, not a promise that a long deployment will
+finish before expiry. Plan and apply receipts retain only authentication mode,
+profile, expiry and hashes, never token or signing-key values.
+
+Approval expiry is capped at token expiry minus ten minutes. Any token refresh,
+profile/key change or identity change invalidates pending backend operations and
+saved resource plans. This conservative rule also applies when a refreshed token
+belongs to the same person: refresh **before** preparing the next operation,
+then obtain approval for the new exact plan. For a still-valid session:
+
+```sh
+oci session refresh --profile FOUNDER --auth security_token
+```
+
+For an expired session, repeat browser authentication. If an approved operation
+fails, its attempt remains consumed; inspect the receipt and reconcile possible
+state/lock changes before preparing another operation. Session-operation failures
+discard raw Terraform output to avoid retaining token echoes; the receipt records
+failure and possible remote changes. Do not replay the old hash or fall back to
+API keys silently.
+
+The SecurityToken gate has synthetic profile/fake-client regression coverage.
+It still needs a separately approved live session-backed deployment and recovery
+rehearsal before claiming that outcome.
 
 ## 1. Prepare and approve initialization
 

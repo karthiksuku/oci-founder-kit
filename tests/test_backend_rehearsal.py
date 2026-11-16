@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from types import SimpleNamespace
@@ -276,6 +277,78 @@ class RecipeTests(unittest.TestCase):
                                    "finished_at": time.time(), "payload": env["payload"], "steps": [{"pid": 1234}]}))
         path.chmod(0o600)
         with self.assertRaises(recipe.files.ImageGateError): recipe.cleanup_origin(path, self.root)
+
+
+class SessionRecipeTests(RecipeTests):
+    def setUp(self):
+        super().setUp()
+        self.args.auth = "SecurityToken"
+        bucket = json.loads(self.bucket.read_text())
+        bucket["target"]["auth"] = "SecurityToken"
+        self.bucket.write_text(json.dumps(bucket))
+        self.session_identity = {**IDENTITY, "identity": {"auth": "SecurityToken", "authentication": {
+            "auth": "SecurityToken", "profile": "DEFAULT", "identity_sha256": "principal",
+            "token_sha256": "initial-token-hash", "expires_at_epoch": time.time() + 3600}}}
+        patch = mock.patch.object(recipe, "auth", return_value=({"tenancy": TARGET["tenancy_id"]}, self.session_identity))
+        self.session_auth = patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_session_mode_and_expiry_bound_into_native_backend(self):
+        env = self.prepared()
+        self.assertEqual(recipe.backend(env["payload"], env["payload"]["names"][0])["auth"], "SecurityToken")
+        self.assertLessEqual(env["payload"]["expires_at"], self.session_identity["identity"]["authentication"]["expires_at_epoch"] - 600)
+
+    def test_session_refresh_refuses_old_rehearsal_before_client(self):
+        env = self.prepared()
+        self.session_identity["identity"]["authentication"]["token_sha256"] = "refreshed-token-hash"
+        with mock.patch.object(recipe.inspect, "Inspector") as client:
+            self.assertEqual(self.invoke(self.execution(env)), 3)
+            client.assert_not_called()
+
+    def test_new_cleanup_can_bind_refreshed_same_principal_but_old_cleanup_cannot(self):
+        env, storage = self.prepared(), Storage()
+        self.assertEqual(self.simulate(env, storage), 0)
+        self.session_identity["identity"]["authentication"]["token_sha256"] = "refreshed-token-hash"
+        args = SimpleNamespace(command="backend-cleanup-plan", dir=self.root, receipt=self.receipt(env), max_age_minutes=120)
+        with mock.patch.object(recipe.inspect, "Inspector", return_value=storage):
+            self.assertEqual(self.invoke(args), 0)
+        cleanup = json.loads((self.root / ".gate" / recipe.CLEANUP).read_text())
+        self.assertEqual(cleanup["payload"]["identity"], self.session_identity)
+        self.session_identity["identity"]["authentication"]["token_sha256"] = "another-token-hash"
+        with mock.patch.object(recipe.inspect, "Inspector") as client:
+            self.assertEqual(self.invoke(SimpleNamespace(command="backend-cleanup-run", dir=self.root, approve=cleanup["sha256"])), 3)
+            client.assert_not_called()
+        self.assertEqual(storage.deleted, [])
+
+    def test_changed_principal_cannot_prepare_cleanup(self):
+        env, storage = self.prepared(), Storage()
+        self.assertEqual(self.simulate(env, storage), 0)
+        self.session_identity["identity"]["authentication"]["identity_sha256"] = "different-principal"
+        with mock.patch.object(recipe.inspect, "Inspector") as client:
+            args = SimpleNamespace(command="backend-cleanup-plan", dir=self.root, receipt=self.receipt(env), max_age_minutes=120)
+            self.assertEqual(self.invoke(args), 3)
+            client.assert_not_called()
+
+    def test_native_session_failure_does_not_start_process(self):
+        env = self.prepared()
+        native = recipe.Native(self.root, env["payload"], {"steps": []}, lambda: None)
+        with mock.patch.object(recipe, "auth", side_effect=recipe.files.ImageGateError("Session expired")), \
+             mock.patch.object(recipe.subprocess, "Popen") as launch:
+            with self.assertRaises(recipe.files.ImageGateError):
+                native.start("init-holder", "holder", ["init"])
+            launch.assert_not_called()
+
+    def test_session_drainer_retains_only_semantic_evidence(self):
+        sentinel = "synthetic-sensitive-output"
+        cases = [("version", json.dumps({"terraform_version": "1.16.6", "extra": sentinel}).encode(), b'"1.16.6"'),
+                 ("contender-blocked", ("Error acquiring the state lock\nLock Info:\n  ID: 00000000-0000-0000-0000-000000000001\n" + sentinel).encode(), b"00000000-0000-0000-0000-000000000001"),
+                 ("init-holder", sentinel.encode(), b"discarded")]
+        for label, raw, expected in cases:
+            with self.subTest(label=label):
+                result = subprocess.run([sys.executable, str(Path(recipe.__file__)), "--drain", "--session-evidence", label],
+                                        input=raw, capture_output=True, check=True)
+                self.assertIn(expected, result.stdout)
+                self.assertNotIn(sentinel.encode(), result.stdout + result.stderr)
 
 
 class NativeProcessTests(unittest.TestCase):

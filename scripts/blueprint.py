@@ -18,6 +18,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = "oci-kit-blueprint/1"
+DEPLOYMENT_SCHEMA = "oci-kit-blueprint/2"
 NAME = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 LIMIT = 32768
 SCOPE = ("Metadata and paths only. Commands are displayed, never executed. "
@@ -90,19 +91,30 @@ def load(name: str, root: Path = ROOT) -> dict:
     catalog = local_path(root, "blueprints", directory=True)
     base = local_path(catalog, name, directory=True)
     path = local_path(base, "blueprint.json", directory=False)
-    data = fields(read_contract(path), {"schema", "id", "name", "summary", "runtime", "paths",
-                                      "tools", "commands", "operating_modes", "outputs", "acceptance"})
-    if data["schema"] != SCHEMA or data["id"] != name:
+    raw = read_contract(path)
+    deployment = isinstance(raw, dict) and raw.get("schema") == DEPLOYMENT_SCHEMA
+    expected = {"schema", "id", "name", "summary", "runtime", "paths",
+                "tools", "commands", "operating_modes", "outputs", "acceptance"}
+    data = fields(raw, expected | ({"kind", "application_contract"} if deployment else set()))
+    if data["schema"] not in {SCHEMA, DEPLOYMENT_SCHEMA} or data["id"] != name:
         raise ValueError("Unsupported blueprint schema or mismatched ID.")
+    if deployment:
+        if data["kind"] != "deployment":
+            raise ValueError("Version 2 currently supports deployment blueprints only.")
+        contract = fields(data["application_contract"], {"image", "port", "health", "secrets",
+                                                        "external_dependencies", "background_work"})
+        for value in contract.values():
+            text(value)
     text(data["name"], 100)
     text(data["summary"])
     runtime = fields(data["runtime"], {"name", "requirement", "source"})
     text(runtime["name"], 64)
     text(runtime["requirement"], 100)
     local_path(base, runtime["source"], directory=False)
-    paths = fields(data["paths"], {"app", "infrastructure", "tests", "local_preview"})
+    paths = fields(data["paths"], {"infrastructure", "tests", "guide"} if deployment else
+                   {"app", "infrastructure", "tests", "local_preview"})
     for key, value in paths.items():
-        local_path(base, value, directory=key != "local_preview")
+        local_path(base, value, directory=key not in {"local_preview", "guide"})
     seen = set()
     for tool in items(data["tools"]):
         fields(tool, {"name", "requirement", "purpose"})
@@ -112,7 +124,8 @@ def load(name: str, root: Path = ROOT) -> dict:
         seen.add(key)
         text(tool["requirement"], 150)
         text(tool["purpose"])
-    commands = fields(data["commands"], {"preview", "application_tests", "infrastructure_validate"})
+    commands = fields(data["commands"], {"infrastructure_validate", "infrastructure_tests"} if deployment else
+                      {"preview", "application_tests", "infrastructure_validate"})
     for command in commands.values():
         fields(command, {"cwd", "argv"})
         local_path(base, command["cwd"], directory=True)
@@ -161,11 +174,17 @@ def main(argv: list[str] | None = None) -> int:
     create.add_argument("--project", required=True, type=Path)
     create.add_argument("--agent", choices=("codex", "claude", "both"), default="both")
     create.add_argument("--dry-run", action="store_true")
+    attach = commands.add_parser("attach", help="Copy deployment definitions into a new directory in an existing app; no application files or agent installation change.")
+    attach.add_argument("blueprint")
+    attach.add_argument("--project", required=True, type=Path)
+    attach.add_argument("--directory", required=True, help="New relative directory inside the app, for example deploy/oci.")
+    attach.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     try:
         result = {"schema": "oci-kit-blueprint-inspection/1", "scope": SCOPE}
-        if args.command == "create":
-            spec = importlib.util.spec_from_file_location("oci_blueprint_create", ROOT / "scripts/scaffold.py")
+        if args.command in {"create", "attach"}:
+            helper = "scaffold.py" if args.command == "create" else "deployment_scaffold.py"
+            spec = importlib.util.spec_from_file_location("oci_blueprint_create", ROOT / "scripts" / helper)
             scaffold = importlib.util.module_from_spec(spec)
             previous = sys.dont_write_bytecode
             try:
@@ -173,7 +192,10 @@ def main(argv: list[str] | None = None) -> int:
                 spec.loader.exec_module(scaffold)
             finally:
                 sys.dont_write_bytecode = previous
-            result = scaffold.create(args.blueprint, args.project, args.agent, args.dry_run, root=ROOT)
+            if args.command == "attach":
+                result = scaffold.attach(args.blueprint, args.project, args.directory, args.dry_run, root=ROOT)
+            else:
+                result = scaffold.create(args.blueprint, args.project, args.agent, args.dry_run, root=ROOT)
         elif args.command == "list":
             result["blueprints"] = catalog()
         else:
@@ -186,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, OSError, UnicodeError, RecursionError):
         # Do not echo malformed metadata, account values or private filesystem paths.
         sys.stderr.write("Blueprint check refused: invalid contract, unsafe path or missing required file.\n")
-        if args.command == "create" and not args.dry_run:
+        if args.command in {"create", "attach"} and not args.dry_run:
             sys.stderr.write("Creation may have left partial destination files. Preserve and review the destination "
                              "before retrying; no automatic destination cleanup was performed.\n")
         return 2

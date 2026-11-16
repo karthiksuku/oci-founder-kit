@@ -135,13 +135,13 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.5.0 preview.** Guided new, existing and continuing projects now share private progress with stale-evidence checks. The website provides contextual setup help and a shorter handoff. Release manifests keep unlisted files out of installations; update previews and recovery preserve app edits. The hardened Taskboard has a bounded HTTPS acceptance checker. Existing migration, OCI foundation and exact-plan deployment workflows remain available.
+**0.6.0 preview.** Attach a reusable OCI target to your own app, keep explicit source/rehearsal/production environments, and check workload prerequisites before deployment. Backend and deployment gates accept temporary sessions, with local expiry and identity checks. Hosting-first compatibility checks retain existing database, storage and sign-in; a private local dashboard shows current evidence and unknowns. Existing v0.5 commands and saved progress remain supported. [Follow the complete workflow →](docs/ENVIRONMENTS.md)
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The container defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets; verify its deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.5.0.md)
+The Taskboard defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets. The [reusable web target](blueprints/web-container/README.md) retains your app's services and requires its own tested authentication and secret adapter. Verify deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.6.0.md)
 
 ## Go deeper
 

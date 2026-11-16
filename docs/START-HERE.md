@@ -52,14 +52,16 @@ Use oci-kit to migrate this app to OCI. Identify framework/runtime versions,
 functions, edge middleware, image handling, scheduled jobs, storage, database,
 identity, environment variable names and other hosted-service dependencies.
 Preserve existing behavior, implement local changes and test them. Prepare an
-OCI staging deployment and a data/cutover/rollback plan. Do not modify the source
+OCI rehearsal deployment and separate traffic-cutover/rollback plans. Keep the
+existing database, storage and authentication initially; migrate data in a later
+tested step after hosting acceptance. Do not modify the source
 account, migrate production data or switch DNS without my explicit approval.
 ```
 
 The scan cannot see console-only settings, provider-managed data, traffic or
 service contracts. The agent must ask for the missing facts without requesting
 secret values. Keeping an external database or identity service can be a valid
-first migration stage; show what remains external and why.
+first migration stage and is the default here; show what remains external and why.
 
 Initialize a migration checklist with `project.py start --mode existing --task migrate`
 and the appropriate project/agent/stack arguments. It records local context and
@@ -67,7 +69,10 @@ installs the kit if absent; it does not assess the app, migrate data or
 execute the next command for you.
 
 Use the [migration acceptance record](MIGRATION-ACCEPTANCE.md) to compare source
-and target behavior, rehearse data changes and define rollback before cutover.
+and target behavior and define hosting rollback before cutover. Data migration
+is a separate later acceptance phase. Follow [the reusable target and explicit
+environments](ENVIRONMENTS.md) for workload-specific doctor checks, temporary
+sessions, read-only verification and the private local dashboard.
 
 The [runnable Next.js example](../examples/migrate-nextjs/README.md) demonstrates
 local production-server versus standalone-package checks on a small stateless

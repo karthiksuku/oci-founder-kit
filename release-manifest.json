@@ -2,19 +2,19 @@
   "files": {
     ".claude-plugin/marketplace.json": {
       "executable": false,
-      "sha256": "327a9772d7d41b46136392a95bb94813f8294344d3e89f2d08446daa83d3e7c9"
+      "sha256": "6895cc0a27e22d5a67d4b6ceae45a79f4f979e2615241968a55d9594d1b69f9e"
     },
     ".claude-plugin/plugin.json": {
       "executable": false,
-      "sha256": "6b1bcca6eb9d63f161c6ed1b2df49d7e52818cf87c97283f3b517c117cda240b"
+      "sha256": "93c6d727daf5b130d83bcd8a9ee028ce0125434e21501bf09f837d74691a37c1"
     },
     ".codex-plugin/plugin.json": {
       "executable": false,
-      "sha256": "24f970fa76f19f41eee091bd6e3da5a1eae5aa32357d5f7b8baf38eecb0349c5"
+      "sha256": "0622e64cc8af9ea7213225ef51857fcbb76d04793e46e3d5dc70767a67f565f3"
     },
     ".gitignore": {
       "executable": false,
-      "sha256": "c38b85f5075d60a7c9092f75fb401c20e138e0abd18cf83fff8de3c218bd539f"
+      "sha256": "5b745deec3e745d38efad8896b861ca85032ff93f73d1ef15fc6b71984b3b38a"
     },
     "AGENTS.md": {
       "executable": false,
@@ -22,7 +22,7 @@
     },
     "CHANGELOG.md": {
       "executable": false,
-      "sha256": "348d1259877a629792cef32028e7650b4acdce863b1333b9c480b0940279bf7d"
+      "sha256": "f3632b5a4e373fb22ee686986a10816dfba10a20515f1852f68f3940cf54f708"
     },
     "CLAUDE.md": {
       "executable": false,
@@ -38,7 +38,7 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "cfa95dd06aa392581d5e2473d07bcb0e88465e7eb3bdf13ed9f52265acd88a5c"
+      "sha256": "5a8e307ae103ca2cfe4324bb018436418ce5139950d2f838417dd868cf0efc91"
     },
     "SECURITY.md": {
       "executable": false,
@@ -276,6 +276,70 @@
       "executable": false,
       "sha256": "2db718a2bd1f1b4dde836c385d6f2a1cb0de5bb1f7b2d34aab91f654f61ba73e"
     },
+    "blueprints/web-container/.gitignore": {
+      "executable": false,
+      "sha256": "c38b85f5075d60a7c9092f75fb401c20e138e0abd18cf83fff8de3c218bd539f"
+    },
+    "blueprints/web-container/README.md": {
+      "executable": false,
+      "sha256": "82a1965c421697abd89fed5a74f8d852893bc6a03d942edd281031a128971b95"
+    },
+    "blueprints/web-container/blueprint.json": {
+      "executable": false,
+      "sha256": "2005c6cd20a90de172ca463e7ea9574fb177d3e39de974e524281904dd854bb0"
+    },
+    "blueprints/web-container/terraform/.terraform.lock.hcl": {
+      "executable": false,
+      "sha256": "ab30b148c7df53e4cea233c36b636c756b687a7eeb9948dd3f7b918cf5f874bb"
+    },
+    "blueprints/web-container/terraform/backend.tf.json.example": {
+      "executable": false,
+      "sha256": "c551a3038752a4c7cfe5ff7da486e88add854f1ada004d62b04d969d73290eb1"
+    },
+    "blueprints/web-container/terraform/backend.tfbackend.json.example": {
+      "executable": false,
+      "sha256": "79e6be00af35f4782e752c7529bae525a85d12b908c9b0a231ecb5ba79b1475b"
+    },
+    "blueprints/web-container/terraform/container.tf": {
+      "executable": false,
+      "sha256": "3e3c50c7c6d91924fd90ad682b92ba24116d384547a9c0acffe0a70815b939c6"
+    },
+    "blueprints/web-container/terraform/iam.tf": {
+      "executable": false,
+      "sha256": "7559c1be6da3a0e1e759d9ee1d4d6f2eed5c3f67f235d0eb0fda6c06cbeb2bf2"
+    },
+    "blueprints/web-container/terraform/loadbalancer.tf": {
+      "executable": false,
+      "sha256": "aa0082884aceb68ee76f95beba71ec2ed29fd27806fa395793d219b703b8b494"
+    },
+    "blueprints/web-container/terraform/network.tf": {
+      "executable": false,
+      "sha256": "2b4c812514d8ffc267394495604daf300a256b038237bbeeb508780be16675bd"
+    },
+    "blueprints/web-container/terraform/outputs.tf": {
+      "executable": false,
+      "sha256": "9f3586c2b80120f178f0d55de4aa02d7c0079399b7154e64cf0d0f3483ce4d66"
+    },
+    "blueprints/web-container/terraform/terraform.tfvars.example": {
+      "executable": false,
+      "sha256": "a6cff4f931c759fc25a39316403840b5fd34a64c7764329b5000439663da04c9"
+    },
+    "blueprints/web-container/terraform/tests/web.tftest.hcl": {
+      "executable": false,
+      "sha256": "655fd12ff090b6724b183c70a1d223607310f08b61079eafc725111f751c6aff"
+    },
+    "blueprints/web-container/terraform/variables.tf": {
+      "executable": false,
+      "sha256": "b9b3d038d25bd6fbf2c6d56d455c6654a305cd9fcf7a9c9eab8184053526b354"
+    },
+    "blueprints/web-container/terraform/versions.tf": {
+      "executable": false,
+      "sha256": "71d04d28de1865010a98699ddebe40f231d7144aae5875320e824fc1cfb76875"
+    },
+    "docs/AGENT-EVALUATIONS.md": {
+      "executable": false,
+      "sha256": "9fa0fcb201798986b3c61a304b1ba20b9f92847d3898a4638c84ea4ea8d2d4b7"
+    },
     "docs/BUSINESS-VALUE.md": {
       "executable": false,
       "sha256": "fda58b42a834f52610842270216a058306056a535d05ef5774180866e6bfdfbf"
@@ -283,6 +347,10 @@
     "docs/ECOSYSTEM.md": {
       "executable": false,
       "sha256": "a20846eec0a25f33d2699b03a7c62375966b3829cb84c5f9b0a8444d7d9b775e"
+    },
+    "docs/ENVIRONMENTS.md": {
+      "executable": false,
+      "sha256": "fe544ce10c9f29c2d4a0f14f9df1f0ec41e0f76231d1891a6ce8e04c66ce24aa"
     },
     "docs/HOOKS.md": {
       "executable": false,
@@ -294,7 +362,7 @@
     },
     "docs/MAINTAINING.md": {
       "executable": false,
-      "sha256": "69c7d66c227280983f2d049135ed639884a9b451c54dce51bb5098beb6435ea1"
+      "sha256": "dd02cb76c5387baa3c6eb62073765640b4628b5e3c8ff21675fa3bea30fdbe5a"
     },
     "docs/MIGRATION-ACCEPTANCE.md": {
       "executable": false,
@@ -310,7 +378,7 @@
     },
     "docs/PROGRESS.md": {
       "executable": false,
-      "sha256": "c5e021a4ffd716294d74dbcab9e71ec5d857db78890c152b437bcb1c72932e61"
+      "sha256": "adbe878d3739dcf32c068d3a4b41d5bfcc60289f8dac8ab62247b5af2b405ca4"
     },
     "docs/PROJECT-BRIEF.md": {
       "executable": false,
@@ -356,13 +424,17 @@
       "executable": false,
       "sha256": "88e134f4ab16e646b200f0d3ee62a960d4adbe5b6df4246f8177e761c34fd35e"
     },
+    "docs/RELEASE-0.6.0.md": {
+      "executable": false,
+      "sha256": "1ea9d61a1a4d4c678b6f847cc2086ed04164cdacf4ae0b267660cb5741cd754e"
+    },
     "docs/ROADMAP.md": {
       "executable": false,
-      "sha256": "df834be53ee72df47b6acf0d177c9794fff83eaf10a23cab49c36c8daf58d433"
+      "sha256": "234e4daa2904dbc1fe019a8050d93bab0e1e378f9ba05b40c2365f59e75072be"
     },
     "docs/START-HERE.md": {
       "executable": false,
-      "sha256": "9ed529b7b8dd34e6f921390c57a389312463bdd039d6b3b847f27275b61c43dc"
+      "sha256": "9091cfa621e4707d8603b64d4621ad38e1cc576cc6a618686cea46752ff7214b"
     },
     "docs/STARTER-PATTERNS.md": {
       "executable": false,
@@ -392,13 +464,61 @@
       "executable": false,
       "sha256": "f9ec3307ff7154974924b75a3ef10022286f5d31321eacf0031a51d60bb4a339"
     },
+    "docs/ci/README.md": {
+      "executable": false,
+      "sha256": "01656070aecf18ad9d2c6de0016a4be4fa397144b06699f556be65a5f6a32b59"
+    },
+    "docs/ci/checks.workflow.yml": {
+      "executable": false,
+      "sha256": "a69bfe3dbf9ff9c4129f68743932c1319a3a1081f05c569c84df0bef03624151"
+    },
+    "docs/ci/container_smoke.py": {
+      "executable": false,
+      "sha256": "496f9cbb0c1b1002bdcb1bb5e950e6b073b0835ddd002427d0c9a2a61c5e7bd4"
+    },
+    "docs/ci/platform_smoke.py": {
+      "executable": false,
+      "sha256": "e1f404854fd6de7bf9dc7cbc2272b23f3b96e0d681efe1a7a73c17370592b4fa"
+    },
+    "docs/ci/publish_release.py": {
+      "executable": false,
+      "sha256": "5bbae2159cfdb9b6254f9cde454b814cd3581db863da96638ccb2b8e1ca1c20e"
+    },
+    "docs/ci/release.workflow.yml": {
+      "executable": false,
+      "sha256": "b9e9f4deb31b946b0d400133f15ee25b8583cc9e6c1c69a7089081219dd651b2"
+    },
+    "docs/ci/requirements-sdk.txt": {
+      "executable": false,
+      "sha256": "0ec7a3feb0088431f719cb3322492cdc22c8d32f87e65dbb0084f1f0f9f77dcd"
+    },
     "docs/ci/validate.workflow.yml": {
       "executable": false,
-      "sha256": "759c1be99b9daaceab1767272e338d16086c5b8e6e22ed1642aa4b6bcd9daeff"
+      "sha256": "e3ddfe4a1a342f4abeeeba5f80792f6759ded9ad3799f5a4993062458d22da16"
     },
     "examples/migrate-aws-taskboard/migration-scan.md": {
       "executable": false,
       "sha256": "b2e460dc2c62cc45a09c6ba8d8af72279a0c2480c2a8e92e3a40c04ecddd3565"
+    },
+    "examples/migrate-container/.dockerignore": {
+      "executable": false,
+      "sha256": "68830572555c55ef3bb56a36847283db2fccf8d29d2b44a68015babe10929cd0"
+    },
+    "examples/migrate-container/Dockerfile": {
+      "executable": false,
+      "sha256": "7a8db8ee7a2b6fa69e02e09c29e15ec0e4f08bff4453ed6218821dec67662e38"
+    },
+    "examples/migrate-container/README.md": {
+      "executable": false,
+      "sha256": "7e489e38048a25738dab8987c91cd81e70e71681bac4bf931c549561ad7783b0"
+    },
+    "examples/migrate-container/rehearse.py": {
+      "executable": false,
+      "sha256": "991d696fc505b316836dfa29d01d0179a15bb4426dc410221c29c80942f35187"
+    },
+    "examples/migrate-container/server.py": {
+      "executable": false,
+      "sha256": "ec16f33cf30c481629b8f72b4d6a6319c7cfc41700837473a33fed4ab9fd2752"
     },
     "examples/migrate-nextjs/.dockerignore": {
       "executable": false,
@@ -506,11 +626,31 @@
     },
     "plugin.json": {
       "executable": false,
-      "sha256": "8e3ae24b4e9a852ff7fe370dcc8c0cb99644e4313a19524c8be4f7a30ce74c14"
+      "sha256": "9b9c84b03091548b7ac1ede0622c4b546e1ca2b00bf30ba3ce47b6e217ce99b1"
     },
     "scripts/blueprint.py": {
       "executable": false,
-      "sha256": "789893f135a9fe17ddde608d4b51ee4d7cd25be6de2f07275155db331338355b"
+      "sha256": "15b62ac5bf58eb7790df13fcc17e49ec572dae886c654e379094f2690484e146"
+    },
+    "scripts/browser_migration.mjs": {
+      "executable": false,
+      "sha256": "3d1b95e0de1b26f0d4640bc2087a6135986f69b3658b5bfe515cf93c937b3024"
+    },
+    "scripts/dashboard.py": {
+      "executable": false,
+      "sha256": "754ff1b9f950315ca261b9d4d9839784588c1b2c4e78597d67f27c9dac898cc5"
+    },
+    "scripts/deployment_scaffold.py": {
+      "executable": false,
+      "sha256": "c1f9778d3fc762a6c21f548a0b0d6bc70af8fb089cb51ff4a84e7d2132210acd"
+    },
+    "scripts/environments.py": {
+      "executable": false,
+      "sha256": "8adf7a7891730d30d3d73a64588299a67ff65a7ce0062f6fe250c5261969c092"
+    },
+    "scripts/founder_eval.py": {
+      "executable": false,
+      "sha256": "93f32aeb750a7f0302e320c3553819f88bafb66ab73945518a64907a0dadb262"
     },
     "scripts/hooks.py": {
       "executable": false,
@@ -524,13 +664,25 @@
       "executable": false,
       "sha256": "2c084c832eb0cf3e3fc30779c33334c998cde0f918d1348ed90b3d2b8b3339e8"
     },
+    "scripts/migration.py": {
+      "executable": false,
+      "sha256": "0b10e153aaf1c625a2f6f3e329e5edeb853e30adf822be49aeb122f7c2641074"
+    },
     "scripts/project.py": {
       "executable": false,
-      "sha256": "911baea10f8931c6b205b0935c99d3b329a8c008a09977e4ce79c2070445a981"
+      "sha256": "bdba488f36c863b5585663e4e69df671c3346312760aa783779b9dc8aefefc6e"
+    },
+    "scripts/readiness.py": {
+      "executable": false,
+      "sha256": "2d0d4b3144c0f74f529bb1d0b8a81f1e9ca9dc8cb99c8571ccd12ac2a517a90c"
     },
     "scripts/refresh_provider_types.py": {
       "executable": false,
       "sha256": "1504978bf7d1dd3c763dd26584298f45a83cc5adccf00eedbd86fff06a556a71"
+    },
+    "scripts/release_archive.py": {
+      "executable": false,
+      "sha256": "87f82f175d783d6b3f0dc45649d636d85e441f84d7814af34c66fdacb0b419a2"
     },
     "scripts/release_manifest.py": {
       "executable": false,
@@ -550,7 +702,7 @@
     },
     "skills/founder-value-ai/SKILL.md": {
       "executable": false,
-      "sha256": "62668459afe6bb7fd3cf861d5e7c6a0ef064968b5c7193ce143fe1724cd442b3"
+      "sha256": "73682acdc926539b4100bd289dee67fcf7466a308dd246de6e1cd8fd00630d77"
     },
     "skills/founder-value-ai/agents/openai.yaml": {
       "executable": false,
@@ -566,7 +718,7 @@
     },
     "skills/founder-value-brief/SKILL.md": {
       "executable": false,
-      "sha256": "955837377ff5d30b85041ba968b9d0784a3fba16b3260746dad97a81a7077d78"
+      "sha256": "4c13cd64adf29bcc79bee54ec02eb2171270b7ed810b45061befe7e036a76c3c"
     },
     "skills/founder-value-brief/agents/openai.yaml": {
       "executable": false,
@@ -586,7 +738,7 @@
     },
     "skills/founder-value-economics/SKILL.md": {
       "executable": false,
-      "sha256": "5d24429f0165402081957a458831fa942a1ff5f54e6f3caa731d7b7686d2318c"
+      "sha256": "f73ef2b332f4c6dd9eaa4252c4278fda618d6fb45d316226df08330ccfbc877a"
     },
     "skills/founder-value-economics/agents/openai.yaml": {
       "executable": false,
@@ -606,7 +758,7 @@
     },
     "skills/founder-value-gtm/SKILL.md": {
       "executable": false,
-      "sha256": "bed544aa7ceff0f37c7fae0d6c1bbb0490c78c89bca94ceb49231e8741c61549"
+      "sha256": "229a8e3b6da0a70d866c2c85e75dee5bb9132de0aac8aa31a5143cd4693bf103"
     },
     "skills/founder-value-gtm/agents/openai.yaml": {
       "executable": false,
@@ -626,7 +778,7 @@
     },
     "skills/founder-value/SKILL.md": {
       "executable": false,
-      "sha256": "130d5a46610ad660d2a08db260576e4687cad2764fe726d213e5d0896cfc7cd2"
+      "sha256": "7194ca2d5fc5afdd251305ba04f1629d5e2ebc121d84ac2533fdec456c942a4b"
     },
     "skills/founder-value/agents/openai.yaml": {
       "executable": false,
@@ -670,7 +822,7 @@
     },
     "skills/oci-build/SKILL.md": {
       "executable": false,
-      "sha256": "6db07678c4471596442a4bc8b69d88bcb47cc510da4f9dc813de7effe3b71d5c"
+      "sha256": "f8f02a17c43c0ec1d7a60fa5e9466840a35e1ba783b44d9830690cb45fe6b45d"
     },
     "skills/oci-build/agents/openai.yaml": {
       "executable": false,
@@ -682,7 +834,7 @@
     },
     "skills/oci-deploy/SKILL.md": {
       "executable": false,
-      "sha256": "7c7e8f09bd5b2a10a23c16537c705fd5cd46a29393ac3025a736098ce38cf545"
+      "sha256": "fff8e51b33abf5a1aedbdfe27f072f6903708530ecfd627a719f36bfe269fdb0"
     },
     "skills/oci-deploy/agents/openai.yaml": {
       "executable": false,
@@ -690,11 +842,11 @@
     },
     "skills/oci-deploy/references/backend-rehearsal.md": {
       "executable": false,
-      "sha256": "1ca7f6d8bcf50d926362f5d252aa67b17f3d9bc1d105f017ef6823a90a2902ca"
+      "sha256": "a5fbbf815ced6416d90ba896f37c721515b13de7359b7d6aa713317a5e34b200"
     },
     "skills/oci-deploy/references/backend-state.md": {
       "executable": false,
-      "sha256": "f294432576eaf15e399a04b4fdf0ca6c13bb4b841845e8d4080f08565ad4974f"
+      "sha256": "02d854f2364da33749bb819bdcabc245ae7e77e16ea2fb51521f7288ec56d3d6"
     },
     "skills/oci-deploy/references/image-publication.md": {
       "executable": false,
@@ -703,6 +855,10 @@
     "skills/oci-deploy/references/permissions.md": {
       "executable": false,
       "sha256": "393c4f41114bd131f7fdf980e21df53ec7be4e61bbc74c522b4a66fe20839dfe"
+    },
+    "skills/oci-deploy/scripts/backend_auth.py": {
+      "executable": false,
+      "sha256": "1372ffad56bfcbc308c924acfc54bc35478c38dfbad78b8776ebffdacf456a7b"
     },
     "skills/oci-deploy/scripts/backend_config.py": {
       "executable": false,
@@ -714,27 +870,35 @@
     },
     "skills/oci-deploy/scripts/backend_inspect.py": {
       "executable": false,
-      "sha256": "3e593d564eba447caa3dce8dd9682e2e0eeb2ce37b95068583ec5263c9ac660f"
+      "sha256": "c5fcc4e702e7383f9f487cd0211583becfae4ef3c9d30596e14ada72a4b528cc"
     },
     "skills/oci-deploy/scripts/backend_ops.py": {
       "executable": false,
-      "sha256": "799b17d59fb634a2fbe865a962bf420c2a9e2ae8126f4730930cbda12d668865"
+      "sha256": "4abc9cbc8052ec64d636204d923504bdc8802085d2f835f9c188b290aa071e16"
     },
     "skills/oci-deploy/scripts/backend_rehearsal.py": {
       "executable": false,
-      "sha256": "eac5cb4be01035d2581f7dfb876b18486d9765a5bc4f5050a1c6223225441dee"
+      "sha256": "061a995adf29878a653f617ceb7cf9463619288f3e526baf84e34c7aa9bede53"
     },
     "skills/oci-deploy/scripts/deploy_gate.py": {
       "executable": false,
-      "sha256": "ce01d60a1bee856953f3d140d51e7b576491fb81b95ca32ecc5363670fbc5166"
+      "sha256": "7a65335e031f4e9190176fc778eb46119202ac404d96c6fd8c8d9b6589309959"
+    },
+    "skills/oci-deploy/scripts/environment_gate.py": {
+      "executable": false,
+      "sha256": "ded40e7b362fdb20c932bff1244d0d9097d167273cf1193bcfe8e6a62948db69"
     },
     "skills/oci-deploy/scripts/image_gate.py": {
       "executable": false,
       "sha256": "3a9de15fea4cfda5ff68ba8d5761654bb343a6c093eb33d6b44158260d1076be"
     },
+    "skills/oci-deploy/scripts/named_workload.py": {
+      "executable": false,
+      "sha256": "46addf4a7f5cf4ab788635b5e928ffee0cc72a2dffc2cbadb288dff540966f1e"
+    },
     "skills/oci-foundation/SKILL.md": {
       "executable": false,
-      "sha256": "caa290eecda63c0a67c36dff848cfc0b4693540cadb9fce8ec652fbe897926d9"
+      "sha256": "97b693113bd9856f1a85dfb509542bb15ad44e45fa590e5177ce5f9a9e740883"
     },
     "skills/oci-foundation/agents/openai.yaml": {
       "executable": false,
@@ -746,7 +910,7 @@
     },
     "skills/oci-kit/SKILL.md": {
       "executable": false,
-      "sha256": "e4ddd5d81795df5c9620c05dc8130404d1e22a8effd1fd3ccdedc103234d40eb"
+      "sha256": "bc350f937f5bd7858200527812c3a6189e8c01befb0c19a617aadbaf523f0106"
     },
     "skills/oci-kit/agents/openai.yaml": {
       "executable": false,
@@ -754,7 +918,7 @@
     },
     "skills/oci-migrate-assess/SKILL.md": {
       "executable": false,
-      "sha256": "994ec34e875fb1fe94a1a5cbc17cd557dde29fa8f084739f7ba29bd72e27e3a6"
+      "sha256": "97ab6575286db70669337ee5fd4dd306f66ff7911cbce1e0524921d4161e8f7e"
     },
     "skills/oci-migrate-assess/agents/openai.yaml": {
       "executable": false,
@@ -786,23 +950,27 @@
     },
     "skills/oci-migrate-web/SKILL.md": {
       "executable": false,
-      "sha256": "b9eecc080863ad3398ee67691090b23c3ab447f130f092738de436789a6f5bfb"
+      "sha256": "9096101eee01388f09a271b45f9375dade2ab0620d77b998abc5ae20c78d3fa4"
     },
     "skills/oci-migrate-web/agents/openai.yaml": {
       "executable": false,
       "sha256": "1e71ac52031c47574e52f6716e8edbfe62fda296b2f1fd39db2973dca5497a7c"
     },
+    "skills/oci-migrate-web/references/hosting-first.md": {
+      "executable": false,
+      "sha256": "3d7941d186de13c89cee5ab21b263f7c4d9774b007d32fe5d78651d82d1f8c0e"
+    },
     "skills/oci-migrate-web/references/migration.md": {
       "executable": false,
-      "sha256": "49e5fc3fa5bbfef4ecfa87510fbc0a32ace21f89ee0e83e69575883b36c099c0"
+      "sha256": "4a52af4659c26532b199af6ebdda37bf81264355cbfc512f8dc34d0874852a46"
     },
     "skills/oci-migrate-web/scripts/web_scan.py": {
       "executable": false,
-      "sha256": "f05fc9432f84dc3bea2a02026b7303ec738b03ce87f00a3e197b08a06749b8c8"
+      "sha256": "8d4d2610da0820f750bd28d81cdbbddec0a765ee97a8bf338c201ee6f7588731"
     },
     "skills/oci-ready/SKILL.md": {
       "executable": false,
-      "sha256": "96b246a0905e303c735db5df2f8e279981bc279ec0b7a5553589920dae8d908d"
+      "sha256": "21e3c68f2b26e7ca08708388b34a4fb1a880327990de4a7a4c5a8e291d8a6b89"
     },
     "skills/oci-ready/agents/openai.yaml": {
       "executable": false,
@@ -819,6 +987,22 @@
     "skills/oci-ready/scripts/oci_doctor.py": {
       "executable": false,
       "sha256": "78529cfed2af7776716a6b8b35d1dcc8316e6903cfb1cd4d793365d20a17a56d"
+    },
+    "tests/browser-migration/README.md": {
+      "executable": false,
+      "sha256": "6ff58ca19dbc360874b8c3510f9b57f7734016988d9e068b566083b12451408e"
+    },
+    "tests/browser-migration/package-lock.json": {
+      "executable": false,
+      "sha256": "868a48f5087c2a55872037dac5d3c6857152f7405b514531a846536dfad40023"
+    },
+    "tests/browser-migration/package.json": {
+      "executable": false,
+      "sha256": "ac2c0705009808e61c62271a0b0d20f0a06ddcc2f2b393cb803d16dbe87bd645"
+    },
+    "tests/fixtures/evaluations/browser_grade.mjs": {
+      "executable": false,
+      "sha256": "3da07e6ce5a7748a1206984828b7fc926a3373bcb56dd741c32923085a4c8292"
     },
     "tests/fixtures/fake_image_clients.py": {
       "executable": false,
@@ -920,6 +1104,10 @@
       "executable": false,
       "sha256": "6208f9b5e504ca5394932113c546920a3ff9f81a577be75f846d03e4f164fb9e"
     },
+    "tests/test_backend_auth.py": {
+      "executable": false,
+      "sha256": "88f0b3f30a34640ad76c3b47e35a602b06fc5c16c5fce7de5c473572b4f33ff9"
+    },
     "tests/test_backend_config.py": {
       "executable": false,
       "sha256": "ddfb99273035aa8ac9c8720cedef6dbaad96d8c524b5498f24245a93eb0ead31"
@@ -930,7 +1118,7 @@
     },
     "tests/test_backend_inspect.py": {
       "executable": false,
-      "sha256": "48caacfde1b3d577b1237a5bfa56275d05a449d60e875183f5497db4df14cb86"
+      "sha256": "619baf4860a1f6a83ae3894d19e7d5d88d5e1b9e28348ece9a050998a379d9bf"
     },
     "tests/test_backend_ops.py": {
       "executable": false,
@@ -938,7 +1126,7 @@
     },
     "tests/test_backend_rehearsal.py": {
       "executable": false,
-      "sha256": "d89b87e40484f9de9dc0a575efb836558207d6dd8da524efbd88dea91563a178"
+      "sha256": "a4ec27240fe596317dce0bc71e4e8063985af326767e77dc78e1e50c8655bc84"
     },
     "tests/test_blueprint.py": {
       "executable": false,
@@ -956,9 +1144,25 @@
       "executable": false,
       "sha256": "6c295600a7f094274aacc5acdb81a6055dc799fedaaff6388a37a024005b3c3f"
     },
+    "tests/test_environment_gate.py": {
+      "executable": false,
+      "sha256": "6a0cecb9f34878ebbb1345eeee9beea4663299fb9ba5776a0aa9cd1566e1e488"
+    },
+    "tests/test_environment_security.py": {
+      "executable": false,
+      "sha256": "ab0d4f3edd756573e9050ae849e60d73dba9d7ad93edf4d5e3a285d8366cf9e5"
+    },
+    "tests/test_environments.py": {
+      "executable": false,
+      "sha256": "a4a31228923e6b3eb9c3d7f522b25f10d603589c6941b1d035c75e7ffbe6cdff"
+    },
     "tests/test_foundation.py": {
       "executable": false,
       "sha256": "12867a5d37fa40d03ba3797c0bd1738b10d575d7083d55869ab2b81c2c5e26f9"
+    },
+    "tests/test_founder_eval.py": {
+      "executable": false,
+      "sha256": "989c4c11233f841ddab13f1747c2539af409b38ea1e4ba54fadc2893222ab225"
     },
     "tests/test_hooks.py": {
       "executable": false,
@@ -984,6 +1188,14 @@
       "executable": false,
       "sha256": "cfdfe254f2b3d04a86f6ccc5c287a9e6708db6cd48f182e12da341c126df0bb1"
     },
+    "tests/test_migration.py": {
+      "executable": false,
+      "sha256": "0b88b1294865f5825db3d8138c263293ed107f014a80ef09afd553ca8811ef4b"
+    },
+    "tests/test_migration_browser.py": {
+      "executable": false,
+      "sha256": "47b4ec3542aa1f74cc94933a4aa42d6d8fbe75b7362ce6072faa1c5eacc683a6"
+    },
     "tests/test_nextjs_migration.py": {
       "executable": false,
       "sha256": "7c316a749d08f2d384ce8402af99dbfda4d01c8c1e88e1de2646c7483fedf23d"
@@ -1004,9 +1216,17 @@
       "executable": false,
       "sha256": "ed4a5e8d2e76c24e03f5e5bd69b96f6140674d451874ee756e008608d75f5215"
     },
+    "tests/test_readiness.py": {
+      "executable": false,
+      "sha256": "00fd6db616bacb1b3854d568bb59bb3bb57926f5390bdb997b87694c918c96ac"
+    },
     "tests/test_refresh_provider_types.py": {
       "executable": false,
       "sha256": "b4100f3171206473beacc95ffc6bcee74bd1f48c0f771cd258b7eac79d1391cb"
+    },
+    "tests/test_release_archive.py": {
+      "executable": false,
+      "sha256": "538edca5f75f52826fd5e2edf66f1c17da9011076f837f1e8ce7fb459ae768de"
     },
     "tests/test_release_manifest.py": {
       "executable": false,
@@ -1027,6 +1247,10 @@
     "tests/test_value_model.py": {
       "executable": false,
       "sha256": "60f302516143dc4a8779e5e8d1db01302ddec40d57960a3c6ac89a051941ef04"
+    },
+    "tests/test_web_container.py": {
+      "executable": false,
+      "sha256": "b4a35bdaa686e57f1709835ae03dcb01fb87869b237462717e215f99a8b7ac36"
     },
     "tests/test_web_scan.py": {
       "executable": false,

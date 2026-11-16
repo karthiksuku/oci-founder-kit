@@ -21,7 +21,8 @@ it records the installed version. Installing the OCI CLI in a separate pipx
 environment does not necessarily make its SDK importable by `python3`. Review
 dependencies before installing them; the gate does not install packages.
 
-Select an existing API-key profile in `~/.oci/config`. Its key path must expand
+Select an existing API-key or temporary browser-session profile in `~/.oci/config`.
+For an API key, its key path must expand
 to an absolute path, its RSA public fingerprint must match, and configuration
 and key files must be private regular files without symlinks. The gate binds the
 profile's tenancy/user/fingerprint, config/key hashes, HOME, source and Terraform
@@ -29,6 +30,17 @@ binary. Key material and passphrases stay in memory and existing private files;
 never paste them into the target file, chat or Git. Native child commands use a
 fixed environment, disable update checks and exclude inherited auth, proxy,
 Terraform and HTTP overrides. Only commercial-realm OCI endpoints are supported.
+
+For a session, follow the [temporary-session setup and file requirements](backend-state.md#temporary-browser-sessions).
+Use `--auth SecurityToken` explicitly when preparing the rehearsal. The bucket
+creation receipt must have the same selected authentication mode and profile.
+The SDK uses `SecurityTokenSigner` with the inspected token and signing key;
+it never auto-refreshes. Token expiry, profile/key/identity hashes and token hash
+are rechecked before each native launch and SDK request, including exact-version
+deletion. A minimum ten-minute remaining lifetime is required; approval expiry
+is capped at token expiry minus that margin. A service denial is not treated as
+absence or retried. Refresh or reauthenticate before preparing a new plan, and
+never reuse a pending approval with a changed token.
 
 Prepare a fresh directory with mode `0700` outside your source checkout. Keep
 the successful bucket creation receipt available. If that receipt lacks an OCI
@@ -59,6 +71,9 @@ python3 skills/oci-deploy/scripts/deploy_gate.py backend-rehearsal-plan \
   --dir /private/backend-check --target /private/target.json \
   --bucket-receipt /private/bucket-creation-receipt.json --profile DEFAULT
 ```
+
+For browser sessions, replace `--profile DEFAULT` with
+`--profile FOUNDER --auth SecurityToken` after creating and validating that session.
 
 This preparation is offline. Review `.gate/backend-rehearsal-plan.json`, its
 SHA-256, expiry, exact destination and dated request/storage estimates. It
@@ -93,14 +108,18 @@ values; source hashes bind their transformations. This is not an arbitrary
 state-push interface. No apply, resource creation, IAM change, migration,
 force-unlock, disabled locking or automatic cleanup is included.
 
-Private receipts record each attempted command and observed versions. Native
-output retains at most 256 KiB per command while a separate reader drains excess
+Private receipts record each attempted command and observed versions. For API
+keys, native output retains at most 256 KiB per command while a separate reader drains excess
 without blocking the writer. A timeout stops subsequent work, releases the
 loopback fixture and gives native clients time to finish/unlock normally. It
 does not kill them. A client that remains alive is reported as unresolved;
 do not retry, force-unlock or clean up until its outcome is reconciled. The
 HTTP wait is bounded at 30 seconds; this does not guarantee a hard total cloud
 execution deadline. Approval expiry stops new commands, not normal unlock.
+Session output is instead inspected in bounded memory: only the Terraform
+version and the fixed lock-contention diagnostic with its UUID may be retained.
+Arbitrary stdout/stderr is discarded to avoid saving credential echoes, including
+on failure. The same overflow/failure and normal-unlock behavior still applies.
 
 ## Review permanent cleanup separately
 
@@ -130,6 +149,16 @@ It never uses workspace deletion, prefix deletion, an unversioned object delete
 or bucket deletion. An interrupted or stale cleanup is consumed; reconcile and
 prepare a new remaining-version plan rather than retrying the old approval.
 The bucket and its original local bootstrap state remain retained.
+
+A newly prepared session cleanup may bind a refreshed session for the same
+principal, profile and home directory as the originating rehearsal. Its own
+new hash binds the fresh token and signing context. After that preparation, any
+token/key/context change refuses execution; the earlier cleanup approval never
+transfers. A different principal cannot use this path to take over cleanup.
+
+Session-backed rehearsal and cleanup have credential-free SDK/fake-client
+regression coverage. The dated live evidence above used API-key authentication;
+it does not establish a live SecurityToken recovery result.
 
 ## Evidence limits
 

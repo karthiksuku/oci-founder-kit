@@ -4,7 +4,7 @@ description: Build and test a useful application locally, preserve its chosen fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Build a full-stack app on OCI
@@ -17,7 +17,8 @@ is not a reason to replace working database, storage or identity services.
 
 | The app | Path |
 |---|---|
-| A containerised web app or API, one service, modest steady traffic | `fullstack-container` (this kit): Container Instances, PostgreSQL, Object Storage, load balancer |
+| An existing or newly built containerised app/API that keeps its own services | `web-container`: attach Container Instances and HTTPS load balancer infrastructure to the app; retain its database/storage/identity |
+| An explicitly requested new Taskboard reference | `fullstack-container`: Taskboard, Container Instances, PostgreSQL, Object Storage and optional hardened ingress |
 | Several services, autoscaling, rolling deploys, Kubernetes already in use | OKE: route to `oracle/skills` OKE skills if installed; keep this kit's gate for the apply |
 | Event-driven or bursty handlers | OCI Functions: route to `oracle/skills` Functions skills if installed |
 | No container yet | Containerise first: a Dockerfile that runs as a non-root user, reads configuration from environment variables and serves `/healthz` and `/readyz` |
@@ -33,6 +34,13 @@ PATH --agent both` from the kit root. Its root README gives relocated commands;
 edit the generated project's `app/` and `terraform/`. The hidden kit bundle stays
 a reference/tool snapshot. Creation is not an app test or deployment. Preserve
 different requested frameworks and existing apps instead of using this creator.
+
+For the reusable target, follow [the environment workflow](../../docs/ENVIRONMENTS.md)
+and [web-container contract](../../blueprints/web-container/README.md). Attachment
+copies only deployment files into a new selected directory. It reuses existing
+networking and requires a tested runtime adapter for any Vault secret references.
+Named rehearsal and production use distinct infrastructure roots, private evidence
+and backend keys; the selected environment never transfers prior approval.
 
 ## Workflow
 

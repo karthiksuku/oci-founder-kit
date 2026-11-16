@@ -1,0 +1,5 @@
+# Credential-free signer contract tests only; not application dependencies.
+# Reviewed against public PyPI metadata and tested together on 2026-11-16.
+oci==2.191.0
+cryptography==50.0.2
+pyOpenSSL==26.4.0

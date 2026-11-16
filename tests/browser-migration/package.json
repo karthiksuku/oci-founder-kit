@@ -1,0 +1,9 @@
+{
+  "name": "oci-founder-kit-browser-migration-checks",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UPL-1.0",
+  "type": "module",
+  "scripts": { "test": "node ../../scripts/browser_migration.mjs" },
+  "devDependencies": { "@playwright/test": "1.65.0" }
+}

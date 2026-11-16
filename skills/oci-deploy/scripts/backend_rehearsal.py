@@ -18,6 +18,7 @@ import time
 import uuid
 
 import backend_config
+import backend_auth
 import backend_fixture as fixture
 import backend_inspect as inspect
 import backend_ops
@@ -34,7 +35,7 @@ def sources():
     folder = Path(__file__).parent
     return {name: files.sha((folder / name).read_bytes()) for name in
             ("backend_rehearsal.py", "backend_fixture.py", "backend_inspect.py",
-             "backend_config.py", "backend_ops.py", "deploy_gate.py", "image_gate.py")}
+             "backend_config.py", "backend_auth.py", "backend_ops.py", "deploy_gate.py", "image_gate.py")}
 
 
 def scope(target):
@@ -56,7 +57,7 @@ def private_root(path):
                 "Use a private, owner-controlled rehearsal directory (0700).")
 
 
-def receipt_binding(path, target, profile):
+def receipt_binding(path, target, profile, mode="APIKey"):
     raw = files.read_private(path)
     value = files.parse(raw)
     require(value.get("schema") == "oci-deploy-receipt/2" and value.get("kind") == "apply"
@@ -65,9 +66,9 @@ def receipt_binding(path, target, profile):
                and r.get("id") in (None, target["bucket_id"]) and r.get("name") == target["bucket"]
                and r.get("compartment_id") == target["compartment_id"]]
     expected = {"region": target["region"], "tenancy_ocid": target["tenancy_id"],
-                "compartment_ocid": target["compartment_id"], "profile": profile, "auth": "APIKey"}
+                "compartment_ocid": target["compartment_id"], "profile": profile, "auth": mode}
     require(len(matches) == 1 and all(value.get("target", {}).get(k) == v for k, v in expected.items()),
-            "Bucket receipt does not match the approved target and API-key profile.")
+            "Bucket receipt does not match the approved target, authentication mode and profile.")
     return {"path": str(path.absolute()), "sha256": files.sha(raw)}
 
 
@@ -78,18 +79,39 @@ def keys(run_id):
                     ("primary.tfstate", "primary.tfstate.lock", "recovery.tfstate", "recovery.tfstate.lock")]
 
 
-def auth(profile):
-    require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", profile), "Invalid API-key profile name.")
+def auth(profile, mode="APIKey"):
+    require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", profile), "Invalid authentication profile name.")
     home = str(Path.home().absolute())
-    config, binding = inspect.identity(Path(home) / ".oci/config", profile)
+    config, binding = inspect.identity(Path(home) / ".oci/config", profile, auth=mode)
     return config, {"home": home, "profile": profile, "identity": binding}
+
+
+def auth_mode(identity):
+    return identity["identity"].get("auth", "APIKey")
+
+
+def deadline(requested, identity):
+    return backend_auth.deadline(requested, identity["identity"].get("authentication", {}))
+
+
+def same_principal(current, original):
+    if auth_mode(original) != "SecurityToken":
+        return current == original
+    # This comparison is ONLY for preparing a separately approved cleanup. The
+    # cleanup's own execution still requires its exact current token binding.
+    def stable(identity):
+        context = identity["identity"].get("authentication", {})
+        return {"home": identity["home"], "profile": identity["profile"], "auth": auth_mode(identity),
+                "principal": context.get("identity_sha256")}
+    return stable(current) == stable(original) and bool(stable(original)["principal"])
 
 
 def prepare(args, gate):
     require(1 <= args.max_age_minutes <= 120, "Approval must expire within 1 to 120 minutes.")
     require(set(p.name for p in args.dir.iterdir()) <= {".gate"}, "Use a fresh rehearsal directory.")
     target = scope(files.parse(files.read_private(args.target)))
-    config, identity = auth(args.profile)
+    mode = getattr(args, "auth", "APIKey")
+    config, identity = auth(args.profile, mode)
     require(config.get("tenancy") == target["tenancy_id"], "Profile belongs to a different tenancy.")
     # Identity fields remain in the private packet; never echo account metadata.
     run = secrets.token_hex(12)
@@ -98,10 +120,10 @@ def prepare(args, gate):
     lineage = str(uuid.uuid4())
     payload = {"schema": SCHEMA, "directory": str(args.dir), "run_id": run, "prefix": prefix,
                "names": names, "target": target, "identity": identity,
-               "bucket_receipt": receipt_binding(args.bucket_receipt, target, args.profile),
+               "bucket_receipt": receipt_binding(args.bucket_receipt, target, args.profile, mode),
                "terraform": files.fingerprint("terraform"), "sources": sources(),
                "v1_lineage": lineage, "v1_sha256": files.sha(fixture.synthetic(run, 1, lineage, 1)),
-               "created_at": now, "expires_at": now + args.max_age_minutes * 60,
+               "created_at": now, "expires_at": deadline(now + args.max_age_minutes * 60, identity),
                "transform": "synthetic-generation-2-observed-lineage-serial-plus-one/1"}
     digest = files.sha(files.canonical(payload))
     files.write_at(gate, PLAN, {"sha256": digest, "payload": payload})
@@ -132,7 +154,7 @@ class Native:
     def start(self, label, client, argv):
         require(not any(step.get("status") not in {"attempted", "completed"} for step in self.receipt["steps"]),
                 "An earlier native step failed or is unresolved; no new command is permitted.")
-        _, identity = auth(self.payload["identity"]["profile"])
+        _, identity = auth(self.payload["identity"]["profile"], auth_mode(self.payload["identity"]))
         require(identity == self.payload["identity"], "Identity changed before the next native command.")
         require(self.payload["sources"] == sources()
                 and self.payload["terraform"] == files.fingerprint("terraform"),
@@ -151,12 +173,18 @@ class Native:
                 # An independent draining process survives a controller timeout.
                 # It caps retained bytes, keeps reading/discarding overflow, and
                 # never closes a live native writer's pipe merely on timeout.
-                drain = subprocess.Popen([sys.executable, str(Path(__file__).absolute()), "--drain"],
+                drain_args = [sys.executable, str(Path(__file__).absolute()), "--drain"]
+                if auth_mode(self.payload["identity"]) == "SecurityToken":
+                    drain_args += ["--session-evidence", label]
+                drain = subprocess.Popen(drain_args,
                                          stdin=subprocess.PIPE, stdout=log, stderr=subprocess.DEVNULL,
                                          env=self.env, start_new_session=True)
                 step["drain_pid"] = drain.pid
                 try:
                     require(time.time() <= self.payload["expires_at"], "Approval expired before native launch.")
+                    if auth_mode(self.payload["identity"]) == "SecurityToken":
+                        _, current_identity = auth(self.payload["identity"]["profile"], "SecurityToken")
+                        require(current_identity == identity, "Session changed before native launch; prepare a fresh plan.")
                     native_launch_entered = True
                     proc = subprocess.Popen([self.payload["terraform"]["path"]] + argv, cwd=self.root / client,
                                             env=self.env, stdin=subprocess.DEVNULL, stdout=drain.stdin,
@@ -244,7 +272,7 @@ def put(root, name, raw):
 def backend(payload, key):
     return {k: payload["target"][k] for k in ("bucket", "namespace", "region")} | {
         "key": key, "workspace_key_prefix": payload["prefix"] + "unused-workspaces",
-        "auth": "APIKey", "config_file_profile": payload["identity"]["profile"]}
+        "auth": auth_mode(payload["identity"]), "config_file_profile": payload["identity"]["profile"]}
 
 
 def current(inventory, name):
@@ -383,10 +411,10 @@ def execute(args, gate):
             and p["v1_sha256"] == files.sha(fixture.synthetic(p["run_id"], 1, p["v1_lineage"], 1)),
             "Invalid synthetic transform or baseline.")
     target = scope(p["target"])
-    config, binding = auth(p["identity"]["profile"])
+    config, binding = auth(p["identity"]["profile"], auth_mode(p["identity"]))
     require(binding == p["identity"], "Configured identity or HOME changed; re-plan.")
     require(config.get("tenancy") == target["tenancy_id"], "Profile belongs to a different tenancy.")
-    require(receipt_binding(Path(p["bucket_receipt"]["path"]), target, binding["profile"]) == p["bucket_receipt"],
+    require(receipt_binding(Path(p["bucket_receipt"]["path"]), target, binding["profile"], auth_mode(binding)) == p["bucket_receipt"],
             "Bucket creation receipt changed.")
     now = time.time()
     require(type(p["created_at"]) in (int, float) and type(p["expires_at"]) in (int, float)
@@ -468,8 +496,8 @@ def prepare_cleanup(args, gate):
     require(1 <= args.max_age_minutes <= 120, "Approval must expire within 1 to 120 minutes.")
     origin, source = cleanup_origin(args.receipt, args.dir)
     p = origin["payload"]
-    config, identity = auth(p["identity"]["profile"])
-    require(identity == p["identity"], "Identity changed since the originating rehearsal.")
+    config, identity = auth(p["identity"]["profile"], auth_mode(p["identity"]))
+    require(same_principal(identity, p["identity"]), "Identity changed since the originating rehearsal.")
     client = inspect.Inspector(config, scope(p["target"]))
     client.preflight()
     inventory = cleanup_inventory(client, p)
@@ -478,7 +506,7 @@ def prepare_cleanup(args, gate):
     payload = {"schema": "oci-backend-cleanup/1", "directory": str(args.dir), "origin": source,
                "identity": identity, "sources": sources(), "inventory": inventory,
                "delete_order": cleanup_order(inventory), "created_at": now,
-               "expires_at": now + args.max_age_minutes * 60}
+               "expires_at": deadline(now + args.max_age_minutes * 60, identity)}
     digest = files.sha(files.canonical(payload))
     files.write_at(gate, CLEANUP, {"sha256": digest, "payload": payload})
     print(f"Permanent cleanup of {len(payload['delete_order'])} exact synthetic state/lock versions or markers.")
@@ -500,8 +528,8 @@ def execute_cleanup(args, gate):
             and p["sources"] == sources(), "Cleanup implementation or directory changed.")
     origin, binding = cleanup_origin(Path(p["origin"]["path"]), args.dir)
     require(binding == p["origin"], "Originating receipt changed.")
-    config, identity = auth(p["identity"]["profile"])
-    require(identity == p["identity"] == origin["payload"]["identity"], "Cleanup identity changed.")
+    config, identity = auth(p["identity"]["profile"], auth_mode(p["identity"]))
+    require(identity == p["identity"] and same_principal(identity, origin["payload"]["identity"]), "Cleanup identity changed.")
     now = time.time()
     require(type(p["created_at"]) in (int, float) and type(p["expires_at"]) in (int, float)
             and 0 < p["expires_at"] - p["created_at"] <= 7200 and p["created_at"] <= now <= p["expires_at"],
@@ -510,7 +538,7 @@ def execute_cleanup(args, gate):
     with files.private_directory(gate, "cleanup-receipts") as receipts:
         name = digest + ".json"
         result = {"schema": "oci-backend-cleanup-receipt/1", "operation_sha256": digest,
-                  "status": "attempted", "origin": p["origin"], "steps": [], "started_at": now}
+                  "status": "attempted", "origin": p["origin"], "identity": p["identity"], "steps": [], "started_at": now}
         files.write_at(receipts, name, result, exclusive=True)
         os.unlink(CLEANUP, dir_fd=gate)
         os.fsync(gate)
@@ -559,9 +587,31 @@ def dispatch(args):
         return 3
 
 
-def drain_output():
+def session_evidence(raw, label):
+    """Retain only the two fixed observations required by the recipe, never logs."""
+    if label == "version":
+        try:
+            version = files.parse(raw).get("terraform_version")
+            require(isinstance(version, str) and re.fullmatch(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", version),
+                    "Unexpected Terraform version output.")
+            return files.canonical({"terraform_version": version})
+        except Exception:
+            return b"{}"
+    if label == "contender-blocked" and b"Error acquiring the state lock" in raw:
+        found = re.search(rb"(?:^|\n)\s*ID:\s*([0-9a-fA-F-]{36})(?:\s|$)", raw)
+        if found:
+            try:
+                lock_id = str(uuid.UUID(found[1].decode()))
+                return b"Error acquiring the state lock\nID: " + lock_id.encode() + b"\n"
+            except ValueError:
+                pass
+    return b"Native output discarded; inspect the structured receipt.\n"
+
+
+def drain_output(session_label=None):
     """Retain at most 256 KiB, drain the rest until EOF, never signal a writer."""
     remaining, overflow, failed = 262144, False, False
+    captured = bytearray()
     while True:
         block = sys.stdin.buffer.read(32768)
         if not block:
@@ -569,14 +619,25 @@ def drain_output():
         kept = block[:remaining]
         remaining -= len(kept)
         overflow = overflow or len(block) > len(kept)
-        if kept and not failed:
+        if session_label is not None:
+            captured.extend(kept)
+        elif kept and not failed:
             try:
                 sys.stdout.buffer.write(kept)
                 sys.stdout.buffer.flush()
             except OSError:
                 failed = True
+    if session_label is not None and not overflow:
+        try:
+            sys.stdout.buffer.write(session_evidence(bytes(captured), session_label))
+            sys.stdout.buffer.flush()
+        except OSError:
+            failed = True
     return 3 if failed else 2 if overflow else 0
 
 
-if __name__ == "__main__" and sys.argv[1:] == ["--drain"]:
-    raise SystemExit(drain_output())
+if __name__ == "__main__":
+    if sys.argv[1:] == ["--drain"]:
+        raise SystemExit(drain_output())
+    if len(sys.argv) == 4 and sys.argv[1:3] == ["--drain", "--session-evidence"]:
+        raise SystemExit(drain_output(sys.argv[3]))

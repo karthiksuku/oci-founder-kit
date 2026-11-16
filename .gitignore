@@ -1,4 +1,5 @@
 __pycache__/
+node_modules/
 *.pyc
 .DS_Store
 # Founder working files: keep real invoices, scenarios and reports out of Git

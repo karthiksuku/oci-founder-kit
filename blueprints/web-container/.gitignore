@@ -1,0 +1,64 @@
+__pycache__/
+*.pyc
+.DS_Store
+# Founder working files: keep real invoices, scenarios and reports out of Git
+/work/
+*.priced.json
+value-report.md
+!examples/**/value-report.md
+# Terraform working state, plans and local receipts never go to Git
+.[tT][eE][rR][rR][aA][fF][oO][rR][mM]/
+*.[tT][fF][sS][tT][aA][tT][eE]
+*.[tT][fF][sS][tT][aA][tT][eE].*
+*.[tT][fF][pP][lL][aA][nN]
+[tT][fF][pP][lL][aA][nN]*
+.[tT][eE][rR][rR][aA][fF][oO][rR][mM].[lL][oO][cC][kK].[hH][cC][lL].[bB][aA][kK]
+[cC][rR][aA][sS][hH].[lL][oO][gG]
+*.[tT][fF][vV][aA][rR][sS]
+*.[tT][fF][vV][aA][rR][sS].*
+*.[tT][fF][vV][aA][rR][sS]~
+*.[tT][fF][bB][aA][cC][kK][eE][nN][dD]
+*.[tT][fF][bB][aA][cC][kK][eE][nN][dD].*
+*.[tT][fF][bB][aA][cC][kK][eE][nN][dD]~
+*.[tT][fF][sS][tT][aA][tT][eE]~
+*.[lL][oO][gG]
+*.[lL][oO][gG].*
+*.[lL][oO][gG]~
+/receipts/
+.gate/
+
+# Never distribute local credentials or generated app workspaces
+*.[pP][eE][mM]
+*.[kK][eE][yY]
+*.[pP]12
+*.[pP][fF][xX]
+.[oO][cC][iI]/
+.[dD][oO][cC][kK][eE][rR]/
+.[aA][wW][sS]/
+.[sS][sS][hH]/
+.[aA][zZ][uU][rR][eE]/
+.[kK][uU][bB][eE]/
+.[nN][pP][mM][rR][cC]
+.[nN][pP][mM][rR][cC].*
+.[nN][pP][mM][rR][cC]~
+.[pP][yY][pP][iI][rR][cC]
+.[pP][yY][pP][iI][rR][cC].*
+.[pP][yY][pP][iI][rR][cC]~
+.[gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS]
+.[gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS].*
+.[gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS]~
+.[nN][eE][tT][rR][cC]
+.[nN][eE][tT][rR][cC].*
+.[nN][eE][tT][rR][cC]~
+.oci-founder-kit/
+.[oO][cC][iI]-[kK][iI][tT]/
+.local-preview/
+.next/
+.vercel/
+.netlify/
+# Templates still require content review; private directories remain excluded.
+!*.[eE][xX][aA][mM][pP][lL][eE]
+# Only a .env.example file is public; .env* directories stay private.
+.[eE][nN][vV]*
+!.[eE][nN][vV].[eE][xX][aA][mM][pP][lL][eE]
+.[eE][nN][vV]*/

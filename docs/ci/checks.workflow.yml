@@ -1,0 +1,154 @@
+name: Credential-free checks
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  local-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_USER: founder_test
+          POSTGRES_DB: founder_test
+          # Disposable loopback runner fixture, never a shared database.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U founder_test -d founder_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.4'
+          package-manager-cache: false
+      - run: python3 scripts/release_manifest.py check
+      - run: python3 scripts/validate.py
+      - run: python3 scripts/hooks.py public --project .
+      - name: Install reviewed SDK signer test dependencies
+        run: |
+          python3 -m pip install --disable-pip-version-check --only-binary=:all: -r docs/ci/requirements-sdk.txt
+      - name: Require actual SDK signer tests instead of optional-dependency skips
+        run: python3 -c 'import oci, cryptography, OpenSSL; print("OCI SDK", oci.__version__, "cryptography", cryptography.__version__, "pyOpenSSL", OpenSSL.__version__)'
+      - run: npm ci --ignore-scripts
+        working-directory: blueprints/fullstack-container/app
+      - run: npm test
+        working-directory: blueprints/fullstack-container/app
+        env:
+          TEST_DATABASE_URL: postgresql://founder_test@127.0.0.1:5432/founder_test
+      - run: npm ci --ignore-scripts
+        working-directory: examples/migrate-nextjs
+      - run: npm run build
+        working-directory: examples/migrate-nextjs
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tests/browser-migration
+      - run: npx --no-install playwright install --with-deps chromium
+        working-directory: tests/browser-migration
+      - name: Python suite with local HTTPS, real Next.js and browser journeys enabled
+        run: python3 -m unittest discover -s tests -v
+        env:
+          FOUNDER_KIT_PRODUCTION_CHECK_LOCAL: '1'
+          FOUNDER_KIT_NEXTJS_PARITY: '1'
+          FOUNDER_KIT_MIGRATION_LOCAL: '1'
+          FOUNDER_KIT_MIGRATION_BROWSER: '1'
+      - name: Build the ordinary web-service image locally
+        run: docker build --tag oci-kit-ci-web examples/migrate-container
+      - name: Exercise the local container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name oci-kit-ci-web --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --publish 127.0.0.1:18080:8080 oci-kit-ci-web
+          trap 'docker rm --force oci-kit-ci-web >/dev/null' EXIT
+          curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:18080/healthz >/dev/null
+          python3 docs/ci/container_smoke.py http://127.0.0.1:18080
+  terraform:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - blueprints/foundation/terraform
+          - blueprints/fullstack-container/registry
+          - blueprints/fullstack-container/terraform
+          - blueprints/web-container/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: '1.16.6'
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive blueprints
+      - run: terraform -chdir="$TF_TARGET" init -backend=false -lockfile=readonly
+        env:
+          TF_TARGET: ${{ matrix.target }}
+      - run: terraform -chdir="$TF_TARGET" validate
+        env:
+          TF_TARGET: ${{ matrix.target }}
+      - name: Mock provider contract tests only
+        if: matrix.target == 'blueprints/fullstack-container/terraform' || matrix.target == 'blueprints/web-container/terraform'
+        run: terraform -chdir="$TF_TARGET" test
+        env:
+          TF_TARGET: ${{ matrix.target }}
+  platforms:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python: '3.11'
+          - os: macos-latest
+            python: '3.13'
+    defaults:
+      run:
+        working-directory: kit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: kit
+          persist-credentials: false
+      - name: Reviewed v0.5.0 upgrade baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: karthiksuku/oci-founder-kit
+          ref: 91af893a6ffd631ea98fd1c0727371083a5e6025
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python3 -m unittest discover -s tests -p test_release_archive.py -v
+      - run: python3 docs/ci/platform_smoke.py --baseline ../baseline --work "$RUNNER_TEMP/oci-kit-platform"
+  founder-site:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.4'
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npm test
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run test:browser

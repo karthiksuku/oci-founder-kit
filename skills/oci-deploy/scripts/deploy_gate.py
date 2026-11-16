@@ -55,7 +55,9 @@ CLOCK_SKEW_SECONDS = 300
 TARGET_KEYS = {"region": ("region",), "compartment_ocid": ("compartment_ocid", "compartment_id"),
                "profile": ("config_file_profile", "profile", "oci_profile"),
                "tenancy_ocid": ("tenancy_ocid",), "home_region": ("home_region",),
-               "auth": ("auth",)}
+               "auth": ("auth",), "port": ("app_port",), "health_path": ("health_path",),
+               "origin": ("public_origin",), "ocpus": ("app_ocpus",), "memory_gbs": ("app_memory_gbs",),
+               "availability_domain": ("availability_domain",), "certificate_id": ("certificate_ocid",)}
 GONE_STATES = {"TERMINATED", "DELETED"}
 OCID = re.compile(r"^ocid1\.[a-z0-9_-]+\.[a-z0-9_-]+\.([a-z0-9_-]*)\.[a-z0-9]+$")
 REGION = re.compile(r"^[a-z]+-[a-z]+-\d+$")
@@ -138,15 +140,34 @@ def _child_env() -> dict:
     return {k: v for k, v in os.environ.items() if not k.startswith("TF_CLI_ARGS")}
 
 
-def run_terraform(binary: dict, args: list[str], stack: Path, gate: Path | None) -> str:
+def run_terraform(binary: dict, args: list[str], stack: Path, gate: Path | None,
+                  *, backend: dict | None = None, authentication: dict | None = None,
+                  project_environment: dict | None = None) -> str:
+    import environment_gate
+    import image_gate
+    try:
+        environment_gate.recheck(stack, project_environment, backend)
+    except image_gate.ImageGateError as exc:
+        raise GateRefused(str(exc)) from None
+    if backend is not None:
+        import backend_auth
+        try:
+            backend_auth.validate(backend, authentication)
+        except image_gate.ImageGateError as exc:
+            raise GateRefused(str(exc)) from None
     result = subprocess.run([binary["path"]] + args, cwd=stack, capture_output=True, text=True,
                             errors="replace", env=_child_env(), check=False)
     if result.returncode != 0:
         where = ""
         if gate is not None:
-            _write_private(gate / ERROR_LOG, f"$ terraform {' '.join(args)}\n--- stdout\n{result.stdout}\n"
-                                             f"--- stderr\n{result.stderr}\n")
+            if backend is not None and backend["auth"] == "SecurityToken":
+                _write_private(gate / ERROR_LOG, "Session operation failed. Raw client output was discarded to avoid retaining credentials.\n")
+            else:
+                _write_private(gate / ERROR_LOG, f"$ terraform {' '.join(args)}\n--- stdout\n{result.stdout}\n"
+                                                 f"--- stderr\n{result.stderr}\n")
             where = f" Full output is in {GATE_DIR}/{ERROR_LOG} (it may contain sensitive values)."
+        if backend is not None and backend["auth"] == "SecurityToken":
+            where = " Raw client output was discarded. Check session validity and permissions privately; reauthenticate if needed and prepare a fresh plan. No automatic retry is permitted."
         raise TerraformError(f"terraform {args[0]} failed (exit {result.returncode}).{where}")
     return result.stdout
 
@@ -170,8 +191,19 @@ def describe_plan(plan: dict) -> dict:
     target = {}
     for key, names in TARGET_KEYS.items():
         value = next((variables[n].get("value") for n in names if isinstance(variables.get(n), dict)), None)
-        if isinstance(value, str):
+        if isinstance(value, str) or key in {"port", "ocpus", "memory_gbs"} and type(value) in {int, float}:
             target[key] = value
+    image_entry = variables.get("app_image")
+    image = image_entry.get("value") if isinstance(image_entry, dict) else None
+    if isinstance(image, str) and re.fullmatch(r"[^@\s]+@(sha256:[0-9a-f]{64})", image):
+        target["image_digest"] = image.rsplit("@", 1)[1]
+    network_entry = variables.get("network")
+    network = network_entry.get("value") if isinstance(network_entry, dict) else None
+    if isinstance(network, dict):
+        for key, name in {"vcn_id": "vcn_ocid", "app_subnet_id": "private_subnet_ocid",
+                          "lb_subnet_id": "public_subnet_ocid", "app_private_ip": "app_private_ip"}.items():
+            if isinstance(network.get(name), str):
+                target[key] = network[name]
     changes = {"create": 0, "update": 0, "delete": 0, "replace": 0}
     resources = []
     for change in plan.get("resource_changes") or []:
@@ -206,6 +238,10 @@ def render_summary(summary: dict, stack: Path) -> str:
         backend = summary["backend"]
         lines += [f"State destination: {backend['region']} / {backend['namespace']} / {backend['bucket']} / {backend['key']}.",
                   "Applying also writes state and creates/deletes its lock object; version history can remain.", ""]
+    if summary.get("project_environment"):
+        selected = summary["project_environment"]
+        lines += [f"Named environment: {selected['environment']} ({selected['role']}); "
+                  f"configuration SHA-256 {selected['configuration_sha256']}.", ""]
     if summary.get("resource_targets"):
         lines += ["Targeted plan (dependencies can also change): " + ", ".join(summary["resource_targets"])
                   + ". Run and review a full plan after this exceptional bootstrap/recovery step.", ""]
@@ -247,8 +283,8 @@ def state_resources(module: dict) -> list[dict]:
     return found
 
 
-def _read_state(binary: dict, stack: Path, gate: Path) -> list[dict]:
-    text = run_terraform(binary, ["show", "-json"], stack, gate)
+def _read_state(binary: dict, stack: Path, gate: Path, **authentication) -> list[dict]:
+    text = run_terraform(binary, ["show", "-json"], stack, gate, **authentication)
     if not text.strip():
         raise ValueError("terraform show returned no state")
     return state_resources((json.loads(text).get("values") or {}).get("root_module") or {})
@@ -313,21 +349,35 @@ def backend_observation(stack: Path) -> tuple[dict, bool]:
 
 def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
              required_backend: str | None = None, resource_targets: list[str] | None = None,
-             backend_activity: dict | None = None) -> int:
+             backend_activity: dict | None = None, *, project: Path | None = None,
+             environment: str | None = None) -> int:
     if max_age <= 0:
         raise GateInputError("--max-age-minutes must be positive")
     resource_targets = resource_targets or []
     validate_targets(resource_targets)
     observed, remote = backend_observation(stack)
     import backend_ops
+    import backend_auth
+    import environment_gate
+    authentication = {}
     if remote:
         if backend_activity is None or backend_activity.get("binding") != backend_ops.binding(observed):
             raise GateRefused("Remote backend operations need exact approval before init or plan. Use backend-plan then backend-run.")
         backend_ops.canonical_declaration(stack, observed)
         if backend_ops.metadata_config(observed) != backend_activity.get("backend"):
             raise GateRefused("The initialized backend differs from the approved operation.")
+        backend_auth.validate(backend_activity["backend"], backend_activity.get("authentication"))
+        authentication = {"backend": backend_activity["backend"], "authentication": backend_activity["authentication"]}
     elif required_backend:
         raise GateRefused("The required OCI backend is not initialized; prepare an approved backend initialization first.")
+    if remote:
+        selected = environment_gate.recheck(stack, backend_activity.get("project_environment"), backend_activity["backend"])
+    else:
+        selected = environment_gate.select(stack, project=project, environment=environment)
+    if selected:
+        authentication["project_environment"] = selected
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", selected["target"].get("image_digest", "")):
+            raise GateRefused("Select an immutable image digest before planning a named workload.")
     binary = terraform_binary()
     gate = _gate(stack, create=True)
     plan_path = _no_symlink(gate / PLAN_FILE)
@@ -345,10 +395,11 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
     args += [f"-target={target}" for target in resource_targets]
     if remote and time.time() > backend_activity["expires_at_epoch"]:
         raise GateRefused("Backend approval expired before planning; no plan client was started.")
-    run_terraform(binary, args, stack, gate)
+    run_terraform(binary, args, stack, gate, **authentication)
     _no_symlink(plan_path).chmod(0o600)
     plan_bytes = plan_path.read_bytes()
-    described = describe_plan(json.loads(run_terraform(binary, ["show", "-json", str(plan_path)], stack, gate)))
+    evaluated = json.loads(run_terraform(binary, ["show", "-json", str(plan_path)], stack, gate, **authentication))
+    described = describe_plan(evaluated)
     target = described["target"]
     if not re.fullmatch(r"ocid1\.compartment\.[a-z0-9_-]+\.[a-z0-9_-]*\.[a-z0-9]+", target.get("compartment_ocid", "")):
         raise GateRefused("A dedicated non-root compartment must be declared in the plan variables.")
@@ -360,8 +411,14 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
         raise GateRefused("The expected tenancy identifier is invalid.")
     if "auth" in target and target["auth"] not in {"APIKey", "SecurityToken", "InstancePrincipal", "ResourcePrincipal"}:
         raise GateRefused("The declared authentication mode is invalid.")
+    if remote and backend_activity["backend"]["auth"] == "SecurityToken" and (
+            target.get("auth") != "SecurityToken" or target["profile"] != backend_activity["backend"]["config_file_profile"]):
+        raise GateRefused("Session deployment variables must declare the same SecurityToken authentication and profile as the backend.")
     if kind == "destroy" and (described["changes"]["create"] or described["changes"]["update"]):
         raise GateRefused("A destroy plan must only delete resources.")
+    environment_gate.recheck(stack, selected, backend_activity["backend"] if remote else None, target)
+    import named_workload
+    workload_proof = named_workload.verify(evaluated, stack, selected, kind)
     after, _ = backend_observation(stack)
     if remote and backend_ops.binding(after) != backend_activity["binding"]:
         raise GateRefused("Backend metadata or source changed while planning; review the private attempt receipt.")
@@ -373,6 +430,12 @@ def cmd_plan(stack: Path, kind: str, var_files: list[str], max_age: int,
                "backend": backend_activity["backend"] if remote else None,
                "backend_operation_sha256": backend_activity["operation_sha256"] if remote else None,
                "backend_environment_sha256": backend_ops.environment_binding() if remote else None, **described}
+    summary["project_environment"] = selected
+    summary["workload_proof"] = workload_proof
+    if remote:
+        summary["backend_authentication"] = backend_activity["authentication"]
+        summary["backend_gate_sources"] = backend_ops.source_binding()
+        summary["expires_at_epoch"] = backend_auth.deadline(summary["expires_at_epoch"], backend_activity["authentication"])
     text = render_summary(summary, stack)
     _write_private(gate / SUMMARY_FILE, json.dumps(summary, indent=2) + "\n")
     _write_private(gate / SUMMARY_MD, text)
@@ -410,6 +473,9 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
         raise GateRefused("This older plan lacks backend binding; prepare and review a fresh plan with the current gate.")
     observed, remote = backend_observation(stack)
     import backend_ops
+    import backend_auth
+    import environment_gate
+    authentication = {}
     if summary.get("backend_binding") is not None and summary["backend_binding"] != backend_ops.binding(observed):
         raise GateRefused("Backend metadata or source changed since planning; prepare and review a fresh plan.")
     if remote:
@@ -420,6 +486,14 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
             raise GateRefused("The backend destination changed since resource planning.")
         if backend_ops.environment_binding() != summary.get("backend_environment_sha256"):
             raise GateRefused("The Terraform environment changed since remote planning; prepare a fresh operation.")
+        if summary.get("backend_gate_sources") != backend_ops.source_binding():
+            raise GateRefused("The backend gate changed since planning; prepare a fresh operation.")
+        backend_auth.validate(summary["backend"], summary.get("backend_authentication"))
+        authentication = {"backend": summary["backend"], "authentication": summary["backend_authentication"]}
+    selected = environment_gate.recheck(stack, summary.get("project_environment"),
+                                        summary.get("backend"), summary["target"])
+    if selected:
+        authentication["project_environment"] = selected
     require_backend(stack, summary.get("required_backend"))
     binary = summary["terraform"]
     sha = summary["plan_sha256"]
@@ -431,9 +505,17 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     try:
         if sha256_bytes(applying.read_bytes()) != sha:
             raise GateRefused("The plan file changed since it was summarised. Run plan again.")
-        current = describe_plan(json.loads(run_terraform(binary, ["show", "-json", str(applying)], stack, gate)))
+        evaluated = json.loads(run_terraform(binary, ["show", "-json", str(applying)], stack, gate, **authentication))
+        current = describe_plan(evaluated)
         if any(current[k] != summary[k] for k in ("changes", "resources", "target", "access_changes")):
             raise GateRefused("The summary does not match the plan's contents. Run plan again.")
+        import named_workload
+        try:
+            proof = named_workload.verify(evaluated, stack, selected, kind)
+            if proof != summary.get("workload_proof"):
+                raise GateRefused("The evaluated workload differs from its reviewed environment proof.")
+        except named_workload.files.ImageGateError as exc:
+            raise GateRefused(str(exc)) from None
     except (GateRefused, TerraformError, ValueError):
         applying.unlink(missing_ok=True)
         raise
@@ -447,17 +529,20 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
                "started_at": started, "plan_sha256": sha, "target": summary["target"],
                "changes": summary["changes"], "planned": summary["resources"],
                "resource_targets": summary.get("resource_targets", []),
-               "backend": summary.get("backend"), "backend_operation_sha256": summary.get("backend_operation_sha256")}
+               "backend": summary.get("backend"), "backend_operation_sha256": summary.get("backend_operation_sha256"),
+               "backend_authentication": summary.get("backend_authentication")}
+    receipt["project_environment"] = selected
+    receipt["workload_proof"] = summary.get("workload_proof")
     if kind == "destroy":
         try:
-            receipt["destroyed_resources"] = _read_state(binary, stack, gate)
-        except (TerraformError, ValueError, json.JSONDecodeError):
+            receipt["destroyed_resources"] = _read_state(binary, stack, gate, **authentication)
+        except (GateRefused, TerraformError, ValueError, json.JSONDecodeError):
             receipt["destroyed_resources"] = []
     _write_private(receipt_path, json.dumps(receipt, indent=2) + "\n")
     try:
         if time.time() > summary["expires_at_epoch"]:
             raise GateRefused("Resource approval expired during validation; no apply was started.")
-        run_terraform(binary, ["apply", "-input=false", "-no-color", str(applying)], stack, gate)
+        run_terraform(binary, ["apply", "-input=false", "-no-color", str(applying)], stack, gate, **authentication)
     except GateRefused:
         receipt["status"] = "refused"
         receipt["apply_started"] = False
@@ -466,8 +551,8 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     except TerraformError as exc:
         receipt["status"] = "failed"
         try:  # a partial apply leaves resources behind; record whatever state reports
-            receipt["resources"] = _read_state(binary, stack, gate)
-        except (TerraformError, ValueError, json.JSONDecodeError):
+            receipt["resources"] = _read_state(binary, stack, gate, **authentication)
+        except (GateRefused, TerraformError, ValueError, json.JSONDecodeError):
             receipt["resources_unreadable"] = True
         _write_private(receipt_path, json.dumps(receipt, indent=2) + "\n")
         raise TerraformError(f"{exc} Resources may have been created or changed before the failure; "
@@ -475,8 +560,8 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     finally:
         applying.unlink(missing_ok=True)
     try:
-        resources = _read_state(binary, stack, gate)
-    except (TerraformError, ValueError, json.JSONDecodeError) as exc:
+        resources = _read_state(binary, stack, gate, **authentication)
+    except (GateRefused, TerraformError, ValueError, json.JSONDecodeError) as exc:
         receipt["status"] = "applied-unrecorded"
         _write_private(receipt_path, json.dumps(receipt, indent=2) + "\n")
         raise AppliedButUnrecorded(f"Terraform applied plan {sha[:12]}, but the result could not be read ({exc}). "
@@ -610,6 +695,7 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--target", type=Path, required=True, help="Private exact-target JSON")
             p.add_argument("--bucket-receipt", type=Path, required=True)
             p.add_argument("--profile", default="DEFAULT")
+            p.add_argument("--auth", choices=("APIKey", "SecurityToken"), default="APIKey")
             p.add_argument("--max-age-minutes", type=int, default=120)
         else:
             p.add_argument("--approve", required=True)
@@ -617,6 +703,8 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name)
         p.add_argument("--dir", type=Path, required=True)
         if name == "backend-plan":
+            p.add_argument("--project", type=Path, help="Project root; required with --environment for a named stack")
+            p.add_argument("--environment", help="Explicit named environment; no active/default environment")
             p.add_argument("--operation", choices=["init", "plan", "destroy-plan"], required=True)
             p.add_argument("--backend-config", type=Path, help="Private JSON settings, for init only")
             p.add_argument("--var-file", action="append", default=[])
@@ -643,6 +731,8 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name)
         p.add_argument("--dir", type=Path, required=True, help="Terraform stack directory")
         if name in ("plan", "destroy-plan"):
+            p.add_argument("--project", type=Path, help="Project root for an explicitly named environment")
+            p.add_argument("--environment", help="Explicit named environment; named stacks require an approved OCI backend")
             p.add_argument("--var-file", action="append", default=[])
             p.add_argument("--target", action="append", default=[], help="Explicit managed-resource address for exceptional bootstrap/recovery; repeatable")
             p.add_argument("--require-backend", choices=["oci"],
@@ -676,7 +766,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_status(stack)
         if args.command in ("plan", "destroy-plan"):
             return cmd_plan(stack, "destroy" if args.command == "destroy-plan" else "apply",
-                            args.var_file, args.max_age_minutes, args.require_backend, args.target)
+                            args.var_file, args.max_age_minutes, args.require_backend, args.target,
+                            project=args.project, environment=args.environment)
         return cmd_apply(stack, "destroy" if args.command == "destroy" else "apply", args.approve)
     except GateRefused as exc:
         sys.stderr.write(f"deploy_gate: refused. {exc}\n")

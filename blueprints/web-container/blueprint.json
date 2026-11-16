@@ -1,0 +1,43 @@
+{
+  "schema": "oci-kit-blueprint/2",
+  "kind": "deployment",
+  "id": "web-container",
+  "name": "Your app on OCI",
+  "summary": "Attach an HTTPS Container Instances target to an existing app, preserving its source, database, storage and identity provider.",
+  "runtime": {
+    "name": "Existing Linux amd64 container",
+    "requirement": "Stateless HTTP service with tested external persistence and background work absent or disabled",
+    "source": "README.md"
+  },
+  "paths": {
+    "infrastructure": "terraform",
+    "tests": "terraform/tests",
+    "guide": "README.md"
+  },
+  "tools": [
+    {"name": "terraform", "requirement": ">= 1.7; backend operations may require a newer tested version", "purpose": "Validate reviewed infrastructure and run mocked provider contract tests"}
+  ],
+  "commands": {
+    "infrastructure_validate": {"cwd": "terraform", "argv": ["terraform", "validate"]},
+    "infrastructure_tests": {"cwd": "terraform", "argv": ["terraform", "test"]}
+  },
+  "application_contract": {
+    "image": "Private OCIR Linux amd64 image pinned by sha256, with no secrets baked into image layers.",
+    "port": "Configurable unprivileged port; the app must listen on 0.0.0.0 and honor its declared port.",
+    "health": "Configurable unauthenticated non-sensitive HTTP path returning 200 when ready; HTTPS is terminated at the load balancer.",
+    "secrets": "Only Vault identifiers enter Terraform and environment metadata. Application code must implement and test resource-principal retrieval.",
+    "external_dependencies": "Retain database, storage and authentication. Verify TLS, callbacks, egress, persistence, latency and rollback before accepting hosting.",
+    "background_work": "Target jobs must be absent or disabled by actual app controls with reviewed evidence. This target never transfers scheduler ownership."
+  },
+  "operating_modes": [
+    {"id": "rehearsal", "description": "Separate target and state, restricted HTTPS client ranges, source hosting retained and background workers disabled."},
+    {"id": "production", "description": "Explicit separate target after tested image promotion, user workflows and recovery. Traffic changes require their own approved operation."}
+  ],
+  "outputs": ["app_url", "load_balancer_ip", "container_instance_id", "deployed_image", "environment_target"],
+  "acceptance": [
+    {"id": "application", "description": "The existing app passes its own tests and container checks; source is preserved and the exact digest is recorded."},
+    {"id": "access-and-network", "description": "Session, target, subnet security lists, routes, certificate, image pull and selected secret access are reviewed; denied reads remain unknown."},
+    {"id": "hosting-parity", "description": "Source and OCI pass meaningful browser workflows, identity and two-user checks, persistence, dependency TLS and bounded latency checks."},
+    {"id": "recovery", "description": "Isolated restore and image/traffic rollback are tested, with one scheduler owner and retained billable resources recorded."}
+  ]
+}

@@ -1,12 +1,14 @@
 """Read-only backend inspection fails closed; no OCI requests or stored keys."""
 
 import datetime as dt
+import base64
 import hashlib
 import io
 import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace as NS
@@ -282,7 +284,7 @@ class IdentityTests(unittest.TestCase):
 
     def test_installed_sdk_constructs_pinned_client_without_requests(self):
         config, _ = inspect_backend.identity(self.config_path, "DEFAULT")
-        with mock.patch("requests.sessions.Session.request", side_effect=AssertionError("network forbidden")):
+        with mock.patch.object(self.oci.base_client.requests.Session, "request", side_effect=AssertionError("network forbidden")):
             reader = inspect_backend.Inspector(config, TARGET)
             self.addCleanup(reader.client.base_client.session.close)
             self.assertFalse(reader.client.base_client.session.trust_env)
@@ -301,6 +303,52 @@ class IdentityTests(unittest.TestCase):
             with self.assertRaisesRegex(inspect_backend.InspectionError, "OCI Python SDK") as caught:
                 inspect_backend.identity(self.config_path, "DEFAULT")
             self.assertNotIn("PRIVATE_SENTINEL", str(caught.exception))
+
+    def session(self, **claims):
+        token = self.path / "session-token"
+        encode = lambda value: base64.urlsafe_b64encode(json.dumps(value).encode()).rstrip(b"=").decode()
+        payload = {"sub": "ocid1.user.oc1..synthetic", "tenant": TARGET["tenancy_id"],
+                   "exp": int(time.time()) + 3600, **claims}
+        token.write_text(encode({"alg": "RS256"}) + "." + encode(payload) + ".c3ludGhldGlj")
+        token.chmod(0o600)
+        self.write(self.body + f"security_token_file={token}\n")
+        return token
+
+    def test_session_signer_uses_real_sdk_without_network_or_credential_binding(self):
+        token = self.session()
+        config, binding = inspect_backend.identity(self.config_path, "DEFAULT", auth="SecurityToken")
+        self.assertEqual(binding["auth"], "SecurityToken")
+        self.assertNotIn(token.read_text(), json.dumps(binding))
+        self.assertNotIn(self.key.decode(), json.dumps(binding))
+        with mock.patch.object(self.oci.base_client.requests.Session, "request", side_effect=AssertionError("network forbidden")):
+            reader = inspect_backend.Inspector(config, TARGET)
+            self.addCleanup(reader.client.base_client.session.close)
+            self.assertIsInstance(reader.client.base_client.signer, self.oci.auth.signers.SecurityTokenSigner)
+            self.assertFalse(reader.client.base_client.session.trust_env)
+
+    def test_session_expiry_rotation_and_denied_read_stop_before_sdk_call(self):
+        token = self.session()
+        config, _ = inspect_backend.identity(self.config_path, "DEFAULT", auth="SecurityToken")
+        reader = inspect_backend.Inspector(config, TARGET)
+        self.addCleanup(reader.client.base_client.session.close)
+        for change in ("expired", "rotated", "denied"):
+            with self.subTest(change=change), mock.patch.object(reader.client, "delete_object") as deletion:
+                if change == "expired":
+                    self.session(exp=int(time.time()) - 1)
+                elif change == "rotated":
+                    self.session(exp=int(time.time()) + 4000)
+                else:
+                    token.chmod(0o644)
+                with self.assertRaises(inspect_backend.InspectionError) as caught:
+                    reader.delete_version(NAMES[0], "synthetic-version")
+                self.assertIn("fresh plan", str(caught.exception))
+                self.assertNotIn(token.read_text(), str(caught.exception))
+                deletion.assert_not_called()
+
+    def test_session_identity_mismatch_fails_before_inspector(self):
+        self.session(sub="ocid1.user.oc1..otheridentity")
+        with self.assertRaises(inspect_backend.InspectionError):
+            inspect_backend.identity(self.config_path, "DEFAULT", auth="SecurityToken")
 
 
 if __name__ == "__main__":

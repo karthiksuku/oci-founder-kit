@@ -1,0 +1,54 @@
+# Fictional identifiers only. Copy to ignored terraform.tfvars and keep it private.
+# These definitions create billable CI/LB resources only through an approved plan.
+tenancy_ocid          = "ocid1.tenancy.oc1..example"
+compartment_ocid      = "ocid1.compartment.oc1..example"
+region                = "us-ashburn-1"
+home_region           = "us-ashburn-1"
+availability_domain   = "EXAMPLE:US-ASHBURN-AD-1"
+config_file_profile   = "FOUNDER_REHEARSAL"
+auth                  = "SecurityToken"
+name                  = "founder-rehearsal"
+allowed_ingress_cidrs = ["203.0.113.10/32"]
+public_origin         = "https://rehearsal.example.test"
+certificate_ocid      = "ocid1.certificate.oc1..example"
+network = {
+  vcn_ocid            = "ocid1.vcn.oc1..example"
+  public_subnet_ocid  = "ocid1.subnet.oc1..publicexample"
+  private_subnet_ocid = "ocid1.subnet.oc1..privateexample"
+  app_private_ip     = "10.20.2.10"
+}
+registry = {
+  compartment_ocid = "ocid1.compartment.oc1..example"
+  repository_name  = "founder-app"
+}
+app_image   = "iad.ocir.io/example/founder-app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+app_port    = 8080
+health_path = "/healthz"
+public_environment = {
+  NODE_ENV = "production"
+}
+# No API keys, database URLs, passwords or tokens. Existing app code must retrieve
+# these identifiers using its OCI SDK resource-principal signer at runtime.
+secret_references = {}
+# Example only after implementing/testing your app's DATABASE_SECRET_OCID adapter:
+# secret_references = {
+#   DATABASE_SECRET_OCID = {
+#     secret_ocid      = "ocid1.vaultsecret.oc1..example"
+#     compartment_ocid = "ocid1.compartment.oc1..securityexample"
+#   }
+# }
+# Optional explicit additional TLS destinations for an existing external database.
+dependency_egress = {}
+# The defaults deliberately refuse deployment until an app-specific review.
+# Set evidence_sha256 to the hash of private evidence for THIS image digest.
+# For jobs absent, use background_work = "absent" with no control environment.
+# For jobs disabled, specify real tested settings, e.g. RUN_WORKERS = "false".
+application_contract = {
+  evidence_sha256              = ""
+  background_work              = "unverified"
+  vault_references_implemented = false
+}
+# Leave false when an administrator has already established reviewed scoped IAM.
+# True adds explicit IAM changes to this saved plan; all CI in the compartment
+# receive those permissions. Review the exact plan and dedicate the compartment.
+manage_runtime_iam = false

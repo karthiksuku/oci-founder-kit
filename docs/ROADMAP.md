@@ -4,11 +4,16 @@ This is an agent toolkit: deterministic local helpers support a coding agent tha
 implements and validates the user's application. Workflow instructions do not
 establish a completed migration or a production deployment.
 
-## 0.5.0 preview
+## 0.6.0 preview
 
 | Capability | Included | Evidence boundary |
 | --- | --- | --- |
 | Claude Code/Codex installation | Project-local installer, source bundle, discoverable entry skills; Claude plugin alternative | Installer tests and plugin validation; coding agents require their own account |
+| Reusable OCI target | `web-container` attaches only infrastructure/docs to an existing app, reuses approved networking and retains external providers | Provider schema and mocked-plan tests; app-specific Vault/identity/worker controls and live OCI acceptance are still required |
+| Explicit environments | Separate named source/rehearsal/production configuration, evidence and infrastructure roots, backed-up legacy conversion | Filesystem/refusal/freshness tests; records never transfer approvals or prove inherited IAM isolation |
+| Workload doctor | Blueprint-specific selections, bounded metadata/quota reads, temporary-session checks and narrow administrator handoffs | Offline/mock tests; denied reads and physical capacity remain unknown, and declared image architecture is not independent image evidence |
+| Hosting-first verification | Reviewed dependency outcomes, exact-origin HTTP parity, private per-origin sessions and cutover/rollback review | Local HTTP/TLS and application examples; real hosted sign-in, cross-cloud behavior, traffic changes and data migration need separate acceptance |
+| Private operating view | Local static dashboard from bound reports, stale evidence, failures, recovery and dated cost/retained-resource inputs | No telemetry or cloud polling; missing data remains unknown and owner-recorded costs are not authenticated billing or spending caps |
 | Project progress | New/existing/continue workflows, private checkpoints, source/evidence freshness and one next action | Offline consumer tests; records remain owner assertions, never deployment approval or independent production verification |
 | Release integrity and updates | Explicit file manifest, installation ownership, update preview, conflict refusal and interruption recovery | Local integrity, legacy-upgrade and recovery tests; hashes do not authenticate the publisher, and user-edited toolkit files require reconciliation |
 | OCI access | Credential setup guide, offline doctor and opt-in IAM read probes | Unit tests with recorded/mocked responses; no real user credentials in fixtures; live read-only region/compartment access verified against the configured sandbox |
@@ -20,7 +25,7 @@ establish a completed migration or a production deployment.
 | Web migration | Static scanner, runnable Next.js production-server/standalone packaging example and staged cutover workflow | Shared local HTTP checks cover the stateless example; arbitrary apps and hosted provider features need their own build, data rehearsal and target verification |
 | Other clouds | IaC/SDK scanner and OCI mapping for AWS, Azure and Google Cloud | Provider-type fixture tests; map documentation freshness remains dated in the source |
 | Infrastructure approval | Hash-bound saved plan, expiry, one attempt, Terraform binary check, IAM summary, private receipts and cleanup checks | Fake Terraform regression tests; actual human approval remains a conversation/harness control |
-| OCI backend operations | Approved initialization/planning, fixed synthetic lock/overwrite/recovery rehearsal and separate exact-version cleanup | One live synthetic OCI run verified writes, plan lock contention, normal release, historical-version recovery and separately approved exact-version cleanup on 14 November 2026, with independent readback. IAM isolation and application recovery remain pending |
+| OCI backend operations | APIKey and SecurityToken initialization/planning/deployment, fixed synthetic lock/overwrite/recovery rehearsal and separate exact-version cleanup | Session expiry/rotation/identity/signing tests are local. An earlier APIKey live synthetic run verified lock/recovery/version cleanup; live session-backed deployment/recovery, IAM isolation and application recovery remain pending |
 | Image publication | Exact digest-only destination, private registry, validated image content, one-use receipt and remote manifest verification | Fake-client regressions, a local TLS registry probe and live OCI digest publication with independent content readback. Legacy tags require verified immutability |
 | Managed hostname rehearsal | Optional API Gateway HTTPS entry point with restricted ingress and separate hostname bootstrap | Provider validation and mocked plans; live routing, hosted identity and gateway recovery remain unverified |
 | Business case | Five founder-value skills, pricing lookup, value model and worked scenario | Existing tests; example prices and program facts carry their own source dates |
@@ -28,11 +33,14 @@ establish a completed migration or a production deployment.
 | Optional hooks | Local staged/public-content checks, readiness, syntax validation, mutation guard and handoff | [Dated host evidence](HOOKS.md) is bound to the tested script; changed hooks require normal host review. Local guards do not establish arbitrary shell coverage |
 
 Actual results and skipped checks for this release are in
+[RELEASE-0.6.0.md](RELEASE-0.6.0.md). Earlier release evidence remains dated in
 [RELEASE-0.5.0.md](RELEASE-0.5.0.md).
 
-An optional [CI template](ci/validate.workflow.yml) is supplied. It is not
-installed as an Actions workflow because the publication credential lacks that
-permission; there is no GitHub CI result for this release.
+Credential-free validation and trusted-release provenance workflows are prepared
+with a deterministic manifest-only archive builder. Publishing workflows requires
+an authorized GitHub credential; a prepared workflow is not a successful Actions
+run or an attestation. Read [the CI guide](ci/README.md) and dated release evidence
+for the actual publication/run status.
 
 ## Follow-on work
 

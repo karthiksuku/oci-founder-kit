@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 import image_gate as files
+import backend_auth
 
 
 class InspectionError(files.ImageGateError):
@@ -37,11 +38,21 @@ def text(value, maximum=1024):
     return value
 
 
-def identity(config_file: Path, profile: str):
+def identity(config_file: Path, profile: str, auth="APIKey"):
     """Return private SDK config in memory and a binding without key/passphrase values."""
     oci = sdk()
     try:
         require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", profile) is not None)
+        require(auth in {"APIKey", "SecurityToken"}, "Unsupported inspection authentication mode.")
+        if auth == "SecurityToken":
+            context, material = backend_auth.session_material(profile, config_file)
+            private_key = oci.signer.load_private_key(material["key_content"], None)
+            from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+            require(isinstance(private_key, RSAPrivateKey) and private_key.key_size >= 2048)
+            material["session_signing_key"] = private_key
+            material["log_requests"] = False
+            binding = {"auth": auth, "authentication": context, "sdk_version": text(oci.__version__, 80)}
+            return material, binding
         path = config_file.expanduser().absolute()
         raw = files.read_private(path)
         config = oci.config.from_file(file_location=str(path), profile_name=profile)
@@ -71,8 +82,10 @@ def identity(config_file: Path, profile: str):
         return effective, binding
     except InspectionError:
         raise
+    except files.ImageGateError as exc:
+        raise InspectionError(str(exc)) from None
     except Exception:
-        raise InspectionError("Unable to validate the private API-key configuration and signing key.") from None
+        raise InspectionError("Unable to validate the private authentication configuration and signing key; check session validity if selected.") from None
 
 
 class Inspector:
@@ -86,12 +99,19 @@ class Inspector:
         for field, kind in (("bucket_id", "bucket"), ("compartment_id", "compartment"), ("tenancy_id", "tenancy")):
             require(re.fullmatch(r"ocid1\." + kind + r"\.oc1\.[A-Za-z0-9.-]{1,250}", text(target[field])) is not None)
         require(config.get("tenancy") == target["tenancy_id"], "Signing identity does not match the approved tenancy.")
+        self.session = config.get("session_binding")
+        self.session_config_file = config.get("session_config_file")
         try:
             self.retry = self.oci.retry.NoneRetryStrategy()
             effective = dict(config, region=target["region"], log_requests=False)
-            signer = self.oci.signer.Signer(tenancy=config["tenancy"], user=config["user"],
-                fingerprint=config["fingerprint"], private_key_file_location=None,
-                private_key_content=config["key_content"], pass_phrase=config.get("pass_phrase"))
+            if self.session is not None:
+                self._session_check()
+                signer = self.oci.auth.signers.SecurityTokenSigner(config["security_token"], config["session_signing_key"])
+                effective = {k: effective[k] for k in ("tenancy", "user", "region", "log_requests")}
+            else:
+                signer = self.oci.signer.Signer(tenancy=config["tenancy"], user=config["user"],
+                    fingerprint=config["fingerprint"], private_key_file_location=None,
+                    private_key_content=config["key_content"], pass_phrase=config.get("pass_phrase"))
             self.client = self.oci.object_storage.ObjectStorageClient(effective, signer=signer,
                 service_endpoint=f"https://objectstorage.{target['region']}.oraclecloud.com",
                 retry_strategy=self.retry, timeout=(5, 20))
@@ -100,7 +120,17 @@ class Inspector:
         except Exception:
             raise InspectionError("Unable to initialize the read-only OCI metadata client.") from None
 
+    def _session_check(self):
+        if self.session is not None:
+            try:
+                current = backend_auth.inspect({"auth": "SecurityToken", "config_file_profile": self.session["profile"]},
+                                               self.session_config_file)
+                require(current == self.session, "Session changed during the approved operation; prepare a fresh plan.")
+            except files.ImageGateError:
+                raise InspectionError("Session expired, changed or became unreadable; reauthenticate and prepare a fresh plan.") from None
+
     def _call(self, method, *args, missing=False, **kwargs):
+        self._session_check()
         try:
             return getattr(self.client, method)(*args, retry_strategy=self.retry, **kwargs)
         except Exception as error:

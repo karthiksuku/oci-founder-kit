@@ -40,8 +40,8 @@ ACTIONS = {
     "server-routes": "Keep request handlers server-side; test methods, cookies, uploads, streaming and request limits on the chosen runtime.",
     "routing": "Reproduce redirects, rewrites, headers and fallback semantics at the app or edge; test deep links and status codes.",
     "scheduled-jobs": "Move schedules to a reviewed scheduler; preserve authentication, time zones, retries and duplicate-execution handling.",
-    "blob-storage": "Inventory objects and permissions; adapt storage calls to OCI Object Storage, rehearse copy and validate checksums before cutover.",
-    "kv-store": "Choose a compatible data service after checking TTL, commands, consistency and atomicity; test and rehearse data transfer.",
+    "blob-storage": "Retain the existing storage provider for hosting-first migration; verify OCI connectivity, TLS and signed-link behavior. Review object migration separately.",
+    "kv-store": "Retain the existing data service initially; verify OCI connectivity, TLS, TTL, commands and latency. Review data transfer separately.",
     "postgres": "Inventory extensions, TLS, pooling and backups; test the selected OCI database or retain the existing provider deliberately.",
     "edge-config": "Replace edge-distributed configuration with a reviewed configuration/cache design; verify propagation and latency.",
     "edge-runtime": "Review edge runtime APIs and placement; adapt to a Node server or separately validated edge target and test latency.",
@@ -213,7 +213,8 @@ def scan(root: Path, *, max_files: int = MAX_FILES, max_bytes: int = MAX_TOTAL_B
                                          "Monorepos are scanned within limits; provider dashboard settings, data, domains and secrets require a separate inventory."]},
             "next_steps": ["Review findings and capture source behavior before adapting code.",
                            "Use oci-ready and oci-foundation, then oci-build and oci-deploy for the selected target.",
-                           "Rehearse data transfer and rollback; switch traffic only after explicit approval and functional checks."]}
+                           "Retain database, authentication and storage for hosting-first migration; verify connectivity and app behavior before a separately approved traffic switch.",
+                           "Keep one active scheduler/worker owner and rehearse traffic rollback; review data migration after hosting acceptance."]}
 
 
 def markdown(report: dict) -> str:

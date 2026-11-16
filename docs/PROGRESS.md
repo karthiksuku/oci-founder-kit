@@ -35,7 +35,7 @@ one next action**. See [operations and recovery](OPERATIONS.md).
 
 The local `scripts/project.py` helper maintains `.oci-kit/state.json` and returns
 JSON with `schema: oci-kit-project/1`, applicable checkpoint statuses and exactly
-one `next_action`. It is guidance, not a command runner or a production dashboard.
+one `next_action`. These legacy commands remain local guidance.
 Initialize it through the [new/existing project paths](INSTALL.md). Keep the saved
 task, agent, stack and blueprint consistent; resume does not rewrite those choices.
 
@@ -115,3 +115,25 @@ ordinary `record` command. Cloud changes still require the existing exact-plan
 deploy gate and current owner approval. Final production acceptance remains an
 owner decision about actual workload evidence and risks. Neither a site selection,
 a local record, a receipt nor an old approval substitutes for that decision.
+
+## Explicit environments and executable read checks
+
+The [environment workflow](ENVIRONMENTS.md) adds private `oci-kit-project/2`
+records without replacing the original v0.5 record. Every operation names its
+environment; production has a separate infrastructure root, configuration,
+backend key, evidence and receipts. A legacy conversion backs up observations
+and starts empty checkpoints; approvals and passed assertions never transfer.
+
+`project.py doctor --environment NAME` composes blueprint-specific prerequisites;
+`--live` enables its documented bounded OCI reads. `verify` performs the selected
+HTTPS health or migration-contract reads. Both save private reports bound to the
+target, source, executed helpers and observation time. They do not apply resources
+or certify production readiness. An environmental access record must reference a
+fresh bound workload-doctor envelope; a legacy doctor report cannot stand in for it.
+
+For environmental evidence, use `.oci-kit/environments/NAME/evidence/FILE` and
+pass the same `--environment NAME` to `record`. Known machine reports expire after
+24 hours as well as on input changes. Plain owner notes remain assertions, not
+time-bounded machine verification. `dashboard --environment NAME` renders a
+private, network-free local view from these same reports. Missing cost and health
+evidence stays unknown; the public website does not read any of this state.

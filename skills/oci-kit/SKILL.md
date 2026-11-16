@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Start building on OCI
@@ -33,7 +33,8 @@ For a new app: understand the useful outcome, build/test locally, check OCI acce
 prepare the required foundation, adapt the existing blueprint, review the design,
 then deploy and verify. The order can overlap: missing cloud access does not block
 local app development. For migration: inventory dependencies, preserve source
-behavior, adapt and test, rehearse data movement, then stage/cut over with rollback.
+behavior, retain its database/storage/identity, adapt and test OCI hosting, then
+stage/cut over with rollback. Migrate data only in a later separately tested step.
 
 Use the local `scripts/project.py` helper from the reviewed kit root to establish
 or inspect the project checklist. For a new generic app, use
@@ -92,6 +93,19 @@ assertions are not independently verified. Changed source/helpers/evidence becom
 stale. Do not record cloud approval or production acceptance as an ordinary pass.
 Keep a deliberately redacted `docs/PROGRESS.md`, then state one actionable next
 step. A prior progress entry or approval never authorizes a different cloud plan.
+
+For your own container app, attach `web-container` into a new deployment directory;
+do not create Taskboard. Follow [explicit environments](../../docs/ENVIRONMENTS.md):
+create named source/rehearsal/production records, separate infrastructure roots
+and backend keys, and pass `--environment` on every environment operation.
+Convert legacy observations with a private backup; never copy approvals or passing
+checkpoints into another environment. Use `project.py doctor` for workload checks,
+`verify` for bounded read-only runtime/migration checks, and `dashboard` for the
+private local view. A health response is not proof of sign-in, persistence or
+recovery. Test the real browser flows, exact deployed digest and isolated recovery
+before claiming the hosting journey complete. Promote the tested digest and retain
+one active scheduler/worker owner. Source rollback and traffic changes require
+their own reviewed operations.
 
 ## Authorization and security
 

@@ -1,0 +1,66 @@
+name: Attested release assets
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    if: github.event.repository.fork == false
+    uses: ./.github/workflows/checks.yml
+  publish:
+    needs: checks
+    if: github.event.repository.fork == false && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.11'
+      - name: Require a matching release version on reviewed main history
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          version = json.loads(Path('.claude-plugin/plugin.json').read_text())['version']
+          if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag) or tag != 'v' + version:
+              raise SystemExit('Release tag and reviewed source version must agree.')
+          PY
+          git merge-base --is-ancestor HEAD refs/remotes/origin/main
+          python3 scripts/release_manifest.py check
+      - name: Build exact manifest-listed assets
+        run: python3 scripts/release_archive.py --output-dir "$RUNNER_TEMP/oci-kit-release"
+      - name: Attest the archive and its exact public metadata
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/oci-kit-release/*.tar.gz
+            ${{ runner.temp }}/oci-kit-release/release-manifest.json
+            ${{ runner.temp }}/oci-kit-release/BUILD-METADATA.json
+            ${{ runner.temp }}/oci-kit-release/SHA256SUMS
+      - name: Publish the same bytes without overwriting assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 docs/ci/publish_release.py --assets "$RUNNER_TEMP/oci-kit-release" --tag "$RELEASE_TAG"
