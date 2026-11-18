@@ -16,6 +16,12 @@ and review the resulting project before sharing it.
 
 ## Start a new project
 
+For a first OCI environment as well as a local project, follow
+[first-run onboarding](NEW-OCI-ACCOUNT.md). `onboard inspect` works before
+installation; `onboard prepare` composes local installation, a generic deployment
+attachment and explicit environment creation. The commands below remain
+available when you want only the project and skills first.
+
 For a new app in your chosen stack, clone the kit once or reuse a reviewed clone:
 
 ```sh

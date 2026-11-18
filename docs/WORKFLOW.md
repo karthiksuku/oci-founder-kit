@@ -20,6 +20,26 @@ instruction and recheck command. Neither mode guesses a production target.
 
 ## Start and select
 
+If this is a new OCI account or no environment exists, start with
+`python3 scripts/kit.py onboard inspect --project /absolute/path/to/my-app`
+from a reviewed checkout. It inspects local prerequisites without requiring
+credentials, installing anything or contacting OCI. The
+[new-account guide](NEW-OCI-ACCOUNT.md) connects account activation, administrator
+setup and the existing foundation workflow.
+
+For a first generic target, local preparation combines the existing helpers:
+
+```sh
+python3 scripts/kit.py onboard prepare --project /absolute/path/to/my-app \
+  --mode existing --task build --agent both --stack custom \
+  --environment rehearsal --role rehearsal
+```
+
+The name and role are explicit choices. This adds a local deployment target,
+preserves application code and performs no cloud operation. Follow the returned
+inspection and retain any interrupted files for review. Existing projects can
+continue using the individual commands below.
+
 From a reviewed kit checkout outside the app, use `scripts/kit.py start` with
 the intended path, task (`build`, `migrate`, `setup`), mode (`new`, `existing`)
 and agent (`claude`, `codex`, `both`). Existing applications keep their framework,

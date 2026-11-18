@@ -101,12 +101,97 @@ class Interface(unittest.TestCase):
         self.assertEqual(value["error"]["owner"], "owner")
         self.assertNotIn("synthetic-private-canary", json.dumps(value))
 
+    def test_onboarding_conflicts_preserve_recovery_codes_without_private_errors(self):
+        for expected in ("ONBOARD_TARGET_CONFLICT", "ONBOARD_PROJECT_CONFLICT", "ONBOARD_UPDATE_REQUIRED",
+                         "ONBOARD_DESTINATION_EXISTS"):
+            with self.subTest(code=expected):
+                failure = ValueError("synthetic-private-onboarding-error")
+                failure.code = expected
+                with mock.patch.object(kit, "dispatch", side_effect=failure):
+                    code, value = self.command("onboard", "prepare", "--environment", "rehearsal", "--role", "rehearsal")
+                self.assertEqual(code, 3)
+                self.assertEqual(value["error"]["code"], expected)
+                self.assertIn(value["error"]["owner"], {"founder", "agent"})
+                self.assertTrue(value["error"]["next_action"])
+                self.assertNotIn("synthetic-private-onboarding-error", json.dumps(value))
+                self.assertFalse(value["approval_granted"])
+
     def test_blocked_findings_are_projected_to_reviewed_codes_only(self):
         with mock.patch.object(kit, "dispatch", return_value={"status": "blocked", "findings": [
                 {"code": "PACKAGE_STANDALONE_REQUIRED", "input": "synthetic-private-path"}], "missing": []}):
             code, value = self.command("package", "propose", "--environment", "rehearsal")
         self.assertEqual(value["error"]["code"], "PACKAGE_STANDALONE_REQUIRED")
         self.assertNotIn("synthetic-private-path", json.dumps(value))
+
+    def test_foundation_inspection_keeps_admin_handoff_and_selected_recheck(self):
+        before = {path.relative_to(self.app): path.read_bytes() for path in self.app.rglob("*") if path.is_file()}
+        code, value = self.command("foundation", "inspect", "--environment", "rehearsal")
+        self.assertEqual(code, 3)
+        self.assertIn("app_private_ip", value["error"]["missing"])
+        self.assertEqual(value["cloud"], "not_checked")
+        self.assertEqual(value["checks"]["inherited_iam_isolation"], "unknown")
+        self.assertEqual(value["checks"]["actual_capacity"], "unknown")
+        handoff = value["administrator_handoff"]
+        self.assertEqual(handoff["owner"], "authorized-tenancy-administrator")
+        self.assertTrue(any("inherited" in item and "state" in item for item in handoff["checks"]))
+        self.assertTrue(any("exact component scope" in item for item in handoff["checks"]))
+        self.assertIn("workload-foundation/README.md", value["error"]["next_action"])
+        for command, expected in ((value["error"]["recheck_command"], "foundation"),
+                                  (handoff["recheck_command"], "doctor")):
+            selected = kit.parser().parse_args(command[2:])
+            self.assertEqual(selected.command, expected)
+            self.assertEqual(selected.environment, "rehearsal")
+            self.assertEqual(selected.project, Path("."))
+            self.assertFalse(getattr(selected, "live", False))
+        self.assertFalse(value["approval_granted"])
+        self.assertEqual(before, {path.relative_to(self.app): path.read_bytes() for path in self.app.rglob("*") if path.is_file()})
+
+    def test_foundation_projection_discards_private_details_and_success_injection(self):
+        original = kit.dispatch
+        canary = "synthetic-private-foundation-canary"
+        def injected(args):
+            value = original(args)
+            value.update(message=canary, path="/private/" + canary, account="ocid1.tenancy.oc1.." + canary,
+                         next=canary, approval_granted=True)
+            value["missing"].append(canary)
+            value["checks"].update(actual_capacity="passed", private_error=canary)
+            value["administrator_handoff"] = {"owner": canary, "checks": [canary], "recheck": canary}
+            return value
+        with mock.patch.object(kit, "dispatch", side_effect=injected):
+            code, value = self.command("foundation", "inspect", "--environment", "rehearsal")
+        self.assertEqual(code, 3)
+        self.assertNotIn(canary, json.dumps(value))
+        self.assertNotIn("passed", json.dumps(value))
+        self.assertNotIn("actual_capacity", value["checks"])
+        self.assertEqual(value["checks"]["inherited_iam_isolation"], "unknown")
+        self.assertEqual(value["administrator_handoff"]["owner"], "authorized-tenancy-administrator")
+        self.assertFalse(value["approval_granted"])
+        output = io.StringIO()
+        with mock.patch.object(kit, "dispatch", side_effect=injected), contextlib.redirect_stdout(output):
+            code = kit.main(["foundation", "inspect", "--project", str(self.app), "--environment", "rehearsal"])
+        text = output.getvalue()
+        self.assertEqual(code, 3)
+        self.assertIn("Administrator review:", text)
+        self.assertIn("inherited_iam_isolation: unknown", text)
+        self.assertIn("--environment rehearsal", text)
+        self.assertNotIn(canary, text)
+        self.assertNotIn("actual_capacity: passed", text)
+
+    def test_foundation_handoff_cannot_cross_environment_or_schema_boundary(self):
+        original = kit.dispatch
+        for update in ({"environment": "production"}, {"schema": "unreviewed/1"}, {"cloud": "verified"}):
+            with self.subTest(update=update):
+                def changed(args):
+                    value = original(args)
+                    value.update(update)
+                    return value
+                with mock.patch.object(kit, "dispatch", side_effect=changed):
+                    code, value = self.command("foundation", "inspect", "--environment", "rehearsal")
+                self.assertEqual(code, 3)
+                self.assertNotIn("administrator_handoff", value)
+                self.assertNotIn("checks", value)
+                self.assertNotIn("production", json.dumps(value))
+                self.assertFalse(value["approval_granted"])
 
     def test_support_export_contains_no_project_or_environment_names(self):
         code, value = self.command("support", "export", "--environment", "rehearsal", "--write")

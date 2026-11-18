@@ -29,12 +29,25 @@ class Parser(argparse.ArgumentParser):
 def parser():
     cli = Parser(description=__doc__)
     commands = cli.add_subparsers(dest="command", required=True, parser_class=Parser)
-    for name in ("start", "status", "next", "doctor", "package", "foundation", "release", "verify", "observe", "support", "environment", "capabilities"):
+    for name in ("onboard", "start", "status", "next", "doctor", "package", "foundation", "release", "verify", "observe", "support", "environment", "capabilities"):
         child = commands.add_parser(name)
         child.add_argument("--project", type=Path, default=Path("."))
         child.add_argument("--environment")
         child.add_argument("--json", action="store_true")
         child.add_argument("--non-interactive", action="store_true", help="Never prompt; missing choices return a structured blocked result.")
+        if name == "onboard":
+            child.add_argument("action", choices=("inspect", "prepare", "configure"))
+            child.add_argument("--role", choices=("rehearsal", "production"))
+            child.add_argument("--mode", choices=("new", "existing"), default="existing")
+            child.add_argument("--task", choices=("build", "migrate", "setup"))
+            child.add_argument("--agent", choices=("claude", "codex", "both"))
+            child.add_argument("--stack", choices=("auto", "nextjs", "fastapi", "custom"))
+            child.add_argument("--target-file", type=Path)
+            child.add_argument("--dry-run", action="store_true")
+            child.add_argument("--config-file", type=Path, default=Path("~/.oci/config"))
+            child.add_argument("--profile")
+            child.add_argument("--region")
+            child.add_argument("--auth", choices=("api_key", "security_token"))
         if name == "start":
             child.add_argument("--task", choices=("build", "migrate", "setup"), default="build")
             child.add_argument("--mode", choices=("new", "existing", "continue"), default="existing")
@@ -168,6 +181,23 @@ def dispatch(args):
     common = common_module(); p = common.project_module()
     if args.command == "capabilities":
         return p.helper("capabilities").registry()
+    if args.command == "onboard":
+        onboarding = p.helper("onboarding")
+        if args.action == "configure":
+            if any((args.role, args.task, args.agent, args.stack, args.target_file, args.dry_run)) or args.mode != "existing":
+                raise common.KitError("UNSAFE_INPUT")
+            return onboarding.configure(args.project, environment=args.environment, profile=args.profile,
+                                        region=args.region, auth=args.auth, config_file=args.config_file)
+        if args.action == "inspect":
+            if any((args.role, args.task, args.agent, args.stack, args.target_file, args.dry_run)) or args.mode != "existing":
+                raise common.KitError("UNSAFE_INPUT")
+            return onboarding.inspect(args.project, environment=args.environment, config_file=args.config_file,
+                                      profile=args.profile, region=args.region, auth=args.auth)
+        if args.profile or args.region or args.auth or args.config_file != Path("~/.oci/config"):
+            raise common.KitError("UNSAFE_INPUT")
+        return onboarding.prepare(args.project, environment=args.environment, role=args.role, mode=args.mode,
+                                  task=args.task, agent=args.agent, stack=args.stack,
+                                  target_file=args.target_file, dry_run=args.dry_run)
     if args.command == "start":
         if args.mode == "continue" or (args.project / ".oci-kit/state.json").exists():
             common.select(args.project, args.environment)
@@ -236,7 +266,8 @@ def main(argv=None):
             codes = value.get("findings", [])
             codes = [item.get("code") if isinstance(item, dict) else item for item in codes] if isinstance(codes, list) else []
             known = [item for item in codes if isinstance(item, str) and item in common.ERRORS]
-            value = common.error(value.get("code", known[0] if known else default), missing=value.get("missing", ()))
+            value = common.project_blocked(value, code=value.get("code", known[0] if known else default),
+                                          command=args.command, action=args.action, environment=args.environment)
         code = 3 if value.get("status") in {"blocked", "failed"} else 0
     except (ValueError, OSError, KeyError, TypeError, RecursionError) as exc:
         value = common.error(getattr(exc, "code", "UNSAFE_INPUT"), missing=getattr(exc, "missing", ()))
@@ -245,8 +276,10 @@ def main(argv=None):
         # Known gate exceptions are deliberately opaque at this boundary.
         value = common.error("OPERATION_FAILED"); code = 3
     if "error" in value:
-        command = args.command if "args" in locals() and args.command in {"package", "foundation", "doctor", "observe", "release", "environment", "support", "verify", "status", "next", "start"} else None
-        value["error"]["recheck_command"] = ["python3", ".oci-founder-kit/scripts/kit.py", *([command] if command else []), "--help"]
+        command = args.command if "args" in locals() and args.command in {"onboard", "package", "foundation", "doctor", "observe", "release", "environment", "support", "verify", "status", "next", "start"} else None
+        value["error"].setdefault("recheck_command", ["python3", ".oci-founder-kit/scripts/kit.py", *([command] if command else []), "--help"])
+        if command == "onboard":
+            value["error"]["recheck_command"] = ["python3", str(ROOT / "scripts/kit.py"), "onboard", "--help"]
     if want_json:
         print(json.dumps(value, indent=2, sort_keys=True))
     elif "error" in value:
@@ -255,7 +288,10 @@ def main(argv=None):
         if error["missing"]:
             print("Missing choices: " + ", ".join(error["missing"]))
         print(error["next_action"])
+        common.render_blocked_details(value)
         print("Recheck: " + shlex.join(error["recheck_command"]))
+    elif value.get("schema") == "oci-kit-onboarding/1":
+        common.project_module().helper("onboarding").render(value)
     else:
         print(json.dumps(value, indent=2, sort_keys=True))
     return code

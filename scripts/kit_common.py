@@ -17,7 +17,20 @@ ERRORS = {
     "EVIDENCE_REQUIRED": ("verification", "agent", "Collect current evidence for the selected source, target and image before continuing."),
     "APPROVAL_REQUIRED": ("approval", "owner", "Review the exact current plan; only its approved hash authorizes the gated operation."),
     "OPERATION_FAILED": ("operation", "agent", "Inspect the private attempt and current state before a new plan or retry."),
+    "ONBOARD_TARGET_CONFLICT": ("onboarding-selection", "founder", "Inspect the selected environment's existing infrastructure and role. Reuse the intended target or explicitly choose a separate environment; do not overwrite its bindings."),
+    "ONBOARD_PROJECT_CONFLICT": ("onboarding-project", "founder", "Inspect the existing project choices and continue its saved task. Preserve source and progress; do not recreate the application to change onboarding selections."),
+    "ONBOARD_UPDATE_REQUIRED": ("onboarding-installation", "agent", "Review the installed kit and use the documented update workflow from a separate reviewed release source. Preserve application files and existing records before retrying onboarding."),
+    "ONBOARD_DESTINATION_EXISTS": ("onboarding-infrastructure", "agent", "Inspect the occupied infrastructure destination and any interrupted setup. Reuse only verified existing bindings or choose an unused directory; never delete or overwrite application files to make onboarding succeed."),
 }
+FOUNDATION_CHECKS = {"inherited_iam_isolation": "unknown", "certificate_keys": "not_read",
+                     "dns_change": "separate-reviewed-operation", "network_overlap": "unknown",
+                     "actual_capacity": "unknown"}
+FOUNDATION_ADMIN_CHECKS = (
+    "Verify operator authorization and inherited allow/deny policies; do not switch identity to bypass a deny.",
+    "Review the exact component scope and separate runtime IAM before approving cloud changes.",
+    "Verify inherited state access, bucket isolation, locking and recovery before uploading real Terraform state.",
+    "Review VCN overlap, routes, subnet exposure, certificate ownership and scoped registry access; denied reads remain unknown.",
+)
 
 # Only reviewed codes and fixed instructions cross the public CLI boundary.
 # Never forward an exception's free-form recovery/message or arbitrary fields.
@@ -62,11 +75,65 @@ def error(code, *, missing=()):
                "dependencies", "background_work", "probe_runtime", "workspace", "component", "name", "home_region",
                "tenancy_id", "parent_compartment_id", "state_compartment_id", "vcn_cidr", "namespace", "state_key",
                "workspace_key_prefix", "environment.compartment_id", "certificate_renewal_owner", "domain_ownership",
-               "vcn_id", "app_subnet_id", "lb_subnet_id", "certificate_id", "registry_id", "availability_domain"}
+               "vcn_id", "app_subnet_id", "lb_subnet_id", "app_private_ip", "certificate_id", "registry_id", "availability_domain"}
     return {"schema": "oci-kit-command/1", "status": "blocked", "error": {"code": code,
             "phase": phase, "owner": owner, "recoverable": True,
             "missing": sorted({name for name in missing if isinstance(name, str)} & allowed), "next_action": action},
             "approval_granted": False}
+
+
+def project_blocked(value, *, code, command, action, environment):
+    """Keep actionable foundation diagnostics without forwarding private helper data."""
+    result = error(code, missing=value.get("missing", ()))
+    if (command != "foundation" or action != "inspect"
+            or value.get("schema") != "oci-kit-foundation/1"
+            or value.get("status") != "blocked" or value.get("cloud") != "not_checked"
+            or not isinstance(environment, str)
+            or not project_module().helper("environments").NAME.fullmatch(environment)
+            or value.get("environment") != environment):
+        return result
+    # Foundation inspection performs no cloud reads. Preserve only its fixed
+    # narrow states, never a helper-supplied success claim or arbitrary message.
+    observed = value.get("checks")
+    if not isinstance(observed, dict):
+        return result
+    checks = {name: state for name, state in FOUNDATION_CHECKS.items() if observed.get(name) == state}
+    result.update(environment=environment, cloud="not_checked", checks=checks,
+                  guide="blueprints/workload-foundation/README.md")
+    result["error"]["next_action"] = (
+        "Review the missing private choices and existing approved resources using "
+        "blueprints/workload-foundation/README.md. Ask the authorized administrator "
+        "to resolve access and isolation checks before preparing separate component plans.")
+    result["error"]["recheck_command"] = ["python3", ".oci-founder-kit/scripts/kit.py", "foundation", "inspect",
+                                            "--project", ".", "--environment", environment]
+    # Reconstruct the reviewed handoff. Input checks, paths, identifiers and
+    # commands can contain private data and are never copied to this projection.
+    result["administrator_handoff"] = {
+        "owner": "authorized-tenancy-administrator",
+        "checks": list(FOUNDATION_ADMIN_CHECKS),
+        "recheck_command": ["python3", ".oci-founder-kit/scripts/kit.py", "doctor", "--project", ".",
+                            "--environment", environment],
+    }
+    return result
+
+
+def render_blocked_details(value):
+    """Render only reviewed diagnostic vocabulary in the readable CLI mode."""
+    if value.get("cloud") != "not_checked" or value.get("guide") != "blueprints/workload-foundation/README.md":
+        return
+    checks = value.get("checks")
+    if isinstance(checks, dict):
+        for name, state in FOUNDATION_CHECKS.items():
+            if checks.get(name) == state:
+                print(f"{name}: {state}")
+    handoff = value.get("administrator_handoff")
+    if isinstance(handoff, dict) and handoff.get("owner") == "authorized-tenancy-administrator":
+        instructions = handoff.get("checks")
+        if isinstance(instructions, list):
+            print("Administrator review:")
+            for instruction in FOUNDATION_ADMIN_CHECKS:
+                if instruction in instructions:
+                    print("- " + instruction)
 
 
 def configurations(project):

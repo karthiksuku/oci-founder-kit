@@ -19,6 +19,11 @@ Use the [interactive start guide](https://karthiksuku.github.io/oci-founder-kit/
 to choose your task and agent and copy a prompt shaped around your project.
 It runs in your browser and asks for no credentials.
 
+**Just received your OCI welcome email?** Start with the
+[new-account fast track](docs/NEW-OCI-ACCOUNT.md). The first-run inspector works
+before you have credentials or an environment, then helps prepare a local target
+and the administrator handoff for users, groups and scoped access.
+
 Already using Claude Code or Codex? Open your app's project folder and paste this:
 
 ```text
@@ -99,7 +104,10 @@ brief stays in the current tab.
 
 ### Set up OCI
 
-Credentials, access checks and a reviewed compartment/IAM plan. Say **“Use oci-kit to prepare my OCI foundation.”** [Setup guide →](docs/START-HERE.md#oci-credentials-and-initial-setup)
+Start with **“Use oci-kit onboard inspect to prepare my OCI account and project.”**
+Get local checks, the next missing decisions and a guided parent/group/access
+handoff, then prepare reviewed compartment and network plans.
+[New-account guide →](docs/NEW-OCI-ACCOUNT.md)
 
 ### Build an app
 
@@ -135,13 +143,13 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.7.0 preview.** One project-local interface connects app packaging, OCI prerequisites, explicit environments, reviewed releases and private operating evidence. Package Next.js, FastAPI or your Docker app without replacing its source. The optional SaaS essentials pack adds durable jobs, private attachments and signed webhooks with a separate worker identity. Hosting migration retains your existing data and identity. Existing v0.5/v0.6 commands and records remain supported. [Follow the complete workflow →](docs/WORKFLOW.md)
+**0.8.0 preview.** One project-local interface connects app packaging, OCI prerequisites, explicit environments, reviewed releases and private operating evidence. Package Next.js, FastAPI or your Docker app without replacing its source. The optional SaaS essentials pack adds durable jobs, private attachments and signed webhooks with a separate worker identity. Hosting migration retains your existing data and identity. Existing v0.5/v0.6 commands and records remain supported. [Follow the complete workflow →](docs/WORKFLOW.md)
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The Taskboard defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets. The [reusable web target](blueprints/web-container/README.md) retains your app's services and requires its own tested authentication and secret adapter. Verify deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.7.0.md)
+The Taskboard defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets. The [reusable web target](blueprints/web-container/README.md) retains your app's services and requires its own tested authentication and secret adapter. Verify deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.8.0.md)
 
 ## Go deeper
 

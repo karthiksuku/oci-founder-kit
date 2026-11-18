@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 test('guide search filters local registry cards without persisting the query', async ({ page }) => {
   await page.goto('./');
+  const capabilityCount = await page.locator('.capability-card').count();
   await page.getByLabel('Find a guide').fill('private operating');
   await expect(page.locator('#guide-search-status')).toContainText('matching guides and capabilities');
   expect(page.url()).not.toContain('private');
@@ -11,7 +12,22 @@ test('guide search filters local registry cards without persisting the query', a
   await expect(page.locator('.capability-card:visible')).toContainText('--environment rehearsal');
   await expect(page.locator('.capability-card:visible .example-tag')).not.toContainText('oci-verified');
   await page.getByLabel('Find a guide').fill('');
-  await expect(page.locator('.capability-card:visible')).toHaveCount(7);
+  await expect(page.locator('.capability-card:visible')).toHaveCount(capabilityCount);
+});
+
+test('new account entry starts with local inspection and a useful administrator handoff', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('link', { name: 'New OCI account? Start here' }).click();
+  await expect(page.locator('input[name="task"][value="setup"]')).toBeChecked();
+  await expect(page.locator('input[name="project"][value="existing"]')).toBeChecked();
+  await expect(page.locator('#generated-prompt')).toHaveValue(/onboard inspect/);
+  await expect(page.locator('#generated-prompt')).toHaveValue(/initial parent compartment and human group\/membership/);
+  await page.getByText('Prefer the terminal?', { exact: true }).click();
+  await expect(page.locator('#install-command')).toContainText('kit.py onboard inspect');
+  await expect(page.locator('#install-command')).not.toContainText('--environment');
+  await page.getByLabel('Find a guide').fill('new OCI account');
+  await expect(page.locator('.capability-card:visible')).toHaveCount(1);
+  await expect(page.locator('.capability-card:visible')).not.toContainText('oci-verified');
 });
 
 test('all goal/agent choices produce useful distinct prompts and preserve the brief', async ({ page }) => {

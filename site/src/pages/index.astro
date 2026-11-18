@@ -15,6 +15,7 @@ const initialPrompt = createPrompt({ task: 'build', agent: 'codex', stack: 'exis
 const initialCheckpoint = checkpoint(defaultSelection);
 const initialHandoff = handoff(defaultSelection);
 const guides = [
+  { title: 'New OCI account', text: 'Start from your welcome email, check local prerequisites and prepare the administrator handoff.', path: 'docs/NEW-OCI-ACCOUNT.md', icon: 'shield' },
   { title: 'One workflow', text: 'Start, package, prepare, release and operate from the same command interface.', path: 'docs/WORKFLOW.md', icon: 'terminal' },
   { title: 'Installation & updates', text: 'Add the kit to your project without replacing your existing skills.', path: 'docs/INSTALL.md', icon: 'terminal' },
   { title: 'Credentials & compartments', text: 'Prepare access, choose your target and understand administrator steps.', path: 'docs/START-HERE.md#oci-credentials-and-initial-setup', icon: 'shield' },
@@ -53,7 +54,7 @@ const guides = [
           <span>OCI <strong>Founder Kit</strong></span>
         </a>
         <nav class="desktop-nav" aria-label="Main navigation">
-          <a href="#build">Build</a><a href="#migrate">Migrate</a><a href="#setup">Set up OCI</a><a href="#examples">Examples</a><a href="#guides">Guides</a>
+          <a href="#build">Build</a><a href="#migrate">Migrate</a><a href="#start" data-task-link="setup" data-project-link="existing">Set up OCI</a><a href="#examples">Examples</a><a href="#guides">Guides</a>
         </nav>
         <div class="header-actions">
           <button class="icon-button theme-toggle" type="button" aria-label="Switch to light theme"><Icon name="sun" class="sun-icon" /><Icon name="moon" class="moon-icon" /></button>
@@ -62,7 +63,7 @@ const guides = [
         </div>
       </div>
       <nav id="mobile-nav" class="mobile-nav shell" aria-label="Mobile navigation" hidden>
-        <a href="#build">Build an app</a><a href="#migrate">Migrate an app</a><a href="#setup">Set up OCI</a><a href="#examples">Examples</a><a href="#guides">Guides</a>
+        <a href="#build">Build an app</a><a href="#migrate">Migrate an app</a><a href="#start" data-task-link="setup" data-project-link="existing">Set up OCI</a><a href="#examples">Examples</a><a href="#guides">Guides</a>
       </nav>
     </header>
 
@@ -76,6 +77,7 @@ const guides = [
             <a class="button button-primary" href="#start" data-task-link="build" data-project-link="new">Start building <Icon name="arrow" size={19} /></a>
             <a class="button button-secondary" href="#start" data-task-link="migrate" data-project-link="existing">Migrate my app <Icon name="migrate" size={19} /></a>
           </div>
+          <a class="subtle-link" href="#start" data-task-link="setup" data-project-link="existing">New OCI account? Start here <Icon name="arrow" size={15} /></a>
           <p class="hero-caption"><span>YOUR CODE.</span><span>YOUR ACCOUNT.</span><span>YOUR CALL.</span></p>
         </div>
         <div class="hero-art" aria-label="Workflow: describe your app, build and test locally, review the plan, then approve deployment to your OCI account">

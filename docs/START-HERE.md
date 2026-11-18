@@ -124,6 +124,18 @@ approval decisions.
 
 ## OCI credentials and initial setup
 
+For a new account or a project without a named environment, use the
+[new-account fast track](NEW-OCI-ACCOUNT.md). Start from a reviewed kit checkout:
+
+```sh
+python3 scripts/kit.py onboard inspect --project /absolute/path/to/my-app
+```
+
+It checks local prerequisites before an environment exists and returns a next
+action. It neither signs in nor contacts OCI. `onboard prepare` can then add the
+kit and a generic deployment target with an explicit environment name and role;
+the guide covers the separate administrator steps for an empty tenancy.
+
 Use [oci-ready](../skills/oci-ready/SKILL.md) and its
 [credential guide](../skills/oci-ready/references/credentials.md). Existing local
 profiles, temporary sessions and workload principals are preferable to copying

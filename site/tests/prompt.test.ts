@@ -130,6 +130,25 @@ test('new, existing and continue select distinct safe actions without substituti
   assert.match(handoff(continuing).terminalHelp, /missing|absent/);
 });
 
+test('new OCI account guidance begins before installation and environment creation', () => {
+  for (const agent of ['codex', 'claude'] as Agent[]) {
+    const chosen = { task: 'setup', agent, stack: 'existing', project: 'existing' } as const;
+    const command = projectCommand(chosen);
+    assert.match(command, /kit.py onboard inspect/);
+    assert.doesNotMatch(command, /--environment|--role|--auth|start |install.py|prepare/);
+    const prompt = createPrompt({ ...chosen, brief: 'I received the welcome email.' });
+    assert.match(prompt, /before installation, credentials or a named environment exist/);
+    assert.match(prompt, /intended environment name and role/);
+    assert.match(prompt, /initial parent compartment and human group\/membership/);
+    assert.match(prompt, /do not assume they already exist/);
+    assert.match(prompt, /A local inspection is not a live OCI verification/);
+    assert.equal(checkpoint(chosen).guide, 'docs/NEW-OCI-ACCOUNT.md');
+    const continuing = { ...chosen, project: 'continue' } as const;
+    assert.match(projectCommand(continuing), /environment list/);
+    assert.doesNotMatch(projectCommand(continuing), /git clone|onboard prepare/);
+  }
+});
+
 test('every continuation stage requires current evidence and approval', () => {
   for (const stage of Object.keys(stages) as (keyof typeof stages)[]) {
     const chosen = { task: 'migrate', agent: 'claude', stack: 'existing', project: 'continue', stage } as const;

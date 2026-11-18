@@ -1,11 +1,12 @@
 # Capability and platform support
 
-Generated from [capabilities.json](capabilities.json). Evidence checked 2026-11-16.
+Generated from [capabilities.json](capabilities.json). Evidence checked 2026-11-18.
 
 An evidence label applies only to the scope described. Local tests do not establish OCI deployment, effective IAM or recovery.
 
 | Capability | Evidence | Prerequisites | Limitations |
 |---|---|---|---|
+| [New OCI account](../docs/NEW-OCI-ACCOUNT.md) | preview | Python 3.11+; A reviewed kit checkout or project-local installation; before installation use the checkout command in the guide | No cloud requests or automatic account activation, human enrollment or IAM grants.; Onboarding configuration preserves other selections and refuses region or profile changes for bound resources.; Local inspection is not token validity, permission, capacity or deployment evidence. |
 | [Continue the right environment](../docs/WORKFLOW.md) | local-tested | Existing project record; Explicit environment | Progress is not approval or live verification. |
 | [Package your application](../recipes/README.md) | local-tested | Reviewed application commands; Application runtime; Docker with Buildx for generated builds; reviewed Skopeo v2s2 layout | Container success does not establish migration compatibility. |
 | [Connect OCI prerequisites](../blueprints/workload-foundation/README.md) | local-tested | OCI account; Authorized parent compartment; Administrator for IAM changes | No automatic tenancy-wide grants or certificate private keys in state.; Output handoff is owner-supplied configuration; live IAM and resource acceptance remain required. |

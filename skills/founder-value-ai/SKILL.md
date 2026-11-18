@@ -4,7 +4,7 @@ description: Work out the unit economics of a startup's AI features on Oracle Cl
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # AI unit economics for founders

@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Start building on OCI
@@ -28,6 +28,16 @@ Continue authorized local implementation and testing without asking at every ste
 | Costs, credits, business case | [founder-value](../founder-value/SKILL.md) |
 | Reviewed infrastructure plan, apply, cleanup | [oci-deploy](../oci-deploy/SKILL.md) |
 | Failed setup, image, network or health checks | [Read-only troubleshooting](../oci-ready/references/troubleshooting.md) |
+
+For a new account or a project without an environment, use
+`python3 scripts/kit.py onboard inspect --project PATH` from the reviewed kit.
+This local inspection works before installation or credentials exist. Use the
+[new-account guide](../../docs/NEW-OCI-ACCOUNT.md) to bridge owner activation,
+human group and initial parent administration, then scoped foundation plans.
+Collect only the current phase's missing nonsecret choices together. With an
+explicit target name and role, `onboard prepare` composes the existing local
+installer, generic blueprint attachment and environment helper. Preserve the
+app and earlier records; local preparation is never cloud approval or evidence.
 
 For a new app: understand the useful outcome, build/test locally, check OCI access,
 prepare the required foundation, adapt the existing blueprint, review the design,

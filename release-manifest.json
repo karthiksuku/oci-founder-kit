@@ -2,15 +2,15 @@
   "files": {
     ".claude-plugin/marketplace.json": {
       "executable": false,
-      "sha256": "14f0d9d9b85e9e40af165a9da1fc1e0e3dcedc9d370f1481d1f03062cda299fe"
+      "sha256": "8c3ac64a85e03ac42a1d5c4c49904bdc4d6384767afaab71748ca200630f738e"
     },
     ".claude-plugin/plugin.json": {
       "executable": false,
-      "sha256": "843bc5d2eb4a0865dc976c07b2bbdf6abbbe3dcc53dec074682513661b5818f9"
+      "sha256": "6ad188118ad0506cc289035dd7a07aec2da8da1d7a66cfccf86a27c217ba4d94"
     },
     ".codex-plugin/plugin.json": {
       "executable": false,
-      "sha256": "fc68d53b5e117ec63f747e451a7e8ee083c166787fa428abca4d04eee5b33d70"
+      "sha256": "c85d46ff9d0e37ccb3ec4af8e49a307ea6eb8f75a3488e15cf793586c28cab68"
     },
     ".gitignore": {
       "executable": false,
@@ -22,7 +22,7 @@
     },
     "CHANGELOG.md": {
       "executable": false,
-      "sha256": "8b79a1ef0f4421a05c8ca8870bca26471d597e2476a8a0699f7185eb1ce5d051"
+      "sha256": "f8c13177b26b0b135025bf6d2e5620f075ca5be1b2de3cbcd56b571e1f1c57ce"
     },
     "CLAUDE.md": {
       "executable": false,
@@ -38,7 +38,7 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "8854db54ee1df9b9703824168513c74cc6b64506da0de337fe2f8a73cc7109e0"
+      "sha256": "08db9a3c565c2208208aa7b519ebafd24c65681a16057b2089672efa5071a7a6"
     },
     "SECURITY.md": {
       "executable": false,
@@ -472,6 +472,34 @@
       "executable": false,
       "sha256": "71d04d28de1865010a98699ddebe40f231d7144aae5875320e824fc1cfb76875"
     },
+    "blueprints/workload-access/README.md": {
+      "executable": false,
+      "sha256": "2774ff276083a8411e5adaca171d5f6132877610f63bc788e531d5fd098bdaa1"
+    },
+    "blueprints/workload-access/terraform/.terraform.lock.hcl": {
+      "executable": false,
+      "sha256": "ab30b148c7df53e4cea233c36b636c756b687a7eeb9948dd3f7b918cf5f874bb"
+    },
+    "blueprints/workload-access/terraform/main.tf": {
+      "executable": false,
+      "sha256": "0ef0d1d23d8a0fcdfa283dfe8521007578d2b6b978b78a0ee9ec41bf876ff523"
+    },
+    "blueprints/workload-access/terraform/terraform.tfvars.example": {
+      "executable": false,
+      "sha256": "379b83082c6f8e03e353c44d6c3b77ff85273385f6062d492be0c26d1d543e66"
+    },
+    "blueprints/workload-access/terraform/tests/access.tftest.hcl": {
+      "executable": false,
+      "sha256": "df3a1f79cd0e85bd79fd7ed061623c1761a8e4da502bc137a3381df6c71bf079"
+    },
+    "blueprints/workload-access/terraform/variables.tf": {
+      "executable": false,
+      "sha256": "044a4313b05a010b6d2d870a63fba92b8449d517b34c2e3c332e58aa82bf17a8"
+    },
+    "blueprints/workload-access/terraform/versions.tf": {
+      "executable": false,
+      "sha256": "486f6539d01f94a1f3eccc380682a089fec055a72df3e40a5eb087e68b1a97d4"
+    },
     "blueprints/workload-foundation/README.md": {
       "executable": false,
       "sha256": "5d7f8ee00cb645c361e9b9e59a78b75973fddd3de8db1c3bba661bee3c1ca08f"
@@ -566,7 +594,7 @@
     },
     "docs/CAPABILITIES.md": {
       "executable": false,
-      "sha256": "e13917c673bee09e84b01fcecb04a5badb35a883b700935d0f34b4b07fce12ab"
+      "sha256": "3ee77946f955fb8c76fdb0ff9abb10e95cf54046e9778b24d665e2fcb29c28a3"
     },
     "docs/ECOSYSTEM.md": {
       "executable": false,
@@ -582,7 +610,7 @@
     },
     "docs/INSTALL.md": {
       "executable": false,
-      "sha256": "dcf25de19179b2f3f38f16805d8a32b64567a5ff2657a168b116e8da484aacf1"
+      "sha256": "147126951e87dc7db22e536014e1915d421bc31dada7ab7da174b86db1e09b82"
     },
     "docs/MAINTAINING.md": {
       "executable": false,
@@ -591,6 +619,14 @@
     "docs/MIGRATION-ACCEPTANCE.md": {
       "executable": false,
       "sha256": "869e0a4066828298fd1bfcae2fee3c8f12ec8e18f5bea7fee9b5acbefaa66a28"
+    },
+    "docs/NEW-OCI-ACCOUNT.md": {
+      "executable": false,
+      "sha256": "8a686673f8af9c69128d28beaa8cbf3b87e92c6f8389ef3ced5b743813574b24"
+    },
+    "docs/ONBOARDING-RESEARCH.md": {
+      "executable": false,
+      "sha256": "62ab0f33d4fb3350531d52469c28801bd9240acc94fe78594b2d38757cc98715"
     },
     "docs/OPERATIONS.md": {
       "executable": false,
@@ -656,6 +692,10 @@
       "executable": false,
       "sha256": "d21b24d218b22943bb7216ea56664aec4e89325e163f6e20ff2dbf9d6f6395f0"
     },
+    "docs/RELEASE-0.8.0.md": {
+      "executable": false,
+      "sha256": "31a1a3bb86b00b0ee258f75da8d4d667ea189c7c17a9ccf3eb24fc01b2dd7439"
+    },
     "docs/RELEASE-LIFECYCLE.md": {
       "executable": false,
       "sha256": "21174db6073caf540073620b84b935910b674b784818381506d56860021b4961"
@@ -666,7 +706,7 @@
     },
     "docs/START-HERE.md": {
       "executable": false,
-      "sha256": "63247b70ed85b75de84da017bf13f5bbd59003dae181350a608541d8f11813d0"
+      "sha256": "b7e5a938944ab7cee5c80e71151a8c66179c95bb73b3c44064e0b348815474ef"
     },
     "docs/STARTER-PATTERNS.md": {
       "executable": false,
@@ -674,7 +714,7 @@
     },
     "docs/WORKFLOW.md": {
       "executable": false,
-      "sha256": "cb841f7aa1ab3d0015826f05e6351e5d2f8c82982016a3c24bda421110ad98ed"
+      "sha256": "7aa4fcdd5dc34eebb96bedf7bf79d50d92ed28588d2177340dfbb6ac24ffeee5"
     },
     "docs/assets/README.md": {
       "executable": false,
@@ -702,7 +742,7 @@
     },
     "docs/capabilities.json": {
       "executable": false,
-      "sha256": "e7dba184cb28ea198c211d91920d5767df29b530ca860eab2409f267aa8c5fc9"
+      "sha256": "21c2b96e6024a5e7c2a84add4f6ec00d8b25b4d37e27f9444e0ddd43a2247e46"
     },
     "docs/ci/README.md": {
       "executable": false,
@@ -726,7 +766,7 @@
     },
     "docs/ci/platform_smoke.py": {
       "executable": false,
-      "sha256": "92b1e87b6541ad994a4f40b5df76f504cca222608c8a07fcd0a5583c7465b740"
+      "sha256": "b84d17a3d18cf9fc31a3b6d2cff121e045575b6a7558cd5ba95ae7ad39b0b2b8"
     },
     "docs/ci/publish_release.py": {
       "executable": false,
@@ -874,7 +914,7 @@
     },
     "plugin.json": {
       "executable": false,
-      "sha256": "f9df3a5c4553dcb8add0a2c932b23a5e9a765e5f95c49b969cc4ddf90ff7229c"
+      "sha256": "c06db7d3298a56b9311b16d700a55fe5573469346adee9af121616c1f3664d0c"
     },
     "recipes/README.md": {
       "executable": false,
@@ -938,11 +978,11 @@
     },
     "scripts/kit.py": {
       "executable": false,
-      "sha256": "f98169b6a33c3e11de5a6ee2f2386d17b661be6c1b0182307f011927cce7481c"
+      "sha256": "8cd1e46afd714fa479d07307afd0012e0b504ee4973a6a6282337a3e1681d358"
     },
     "scripts/kit_common.py": {
       "executable": false,
-      "sha256": "f1b8bfe382cfa5586234a2fc1b08d5459efa69abfb71249995d3152a0fd6fb1e"
+      "sha256": "ae6dce439f628822fcb0938923c1ee1a34d1318e215de8e0e9fb86ca27a994c0"
     },
     "scripts/migration.py": {
       "executable": false,
@@ -951,6 +991,10 @@
     "scripts/oci-kit": {
       "executable": true,
       "sha256": "5e4d81db9bb87893e527f9d34e9e854751109cf251e739d6c05a16d4ba6463f4"
+    },
+    "scripts/onboarding.py": {
+      "executable": false,
+      "sha256": "cc70bd0abc7f36dcea43570ee3aaaf7cc2c40ee81b9bccb5be6eeb6afa0ed44c"
     },
     "scripts/operations.py": {
       "executable": false,
@@ -1010,7 +1054,7 @@
     },
     "skills/founder-value-ai/SKILL.md": {
       "executable": false,
-      "sha256": "fb6bee8bb6f0af749b63effeaa3aedd16bb0bdc73471da14b5bf81529f868c3f"
+      "sha256": "ad4a916fd6282073226b27ef853ac5df8ece804457f6c354d0a946f1dbeafd6f"
     },
     "skills/founder-value-ai/agents/openai.yaml": {
       "executable": false,
@@ -1026,7 +1070,7 @@
     },
     "skills/founder-value-brief/SKILL.md": {
       "executable": false,
-      "sha256": "1ccd5d96ebc253f0e38f23dc94b0c1dcd3b3ec02a7e4fe0d312565348cccacad"
+      "sha256": "0ea83cbd0a97d7c3c162dad2e3dc335aaa3d7de37c27e375c248086153906a59"
     },
     "skills/founder-value-brief/agents/openai.yaml": {
       "executable": false,
@@ -1046,7 +1090,7 @@
     },
     "skills/founder-value-economics/SKILL.md": {
       "executable": false,
-      "sha256": "f01b2fb54bf66b5a6eb1f0775229102e1524965c99aed8cefbec542c04a08397"
+      "sha256": "6ddd83a022ea61dd20a6730580fc0588132fe6d03dbde136b4fcff32803b3b5b"
     },
     "skills/founder-value-economics/agents/openai.yaml": {
       "executable": false,
@@ -1066,7 +1110,7 @@
     },
     "skills/founder-value-gtm/SKILL.md": {
       "executable": false,
-      "sha256": "12b00bb01f8b48a9882c02a1e0f2a9199ae162222d6521f5359787959cb8a321"
+      "sha256": "b2821fac1dd8112f4a497cbb995fc1d6950c0b50a24e0fe83d7f3edafc1c96e0"
     },
     "skills/founder-value-gtm/agents/openai.yaml": {
       "executable": false,
@@ -1086,7 +1130,7 @@
     },
     "skills/founder-value/SKILL.md": {
       "executable": false,
-      "sha256": "eb48ac77b408ed0f58d95f66e4e4a35533d543e520baa4d60eae1203777e6fed"
+      "sha256": "ab113a014f6627268f206e9d61991fd3374c77336c85359ff1f88f549b2179d4"
     },
     "skills/founder-value/agents/openai.yaml": {
       "executable": false,
@@ -1130,7 +1174,7 @@
     },
     "skills/oci-build/SKILL.md": {
       "executable": false,
-      "sha256": "e83c91820018bb4f52b2cbd7d95a0af856858cb9be8331b29f0fc7421651ae4e"
+      "sha256": "3143a0077c2dcb804e966d268078cb40eb6b40a03ecbfb197bb4f501bde0bca5"
     },
     "skills/oci-build/agents/openai.yaml": {
       "executable": false,
@@ -1142,7 +1186,7 @@
     },
     "skills/oci-deploy/SKILL.md": {
       "executable": false,
-      "sha256": "3c4a41c1fa38d961308b3ced90d0cad608f3013841dc1e178df51a807b77160c"
+      "sha256": "a5876954bb8e1ab4269e4dfbbfa58d9559560b0705968d71114cf7011a7c343b"
     },
     "skills/oci-deploy/agents/openai.yaml": {
       "executable": false,
@@ -1206,7 +1250,7 @@
     },
     "skills/oci-foundation/SKILL.md": {
       "executable": false,
-      "sha256": "923498b71a1afda5e2f6d96fc4d598d2276dd1c1262a8de4ec35e9bef6b8ca29"
+      "sha256": "cf6537f4b5238779943d62cca47f2f2839159559738396ce1b999f6fe9007873"
     },
     "skills/oci-foundation/agents/openai.yaml": {
       "executable": false,
@@ -1218,7 +1262,7 @@
     },
     "skills/oci-kit/SKILL.md": {
       "executable": false,
-      "sha256": "e2c2c9081675671f1e321f959c509724b3b0976352bd09272a5704a212f5f206"
+      "sha256": "29e033dfcecc450843d985c6a5bdfeba3566007dc5ed7e435ac5b64286d9876c"
     },
     "skills/oci-kit/agents/openai.yaml": {
       "executable": false,
@@ -1226,7 +1270,7 @@
     },
     "skills/oci-migrate-assess/SKILL.md": {
       "executable": false,
-      "sha256": "4a2d4845042c22ab380356f341498642c302593490a37da21cecd42cd3fb15e9"
+      "sha256": "4d0bb424e6808a031b11eb28758b4c460f6a06132167db175649537cce7a1c6b"
     },
     "skills/oci-migrate-assess/agents/openai.yaml": {
       "executable": false,
@@ -1258,7 +1302,7 @@
     },
     "skills/oci-migrate-web/SKILL.md": {
       "executable": false,
-      "sha256": "510df758eafb812a77c2539b8271de551584343a3d893a7818a105e69cbcc290"
+      "sha256": "d25df9f7cf06f18c25d1f4e3a6bc34c414d53ebae884fb4b328a99a5dd12d053"
     },
     "skills/oci-migrate-web/agents/openai.yaml": {
       "executable": false,
@@ -1278,7 +1322,7 @@
     },
     "skills/oci-ready/SKILL.md": {
       "executable": false,
-      "sha256": "4ad69af53016a4b1b27aed56da27daa9882bb427de5af151c7bbbaf897f9b304"
+      "sha256": "e9052a709a7dcdf5fb135a697e0a7840f4927671b2fc7f4bab3909358a0ccf45"
     },
     "skills/oci-ready/agents/openai.yaml": {
       "executable": false,
@@ -1498,7 +1542,7 @@
     },
     "tests/test_kit_interface.py": {
       "executable": false,
-      "sha256": "c3ddcf073ec29501c64f8a9eb810fc7aa448449fac86cbc69d98bbe1da1bc870"
+      "sha256": "e54e72607d067b6cb8d09f2cda248d76531010d077ffca31bd8b4e87692a630c"
     },
     "tests/test_local_preview.py": {
       "executable": false,
@@ -1519,6 +1563,10 @@
     "tests/test_oci_doctor.py": {
       "executable": false,
       "sha256": "de72c2affb0f4eb5727482bc629b1090796960c83f78d3d49024520619e9bad2"
+    },
+    "tests/test_onboarding.py": {
+      "executable": false,
+      "sha256": "9dd5776866a13f953638d4a932ca64911d18524e83bb2928e82fb13009be10c5"
     },
     "tests/test_operations.py": {
       "executable": false,
@@ -1587,6 +1635,10 @@
     "tests/test_web_scan.py": {
       "executable": false,
       "sha256": "15284ece6170a8eed024dd2afcddef3d54062b699f6e26917e2191eb867ca680"
+    },
+    "tests/test_workload_access.py": {
+      "executable": false,
+      "sha256": "1334d5ca00d6bbd5e93cb83fa35c4606314c5d76ee25b9d183e761080e58ef76"
     }
   },
   "schema": "oci-kit-release/1"

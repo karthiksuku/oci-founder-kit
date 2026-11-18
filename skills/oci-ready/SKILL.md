@@ -4,7 +4,7 @@ description: Set up and diagnose OCI access before building or migrating an appl
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Prepare OCI access
@@ -13,6 +13,17 @@ Use the user's existing authentication and compartment when suitable. Do not
 replace working profiles or create another administrator credential. Ask only
 for the missing target and authentication choice; account verification and
 browser sign-in stay with the user.
+
+For a first account or a project without an environment, begin with
+`python3 <kit>/scripts/kit.py onboard inspect --project <app>` rather than
+requiring an environment before diagnosing setup. Inspect the returned phase
+and collect only its missing nonsecret choices together. Follow the
+[new-account guide](../../docs/NEW-OCI-ACCOUNT.md) for owner sign-in, the initial
+parent compartment and human group/membership administration. Use `onboard
+prepare` only with an explicit environment and role to compose local installation
+and a generic deployment target. It grants no cloud permission and does not
+replace application files. Existing installations and targets are reused only
+after inspection; never select production automatically.
 
 1. Read [credentials](references/credentials.md) when authentication needs setup
    or repair. Keep keys, session archives, tokens and passphrases outside the

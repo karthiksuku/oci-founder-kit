@@ -9,7 +9,8 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = '91af893a6ffd631ea98fd1c0727371083a5e6025'
-BASELINES = {BASELINE: '0.5.0', 'c1f8de322564ac37693d25da8fa77f9daa266061': '0.6.0'}
+BASELINES = {BASELINE: '0.5.0', 'c1f8de322564ac37693d25da8fa77f9daa266061': '0.6.0',
+             'd36db320a9783e34e683376de6a363622bfb406a': '0.7.0'}
 
 
 def run(*args):
@@ -27,7 +28,7 @@ def main():
     baseline = args.baseline.resolve(strict=True)
     baseline_commit = run('git', '-C', baseline, 'rev-parse', 'HEAD').strip()
     if baseline_commit not in BASELINES:
-        raise SystemExit('The upgrade baseline must be a reviewed v0.5.0 or v0.6.0 commit.')
+        raise SystemExit('The upgrade baseline must be a reviewed v0.5.0, v0.6.0 or v0.7.0 commit.')
     work = args.work.absolute()
     work.mkdir(mode=0o700, exist_ok=False)
     original = b'# Existing founder application, preserved during installation and upgrade.\n'
@@ -62,6 +63,19 @@ def main():
     run(sys.executable, entry, 'support', 'export', '--project', clean, '--environment', 'rehearsal', '--json')
     if (clean / 'application.py').read_bytes() != original:
         raise SystemExit('Clean install changed application source.')
+    onboarding = work / 'onboarding'
+    onboarding.mkdir()
+    (onboarding / 'application.py').write_bytes(original)
+    onboard_entry = source / 'scripts/kit.py'
+    proposed = json.loads(run(sys.executable, onboard_entry, 'onboard', 'prepare', '--project', onboarding,
+                             '--environment', 'rehearsal', '--role', 'rehearsal', '--dry-run', '--json'))
+    if proposed.get('status') != 'proposed' or (onboarding / '.oci-founder-kit').exists():
+        raise SystemExit('Onboarding preview mutated installation state.')
+    prepared = json.loads(run(*proposed['next_action']['command'], '--json'))
+    inspected = json.loads(run(*prepared['next_action']['command'], '--json'))
+    if (prepared.get('status') != 'prepared' or inspected.get('environment') != 'rehearsal'
+            or inspected.get('cloud') != 'not_checked' or (onboarding / 'application.py').read_bytes() != original):
+        raise SystemExit('Clean onboarding or application preservation failed.')
     upgrade = work / 'upgrade'
     upgrade.mkdir()
     (upgrade / 'application.py').write_bytes(original)
@@ -77,10 +91,14 @@ def main():
     if (upgrade / '.oci-kit/state.json').read_bytes() != legacy_state:
         raise SystemExit('Upgrade changed the saved project record.')
     run(sys.executable, upgrade / '.oci-founder-kit/scripts/kit.py', 'status', '--project', upgrade, '--json')
+    run(sys.executable, upgrade / '.oci-founder-kit/scripts/kit.py', 'onboard', 'prepare', '--project', upgrade,
+        '--environment', 'rehearsal', '--role', 'rehearsal', '--json')
+    if (upgrade / '.oci-kit/state.json').read_bytes() != legacy_state or (upgrade / 'application.py').read_bytes() != original:
+        raise SystemExit('Post-upgrade onboarding changed existing source or legacy records.')
     print(json.dumps({'schema': 'oci-kit-platform-smoke/1', 'status': 'passed',
                       'archive': 'verified', 'clean_install': 'passed', 'upgrade_from': BASELINES[baseline_commit],
                       'application_preserved': True, 'saved_records_preserved': True,
-                      'installed_lifecycle_interface': 'passed', 'cloud': 'not_run'}))
+                      'installed_lifecycle_interface': 'passed', 'clean_and_upgraded_onboarding': 'passed', 'cloud': 'not_run'}))
 
 
 if __name__ == '__main__':

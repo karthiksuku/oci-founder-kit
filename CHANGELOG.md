@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 - 2026-11-18
+
+- Add pre-environment onboarding inspection and one-command additive local preparation.
+- Save explicit access choices through backed-up environment configuration without replacing other target fields.
+- Preserve safe foundation administrator diagnostics in JSON and readable CLI output.
+- Add scoped human operator policy templates and a public-source first-account guide.
+- Connect the new-account journey to the website and agent skills; preserve existing app and environment workflows.
+- See [0.8.0 scope and evidence](docs/RELEASE-0.8.0.md) for the preview boundary and pending live acceptance.
+
 ## 0.7.0 - 2026-11-16
 
 - Added the project-local lifecycle interface, explicit continuation, safe structured errors and a shared capability registry.

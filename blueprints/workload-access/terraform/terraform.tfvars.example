@@ -1,0 +1,13 @@
+# Copy outside the repository into an owner-only workspace; replace placeholders.
+tenancy_ocid           = "REPLACE_WITH_EXPECTED_TENANCY_OCID"
+compartment_ocid       = "REPLACE_WITH_EXISTING_APP_COMPARTMENT_OCID"
+state_compartment_ocid = "REPLACE_WITH_SEPARATE_STATE_COMPARTMENT_OCID"
+developer_group_ocid   = "REPLACE_WITH_EXISTING_HUMAN_GROUP_OCID"
+role                   = "foundation-provisioner"
+name                   = "founder-rehearsal"
+registry_name          = "founder-rehearsal"
+state_bucket_name      = "founder-rehearsal-state"
+region                 = "REPLACE_WITH_HOME_REGION"
+home_region            = "REPLACE_WITH_CONFIRMED_HOME_REGION"
+config_file_profile    = "REPLACE_WITH_ADMINISTRATOR_PROFILE"
+auth                   = "SecurityToken"

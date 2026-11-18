@@ -52,7 +52,7 @@ export function selectionFragment(input: Selection, anchor = 'start'): string {
 export const tasks = {
   build: { label: 'Build an app', goal: 'Build my application on OCI, starting with a working local version.', next: 'Open your existing app in your coding agent. Paste the prompt to inspect the project and define its next useful workflow.', example: 'A customer portal where clients can track projects, share files and leave feedback.' },
   migrate: { label: 'Migrate an app', goal: 'Migrate this existing application from Vercel or Netlify to OCI, starting with a read-only repository assessment.', next: 'Open your existing application repository in your coding agent. Paste this prompt to assess compatibility before changing anything.', example: 'Move my Next.js app from Vercel. Keep the existing database, sign-in and payments.' },
-  setup: { label: 'Set up OCI', goal: 'Check my OCI readiness and prepare a dedicated compartment and scoped access plan.', next: 'Open a project folder in your coding agent. Paste this prompt for local readiness checks and a guided account setup plan.', example: 'Prepare a separate development environment for my startup with scoped access and cost alerts.' },
+  setup: { label: 'Set up OCI', goal: 'Inspect my local prerequisites, guide initial account and administrator setup, then prepare a dedicated OCI environment.', next: 'Open a project folder in your coding agent. Start with local readiness checks, even without credentials or an environment, then follow the next account or administrator step.', example: 'I received my OCI welcome email. Help me set up access and a rehearsal environment for my startup.' },
 } satisfies Record<Task, { label: string; goal: string; next: string; example: string }>;
 
 const stackInstructions: Record<Exclude<Stack, 'taskboard'>, string> = {
@@ -70,7 +70,7 @@ export function checkpoint(raw: Selection): { title: string; results: string[]; 
     guide: stages[input.stage].guide, guideLabel: input.stage === 'auto' ? 'Progress and evidence guide' : 'Read the checkpoint guide',
   };
   if (input.task === 'migrate') return { title: 'A migration assessment you can act on', results: ['A dependency inventory, retained services and missing facts.', 'A local validation plan, staging steps and a rollback boundary.'], guide: 'docs/MIGRATION-ACCEPTANCE.md', guideLabel: 'Migration acceptance guide' };
-  if (input.task === 'setup') return { title: 'An access plan with clear next actions', results: ['Offline readiness results, with denied or unknown checks called out.', 'The administrator steps and scoped compartment/IAM changes to review.'], guide: 'docs/START-HERE.md#oci-credentials-and-initial-setup', guideLabel: 'Access and compartment guide' };
+  if (input.task === 'setup') return { title: 'Your first OCI step, clearly explained', results: ['Local prerequisite results and the missing choices for the current phase.', 'An administrator handoff for initial users, groups, parent compartment and scoped access.'], guide: 'docs/NEW-OCI-ACCOUNT.md', guideLabel: 'New OCI account guide' };
   if (input.stack === 'taskboard') return { title: 'Your own editable Taskboard project', results: ['App source in app/, infrastructure in terraform/, and agent skills in your project.', 'With Docker running: add, rename and complete a task locally; record the result.'], guide: 'blueprints/fullstack-container/LOCAL.md', guideLabel: 'Local preview requirements' };
   return { title: 'One useful workflow, running locally', results: ['A working app flow you can try, with its local start command.', 'Actual test results and unfinished checks in your project’s progress record.'], guide: 'docs/PROJECT-BRIEF.md', guideLabel: 'Define your first workflow' };
 }
@@ -85,14 +85,16 @@ export function handoff(raw: Selection) {
       ? taskboard ? 'Tell your agent the new project path, or open an empty folder. Paste the prompt to create your editable Taskboard without replacing an existing app.' : 'Create an empty app folder and open it in your agent. Paste the prompt to agree and build the first useful workflow in your chosen stack.'
       : tasks[input.task].next;
   return {
-    title: continuing ? 'Pick up with a clear next step.' : input.project === 'new' ? 'Give your idea a working first version.' : 'Move your existing project forward.',
+    title: continuing ? 'Pick up with a clear next step.' : input.task === 'setup' ? 'Make your first OCI steps clear.' : input.project === 'new' ? 'Give your idea a working first version.' : 'Move your existing project forward.',
     next,
     summary: continuing ? `Focus: ${stages[input.stage].label.toLowerCase()}. Your agent checks the evidence before continuing.` : taskboard ? 'An editable Node.js/PostgreSQL app, installed skills, then a separate local Docker preview.' : tasks[input.task].goal,
     prerequisites: continuing
       ? ['The same app folder and your coding agent.', 'Existing progress is context; current checks establish what is ready.', 'A missing local project record is a recovery step, not a reason to recreate the app.']
-      : [input.project === 'new' ? 'A new or empty app folder, outside the kit checkout.' : 'An existing app folder; an empty folder also works for OCI setup.', 'Git, Python 3.11+ and your coding agent account. Linux is tested; macOS/WSL2 acceptance is pending.', taskboard ? 'Running the preview also needs local Docker and Compose.' : 'Your app’s runtime for local tests. OCI access can be configured later.'],
+      : [input.project === 'new' ? 'A new or empty app folder, outside the kit checkout.' : 'An existing app folder; an empty folder also works for OCI setup.', 'Git, Python 3.11+ and your coding agent account. Linux is tested; macOS/WSL2 acceptance is pending.', input.task === 'setup' ? 'Initial inspection needs no OCI credentials. You complete account sign-in and approve access changes.' : taskboard ? 'Running the preview also needs local Docker and Compose.' : 'Your app’s runtime for local tests. OCI access can be configured later.'],
     terminalHelp: continuing
       ? 'Run from the same app folder. List the existing environments first, then replace ENVIRONMENT with the intended named target. Next refreshes local records without running app tests or cloud operations. For an older project with no named environments, omit the flag only after inspection. If this kit version or its saved project record is absent, use the continuation prompt to inspect and recover the existing project first.'
+      : input.task === 'setup'
+        ? 'Run the inspection from a reviewed checkout outside your app. Replace the example project path. No environment or credential profile is required, and no cloud request runs. Follow the new-account guide to prepare a named environment after inspection.'
       : taskboard
         ? 'Run from outside the target project. Replace the example path with a new folder under an existing parent, or an empty existing folder. Creation is offline; existing files are never overwritten. Starting the preview is a separate step.'
         : input.project === 'new' ? 'Run from outside the target project. Use a new folder under an existing parent or an empty existing folder. The helper creates the project record and skills, with no generated app unless you explicitly chose Taskboard.' : 'Run from outside your app folder. The target folder must already exist. Replace the example path with its absolute path. If already installed, choose Continue; do not remove existing files to make installation pass.',
@@ -115,6 +117,9 @@ export function createPrompt(raw: Selection & { brief: string }): string {
       'Use a new folder under an existing parent or an empty existing folder. Refuse any overwrite. If the app already exists, inspect it and continue without regenerating it.',
       'Creation copies files and skills offline; it does not start Docker or deploy anything. Edit the project’s app/ and terraform/ files, not the hidden kit’s reference copy.',
       'From the created project, use python3 local_preview.py start when Docker and Compose are available. Explain missing prerequisites; do not claim the preview ran if it did not.',
+    ] : input.task === 'setup' ? [
+      'From the installed kit or a reviewed checkout outside the app, run python3 scripts/kit.py onboard inspect --project /absolute/path/to/my-app, using the actual kit and application paths. This works before installation, credentials or a named environment exist.',
+      `After inspection, use onboard prepare only with my intended environment name and role, --mode existing --task setup --agent ${input.agent}. It adds local kit files and a generic deployment target without replacing my application or making cloud changes.`,
     ] : [`If the kit is absent, install into this project for ${input.agent === 'codex' ? 'Codex' : 'Claude Code'}, preserving existing instructions and skills. Use python3 scripts/project.py start --project /absolute/path/to/my-app --task ${input.task} --mode ${input.project} --agent ${input.agent} --stack ${input.stack === 'nextjs' || input.stack === 'fastapi' ? input.stack : input.stack === 'existing' ? 'custom' : 'auto'} from a reviewed kit clone outside the app, replacing the example path.`]),
     `Then use ${entry}: ${task.goal}`,
     'Use the reviewed project helper to maintain a local project record when available. Its status and resume commands inspect local records; they do not run tests, detect a live deployment or approve cloud changes.',
@@ -124,7 +129,7 @@ export function createPrompt(raw: Selection & { brief: string }): string {
   if (input.task !== 'setup' && !taskboard) lines.push(stackInstructions[input.stack === 'taskboard' ? 'existing' : input.stack]);
   if (input.task === 'build') lines.push('Agree the smallest useful app, implement it, and run meaningful local tests. Include responsive layouts and clear empty, loading and error states.', 'Keep local development moving while OCI setup is incomplete.');
   else if (input.task === 'migrate') lines.push('Inventory provider-specific features and environment variable names without exposing values. Preserve source behavior, data, identity and integrations.', 'Move hosting first; retain the existing database, storage and sign-in provider. Adapt and test locally, then use separate source, rehearsal and production environments. Migrate data only in a later tested step after hosting acceptance.', 'Attach the reusable web-container deployment target without replacing app code. Compare source and target HTTP and browser workflows, keep target jobs disabled until ownership transfers, and prepare separate traffic cutover and rollback steps. Do not change DNS or production data without separate approval.');
-  else lines.push('Start with offline tool and configuration checks. Guide account enrollment and administrator-only steps when needed.', 'Use an explicitly selected existing parent compartment and group. Prepare least-privilege IAM and cost-alert guidance.');
+  else lines.push('Start with offline tool and configuration checks. Group the missing nonsecret choices for the current phase; keep later requirements visible without blocking unrelated local work.', 'Follow docs/NEW-OCI-ACCOUNT.md for welcome-email activation, browser sign-in, and the initial parent compartment and human group/membership steps. The owner or authorized administrator performs those reviewed Console changes; do not assume they already exist or bypass the deployment gate.', 'Reuse approved resources, prepare scoped IAM and cost guidance, and keep denied access or unavailable capacity explicitly unknown. A local inspection is not a live OCI verification.');
   lines.push(`First checkpoint: ${checkpoint(input).title}.`, 'Create or update docs/PROGRESS.md in this application using the kit’s progress guide. Preserve existing records; include actual commands/results, unfinished checks and one next action. Keep private evidence outside Git.', 'Use OCI Well-Architected guidance. Show the exact target, permissions, resources, dated cost estimate and plan before any cloud changes; wait for my approval.', 'Never ask me to paste private keys, passwords or tokens. Keep credentials, state and private receipts out of chat and Git.', 'Finish with what was tested, what is still unverified, and the next action.');
   return lines.join('\n');
 }
@@ -154,6 +159,11 @@ export function installCommand(agent: Agent, stack: Stack = 'existing', project:
 export function projectCommand(raw: Selection): string {
   const input = normalizeSelection(raw);
   if (input.project === 'continue') return installCommand(input.agent, input.stack, 'continue');
+  if (input.task === 'setup') return [
+    `git clone ${repository}.git`,
+    'python3 oci-founder-kit/scripts/kit.py onboard inspect \\',
+    '  --project /absolute/path/to/my-app',
+  ].join('\n');
   const stack = input.stack === 'nextjs' || input.stack === 'fastapi' ? input.stack : input.stack === 'existing' ? 'custom' : 'auto';
   return [
     `git clone ${repository}.git`,

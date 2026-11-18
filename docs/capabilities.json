@@ -1,6 +1,6 @@
 {
   "schema": "oci-kit-capabilities/1",
-  "checked_on": "2026-11-16",
+  "checked_on": "2026-11-18",
   "entrypoint": "python3 .oci-founder-kit/scripts/kit.py",
   "platforms": [
     {
@@ -20,6 +20,28 @@
     }
   ],
   "capabilities": [
+    {
+      "id": "onboard",
+      "title": "New OCI account",
+      "summary": "Inspect prerequisites, save initial access choices and prepare a named local target without replacing your app.",
+      "command": [
+        "onboard",
+        "inspect",
+        "--project",
+        "."
+      ],
+      "guide": "docs/NEW-OCI-ACCOUNT.md",
+      "evidence": "preview",
+      "prerequisites": [
+        "Python 3.11+",
+        "A reviewed kit checkout or project-local installation; before installation use the checkout command in the guide"
+      ],
+      "limitations": [
+        "No cloud requests or automatic account activation, human enrollment or IAM grants.",
+        "Onboarding configuration preserves other selections and refuses region or profile changes for bound resources.",
+        "Local inspection is not token validity, permission, capacity or deployment evidence."
+      ]
+    },
     {
       "id": "continue",
       "title": "Continue the right environment",
