@@ -954,7 +954,7 @@
     },
     "scripts/architecture.py": {
       "executable": false,
-      "sha256": "99995c0d8e64d5430345ba0921fbde1632ca77d56f741b90bd16a8c13131452b"
+      "sha256": "3902e272e9ffaa445ff57f7b916f6b22268f2ae5aee4564de76bb4a11b19ab8e"
     },
     "scripts/blueprint.py": {
       "executable": false,
@@ -974,7 +974,7 @@
     },
     "scripts/deployment_config.py": {
       "executable": false,
-      "sha256": "4b7a25578692ee3eaed55b1372c34c34cc24b42c62c395aee0e649d7b123f43a"
+      "sha256": "201f6531f085b90c2518f7891d6275d0b40b1ea01a0fdbcd28f6eb450fb4eaea"
     },
     "scripts/deployment_scaffold.py": {
       "executable": false,
@@ -1006,15 +1006,15 @@
     },
     "scripts/journey_acceptance.py": {
       "executable": false,
-      "sha256": "01a5a113de6f3315e5a947b9b0c6575d6061ecd43391038df00dce3dd53bd0cb"
+      "sha256": "7da6e416f4ef870b6b1be89804dde8b5301cf0316c231225a646c2f92e902476"
     },
     "scripts/kit.py": {
       "executable": false,
-      "sha256": "e32e5e4a47550512051f9dcde92f83d3cd5ea46f6e7a9784c21725697f5f00b0"
+      "sha256": "639580d4c88fec64c73c137aeb6feb1c2bcec4f2db11e37aeaa585ab6c317fb6"
     },
     "scripts/kit_common.py": {
       "executable": false,
-      "sha256": "b782795d0eedd2c5c85debbd504966a5fddaf6ca0cba14e85a4ba21cbb6760a1"
+      "sha256": "ee6cd1b19bb10339352d71eddd40352e746739ab8615e55097d065704f016516"
     },
     "scripts/migration.py": {
       "executable": false,
@@ -1294,7 +1294,7 @@
     },
     "skills/oci-kit/SKILL.md": {
       "executable": false,
-      "sha256": "ac6cb349705b2c55b16389eceba02466ce41df439bf8339850783ce34b7c2b3f"
+      "sha256": "e417de924aabf3239ba440c5898c6480ec93c4e21159140a843288274275a437"
     },
     "skills/oci-kit/agents/openai.yaml": {
       "executable": false,
@@ -1490,7 +1490,7 @@
     },
     "tests/test_architecture.py": {
       "executable": false,
-      "sha256": "45e1644fe908ca87cc9c8fcc416876472048b338c731cd35c0844979430a71ff"
+      "sha256": "163abd03dd2300534e4795eeeaedb7a9e078a71c97f5bde9f3e55375b04632df"
     },
     "tests/test_backend_auth.py": {
       "executable": false,
@@ -1538,7 +1538,7 @@
     },
     "tests/test_deployment_config.py": {
       "executable": false,
-      "sha256": "e29989eac1697c94f48610ece4fa5cd5e14ceab9aa18fb92b5531ec92d8de166"
+      "sha256": "355cf1e47fe3ac5f5b538281fd78339b429d08455b58df8ff64e032fd99935b9"
     },
     "tests/test_environment_gate.py": {
       "executable": false,
@@ -1590,7 +1590,7 @@
     },
     "tests/test_kit_interface.py": {
       "executable": false,
-      "sha256": "d1e62c4bc7f5a9a38b6f93f171ed46d3d453adc9cebe8914b81afa9504572baf"
+      "sha256": "abce43ba205ceb66c2a2b7329666c63afc6755bfe48e8ef410553edaba2fb498"
     },
     "tests/test_local_preview.py": {
       "executable": false,

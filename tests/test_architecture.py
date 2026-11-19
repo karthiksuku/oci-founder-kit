@@ -70,6 +70,9 @@ class Architecture(unittest.TestCase):
         after = {str(path.relative_to(self.app)): path.read_bytes() for path in self.app.rglob("*") if path.is_file()}
         self.assertEqual(before, after)
         self.assertEqual(value["status"], "incomplete")
+        rows = [control for pillar in value["pillars"] for control in pillar["controls"]]
+        self.assertEqual(sum(value["control_counts"].values()), len(rows))
+        self.assertEqual(value["control_counts"].get("unknown"), sum(row["status"] == "unknown" for row in rows))
         self.assertEqual(len(value["pillars"]), 5)
         self.assertEqual(self.control("compute_sizing", value)["status"], "configured")
         for name in ("effective_iam_and_state_isolation", "hosted_identity_and_two_user_isolation", "reported_usage_cost", "isolated_restore_and_rollback"):

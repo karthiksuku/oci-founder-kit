@@ -285,6 +285,7 @@ def review(store, p, common):
             "environment": environment, "generated_at": int(time.time()), "framework_source": SOURCE,
             "framework_checked_date": "2026-11-19", "read_only": True, "cloud_requests": False,
             "approval_granted": False, "certified": False, "production_ready": False,
+            "control_counts": {status: sum(c["status"] == status for c in controls) for status in sorted({c["status"] for c in controls})},
             "pillars": [{"id": key, "title": title, "controls": [{k: v for k, v in row.items() if k != "pillar"}
                           for row in controls if row["pillar"] == key]} for key, title in pillars],
             "evidence_review": counts, "scope": "Selected existing private reports, not a complete Well-Architected audit. Reports are locally held and not authenticated attestations. Observed means a narrow recorded live read; configured, tested and owner-recorded are separate evidence levels. No score or certification is assigned."}

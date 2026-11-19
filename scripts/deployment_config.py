@@ -167,8 +167,13 @@ def request(project, *, environment, action="inspect", config=None, approve=None
             if not selected.get("backend"):
                 missing.append("backend")
             if action == "inspect":
+                foundation_missing = {"region", "profile", "auth", "compartment_id", "vcn_id", "app_subnet_id", "lb_subnet_id",
+                                      "app_private_ip", "certificate_id", "registry_id", "backend"} & set(missing)
+                following = ["foundation", "inspect"] if foundation_missing else ["release", "configure", "--help"]
                 return dict(base, status="blocked" if missing else "configured", missing=missing,
-                    next="Supply remaining nonsecret choices with release configure --config PRIVATE_JSON. Existing selections are reused.")
+                    next=("Complete or reuse the missing foundation and access prerequisites first, then prepare remaining application choices."
+                          if foundation_missing else "Supply remaining nonsecret choices with release configure --config PRIVATE_JSON. Existing selections are reused."),
+                    next_command=["python3", str(ROOT / "scripts/kit.py"), *following, "--project", str(store.project), "--environment", environment])
             packet = {"schema": "oci-kit-deployment-config-proposal/1", "environment": environment,
                       "binding": current, "project_identity": p.identity(store.root_fd), "created_at": int(time.time()),
                       "source_sha256": source, "kit_sha256": p.kit_fingerprint(), "sources": sources,

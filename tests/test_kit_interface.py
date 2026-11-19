@@ -84,6 +84,15 @@ class Interface(unittest.TestCase):
         self.assertEqual(value["error"]["code"], "DEPLOYMENT_CONFIG_INPUT")
         self.assertNotIn("synthetic-private-file", json.dumps(value))
 
+    def test_foundation_access_missing_choices_survive_cli_projection(self):
+        path = self.app.parent / "access.json"
+        path.write_text(json.dumps({"mode": "create", "component": "access"})); path.chmod(0o600)
+        code, value = self.command("foundation", "propose", "--environment", "rehearsal", "--config", str(path))
+        self.assertEqual(code, 3)
+        self.assertTrue({"developer_group_id", "access_role", "registry_name", "state_bucket_name", "administrator_profile",
+                         "administrator_auth"} <= set(value["error"]["missing"]))
+        self.assertFalse(value["approval_granted"])
+
     def test_missing_nonsecret_choices_are_returned_together(self):
         code, value = self.command("environment", "create")
         self.assertEqual(code, 3)

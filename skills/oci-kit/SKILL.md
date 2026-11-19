@@ -101,6 +101,11 @@ Use `architecture --environment NAME` and `journey --environment NAME --kind bui
 (or `--kind migrate`) to inspect current evidence and remaining acceptance work.
 These read-only reports preserve unknowns; an incomplete report is a next-action
 map, not a reason to discard the application or claim production success.
+Use the returned `control_counts` and `handoff_rules` in your summary. Image
+publication and remote-state initialization/locking are cloud writes too; each
+requires its own exact plan approval before execution, before resource apply.
+The current application templates require AMD64/E4; do not offer an ARM shape
+without a separately implemented and tested deployment path.
 
 If state is missing, inspect the app and initialize it with `start --mode existing`.
 For a legacy kit without this helper, follow the [update guide](../../docs/INSTALL.md#update-or-remove-a-project-installation)

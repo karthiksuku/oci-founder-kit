@@ -170,6 +170,12 @@ def request(project: Path, *, environment: str, journey="build"):
         return {"schema": SCHEMA, "environment": environment, "journey": journey,
                 "status": "failed" if any(row["status"] == "failed" for row in gates) else "incomplete",
                 "gates": gates, "next_action": next_gate, "evidence_counts": counts,
+                "handoff_rules": [
+                    "Review and approve each exact cloud plan BEFORE its write: foundation/IAM, image upload, backend initialization or locking, resource apply, synthetic app writes, traffic changes and cleanup are separate operations.",
+                    "Image publication is a cloud write. Terraform apply is not the first cloud write when publication or remote-state operations happen earlier.",
+                    "These application templates use Linux AMD64 images on CI.Standard.E4.Flex. Do not offer Ampere/ARM64 as an available path; capacity remains unknown until verified.",
+                    "Use the returned architecture control_counts and actual check outcomes in the handoff; do not guess counts or claim a complete live journey.",
+                    "Browser-based temporary sessions and API signing keys are supported operator choices; API-key registration is not universally required."],
                 "journey_accepted": False, "approval_granted": False, "network_requests": 0,
                 "agent_evidence": {"restricted_local_harness": "not-established-by-this-report",
                                    "ordinary_agent_session": "not-established-by-this-report",
@@ -185,4 +191,6 @@ def render(value):
     print("Next: " + next_gate["next_action"])
     if next_gate["recheck_command"]:
         print("Recheck: " + shlex.join(next_gate["recheck_command"]))
+    for rule in value["handoff_rules"]:
+        print("Handoff: " + rule)
     print(value["scope"])

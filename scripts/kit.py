@@ -309,6 +309,7 @@ def main(argv=None):
         common.project_module().helper("journey_acceptance").render(value)
     elif value.get("schema") == "oci-kit-architecture/1":
         print("Well-Architected evidence: " + value["environment"] + " · " + value["status"])
+        print("Controls: " + ", ".join(str(count) + " " + status for status, count in value["control_counts"].items()))
         for pillar in value["pillars"]:
             print(pillar["title"])
             for control in pillar["controls"]:

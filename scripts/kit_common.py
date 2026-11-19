@@ -79,7 +79,8 @@ def error(code, *, missing=()):
                "dependencies", "background_work", "probe_runtime", "workspace", "component", "name", "home_region",
                "tenancy_id", "parent_compartment_id", "state_compartment_id", "vcn_cidr", "namespace", "state_key",
                "workspace_key_prefix", "environment.compartment_id", "certificate_renewal_owner", "domain_ownership",
-               "vcn_id", "app_subnet_id", "lb_subnet_id", "app_private_ip", "certificate_id", "registry_id", "availability_domain"}
+               "vcn_id", "app_subnet_id", "lb_subnet_id", "app_private_ip", "certificate_id", "registry_id", "availability_domain",
+               "developer_group_id", "access_role", "registry_name", "state_bucket_name", "administrator_profile", "administrator_auth"}
     return {"schema": "oci-kit-command/1", "status": "blocked", "error": {"code": code,
             "phase": phase, "owner": owner, "recoverable": True,
             "missing": sorted({name for name in missing if isinstance(name, str)} & allowed), "next_action": action},

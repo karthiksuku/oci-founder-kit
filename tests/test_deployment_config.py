@@ -93,6 +93,14 @@ class DeploymentConfiguration(unittest.TestCase):
         self.assertEqual(set(result["missing"]), d.VARIABLE_REQUIRED)
         self.assertEqual(before, sorted(path.relative_to(self.app) for path in self.app.rglob("*")))
 
+    def test_missing_foundation_is_the_next_step_before_application_choices(self):
+        target = dict(self.target); target.pop("registry_id")
+        e.configure(self.app, name="rehearsal", target=target, backend=self.backend)
+        result = d.request(self.app, environment="rehearsal")
+        self.assertIn("registry_id", result["missing"])
+        self.assertEqual(result["next_command"][2:4], ["foundation", "inspect"])
+        self.assertEqual(result["next_command"][-2:], ["--environment", "rehearsal"])
+
     def test_target_completion_is_additive_and_conflicts_refused(self):
         target = dict(self.target); target.pop("origin")
         e.configure(self.app, name="rehearsal", target=target, backend=self.backend)
