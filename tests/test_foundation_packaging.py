@@ -302,7 +302,10 @@ class Foundation(Fixture):
         value.update({"network": {"vcn_cidr": "10.88.0.0/16"}, "registry": {},
                       "compartments": {"parent_compartment_id": "ocid1.compartment.oc1..syntheticparent", "home_region": "us-ashburn-1"},
                       "state": {"state_compartment_id": STATE, "namespace": "syntheticnamespace", "state_key": "rehearsal/main.tfstate",
-                                "workspace_key_prefix": "rehearsal/workspaces"}}[component])
+                                "workspace_key_prefix": "rehearsal/workspaces"},
+                      "access": {"state_compartment_id": STATE, "home_region": "us-ashburn-1", "developer_group_id": "ocid1.group.oc1..syntheticgroup",
+                                 "access_role": "foundation-provisioner", "registry_name": "synthetic-app", "state_bucket_name": "synthetic-state",
+                                 "administrator_profile": "ADMINISTRATOR", "administrator_auth": "security_token"}}[component])
         value.update(updates)
         return value
 
@@ -310,8 +313,8 @@ class Foundation(Fixture):
         return foundation.request(self.app, environment="rehearsal", action="propose",
                                   config=self.private_json("foundation.json", value))
 
-    def prepare(self, component="network"):
-        proposal = self.propose(self.config(component))
+    def prepare(self, component="network", **updates):
+        proposal = self.propose(self.config(component, **updates))
         self.assertEqual(proposal["status"], "review")
         result = foundation.request(self.app, environment="rehearsal", action="prepare", approve=proposal["sha256"])
         return proposal, result
@@ -320,13 +323,15 @@ class Foundation(Fixture):
         target = {"network": {"compartment_id": COMPARTMENT, "vcn_id": "ocid1.vcn.oc1.phx.syntheticvcn",
                               "app_subnet_id": "ocid1.subnet.oc1.phx.syntheticprivate", "lb_subnet_id": "ocid1.subnet.oc1.phx.syntheticpublic",
                               "app_private_ip": "10.88.2.10"}, "registry": {"compartment_id": COMPARTMENT, "registry_id": "ocid1.containerrepo.oc1.phx.syntheticrepo"},
-                  "compartments": {"compartment_id": "ocid1.compartment.oc1..newsyntheticapp"}, "state": {}}[component]
+                  "compartments": {"compartment_id": "ocid1.compartment.oc1..newsyntheticapp"}, "state": {}, "access": {}}[component]
         value = {"schema": "oci-kit-foundation-output/1", "environment": "rehearsal", "component": component,
                  "request_sha256": proposal["sha256"], "region": "us-phoenix-1", "target": target,
                  "private": {"state_compartment_id": STATE} if component == "compartments" else {}}
         if component == "state":
             value["backend"] = {"region": "us-phoenix-1", "namespace": "syntheticnamespace", "bucket": "founder-rehearsal-tfstate",
                                 "key": "rehearsal/main.tfstate", "workspace_key_prefix": "rehearsal/workspaces"}
+        if component == "access":
+            value["region"] = "us-ashburn-1"
         value.update(updates)
         return self.private_json("outputs.json", {"foundation": {"sensitive": False, "type": ["object", {}], "value": value}})
 
@@ -342,12 +347,13 @@ class Foundation(Fixture):
             self.assertEqual(variables["request_sha256"], proposal["sha256"])
             self.assertEqual(variables["auth"], "SecurityToken")
             self.assertEqual((folder / "terraform.tfvars.json").stat().st_mode & 0o777, 0o600)
-            self.assertNotIn("oci_identity_policy", (folder / "main.tf").read_text())
+            if component != "access":
+                self.assertNotIn("oci_identity_policy", (folder / "main.tf").read_text())
         self.assertEqual((self.app / "main.py").read_bytes(), before)
 
     def test_generated_commands_bind_each_foundation_target_without_applying(self):
         resource_types = {"compartments": "oci_identity_compartment", "network": "oci_core_vcn",
-                          "state": "oci_objectstorage_bucket", "registry": "oci_artifacts_container_repository"}
+                          "state": "oci_objectstorage_bucket", "registry": "oci_artifacts_container_repository", "access": "oci_identity_policy"}
         for component in foundation.COMPONENTS:
             with self.subTest(component=component):
                 _, result = self.prepare(component)
@@ -370,8 +376,8 @@ class Foundation(Fixture):
                 expected = {"compartments": self.config(component).get("parent_compartment_id"),
                             "state": STATE}.get(component, COMPARTMENT)
                 self.assertEqual(summary["target"]["compartment_ocid"], expected)
-                self.assertEqual(summary["target"]["region"], "us-phoenix-1")
-                self.assertEqual(summary["target"]["profile"], "DEFAULT")
+                self.assertEqual(summary["target"]["region"], "us-ashburn-1" if component == "access" else "us-phoenix-1")
+                self.assertEqual(summary["target"]["profile"], "ADMINISTRATOR" if component == "access" else "DEFAULT")
                 self.assertEqual(summary["target"]["auth"], "SecurityToken")
                 self.assertIsNone(summary["project_environment"])
                 self.assertNotIn("parent_compartment_ocid", variables)
@@ -434,6 +440,51 @@ class Foundation(Fixture):
         self.assertIn(original, [path.read_bytes() for path in self.private.glob("environment-backup-*.json")])
         with self.assertRaises(ValueError):
             foundation.request(self.app, environment="rehearsal", action="handoff", outputs=self.output(proposal))
+
+    def test_access_roles_remain_separate_and_do_not_retarget_to_administrator_or_home_region(self):
+        original = (self.private / "environment.json").read_bytes()
+        for role, extra in (("foundation-provisioner", {}), ("observer", {}),
+                            ("app-deployer", {"certificate_id": "ocid1.certificate.oc1.phx.syntheticcert"}),
+                            ("image-publisher", {}), ("state-operator", {"state_key": "rehearsal/main.tfstate"})):
+            with self.subTest(role=role):
+                proposal, prepared = self.prepare("access", access_role=role, **extra)
+                variables = json.loads((Path(prepared["directory"]) / "terraform.tfvars.json").read_bytes())
+                self.assertEqual(variables["role"], role)
+                self.assertEqual(variables["region"], "us-ashburn-1")
+                self.assertEqual(variables["config_file_profile"], "ADMINISTRATOR")
+                output = self.output(proposal, "access")
+                result = foundation.request(self.app, environment="rehearsal", action="handoff", outputs=output)
+                self.assertEqual(result["evidence_scope"], "owner-supplied-output")
+                self.assertFalse(result["approvals_imported"])
+                self.assertEqual((self.private / "environment.json").read_bytes(), original)
+        stages = json.loads((self.private / "foundation-stages.json").read_bytes())
+        self.assertEqual(len(stages), 5)
+
+    def test_access_role_required_inputs_and_injection_refuse(self):
+        for role, required in (("state-operator", "state_key"), ("app-deployer", "certificate_id")):
+            result = self.propose(self.config("access", access_role=role))
+            self.assertEqual(result["status"], "blocked")
+            self.assertIn(required, result["missing"])
+        for changes in ({"access_role": "administrator"}, {"developer_group_id": "ocid1.tenancy.oc1..synthetic"},
+                        {"registry_name": "wild*"}, {"state_bucket_name": "name'"}, {"administrator_profile": "x" * 65}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.propose(self.config("access", **changes))
+
+    def test_access_roles_cannot_target_another_selected_backend_or_certificate(self):
+        selected = self.selected()
+        certificate = "ocid1.certificate.oc1.phx.syntheticcert"
+        env.configure(self.app, name="rehearsal", target=dict(selected["target"], certificate_id=certificate),
+            backend={"region": "us-phoenix-1", "namespace": "syntheticnamespace", "bucket": "synthetic-state",
+                     "key": "rehearsal/main.tfstate", "workspace_key_prefix": "rehearsal/workspaces"})
+        cases = [{"access_role": "state-operator", "state_key": "production/other.tfstate"},
+                 {"state_bucket_name": "other-state"},
+                 {"access_role": "app-deployer", "certificate_id": "ocid1.certificate.oc1.phx.othercert"},
+                 {"access_role": "state-operator", "state_key": "rehearsal/*"}]
+        for changes in cases:
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.propose(self.config("access", **changes))
+        result = self.propose(self.config("access", access_role="state-operator", state_key="rehearsal/main.tfstate"))
+        self.assertEqual(result["status"], "review")
 
     def test_state_output_maps_exact_backend_and_preserves_records(self):
         proposal, _ = self.prepare("state")

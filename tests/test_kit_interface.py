@@ -60,6 +60,30 @@ class Interface(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertEqual(value["error"]["code"], "ENVIRONMENT_UNKNOWN")
 
+    def test_architecture_and_journey_require_selection_and_preserve_incomplete_gates(self):
+        for command in ("architecture", "journey"):
+            with self.subTest(command=command):
+                code, value = self.command(command)
+                self.assertEqual(code, 3)
+                self.assertEqual(value["error"]["code"], "ENVIRONMENT_REQUIRED")
+                code, value = self.command(command, "--environment", "rehearsal")
+                self.assertEqual(code, 3)
+                self.assertEqual(value["status"], "incomplete")
+                self.assertEqual(value["environment"], "rehearsal")
+                self.assertNotIn("error", value)
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    readable_code = kit.main([command, "--project", str(self.app), "--environment", "rehearsal"])
+                self.assertEqual(readable_code, 3)
+                self.assertIn("incomplete", output.getvalue())
+
+    def test_release_configuration_has_specific_recovery_and_rejects_ambiguous_input(self):
+        code, value = self.command("release", "configure", "--environment", "rehearsal", "--config", "synthetic-private-file",
+                                   "--approve", "a" * 64)
+        self.assertEqual(code, 3)
+        self.assertEqual(value["error"]["code"], "DEPLOYMENT_CONFIG_INPUT")
+        self.assertNotIn("synthetic-private-file", json.dumps(value))
+
     def test_missing_nonsecret_choices_are_returned_together(self):
         code, value = self.command("environment", "create")
         self.assertEqual(code, 3)

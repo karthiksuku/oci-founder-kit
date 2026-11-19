@@ -37,22 +37,53 @@ class WorkloadAccess(unittest.TestCase):
         declared = set(re.findall(r'variable\s+"([^"]+)"', self.variables))
         self.assertEqual(declared, {"tenancy_ocid", "compartment_ocid", "state_compartment_ocid",
                                    "developer_group_ocid", "role", "name", "registry_name", "state_bucket_name",
-                                   "region", "home_region", "config_file_profile", "auth"})
+                                   "region", "home_region", "config_file_profile", "auth", "state_key",
+                                   "certificate_ocid", "environment", "request_sha256"})
         self.assertIn('subject = "Allow group id ${var.developer_group_ocid}"', self.main)
-        self.assertNotRegex(self.variables, r'\bdefault\s*=')
+        optional = {"state_key", "certificate_ocid", "environment", "request_sha256"}
+        for name, body in re.findall(r'variable\s+"([^"]+)"\s*{(.*?)(?=\nvariable |\Z)', self.variables, re.S):
+            self.assertEqual(bool(re.search(r'\bdefault\s*=', body)), name in optional)
+        self.assertIn("from = oci_identity_policy.application", self.main)
+        self.assertIn("to   = oci_identity_policy.application[0]", self.main)
+        self.assertIn("from = oci_identity_policy.state", self.main)
+        self.assertIn("to   = oci_identity_policy.state[0]", self.main)
         self.assertEqual(self.main.count("var.compartment_ocid != var.state_compartment_ocid"), 2)
         self.assertEqual(self.main.count("var.region == var.home_region"), 2)
 
     def test_no_tenancy_wide_data_or_identity_grants(self):
         for forbidden in ("in tenancy", "all-resources", "manage policies", "manage groups", "manage users",
-                          "manage compartments", "manage dynamic-groups", "object-family", " to read objects",
-                          " to manage objects", "secret-bundles", "PAR_MANAGE", "BUCKET_DELETE", "BUCKET_UPDATE",
-                          "OBJECT_READ", "OBJECT_CREATE", "OBJECT_DELETE", "RETENTION_RULE_", "REPOSITORY_DELETE",
-                          "REPOSITORY_UPDATE", "REPOSITORY_MANAGE", "virtual-network-family"):
+                          "manage compartments", "manage dynamic-groups", "object-family", "secret-bundles", "PAR_MANAGE", "BUCKET_DELETE", "BUCKET_UPDATE",
+                          "OBJECT_VERSION_DELETE", "RETENTION_RULE_", "REPOSITORY_DELETE",
+                          "virtual-network-family", "CERTIFICATE_CONTENT_WITH_PRIVATE_KEY"):
             self.assertNotIn(forbidden, self.main)
         self.assertIn("target.repo.name = '${var.registry_name}'", self.main)
         self.assertIn("target.bucket.name = '${var.state_bucket_name}'", self.main)
         self.assertIn("request.permission = '${permission}'", self.main)
+
+    def test_role_specific_access_has_explicit_boundaries(self):
+        self.assertIn("target.object.name = '${key}'", self.main)
+        self.assertIn('for key in [var.state_key, "${var.state_key}.lock"]', self.main)
+        self.assertIn("CERTIFICATE_CONTENT_PUBLIC_ONLY", self.main)
+        self.assertIn("target.leaf-certificate.id = '${var.certificate_ocid}'", self.main)
+        self.assertIn('count          = contains(keys(local.application_roles), var.role) ? 1 : 0', self.main)
+        self.assertIn('count          = contains(keys(local.state_roles), var.role) ? 1 : 0', self.main)
+        # These declarations cannot silently gain future OCI permissions via a broad verb.
+        permission_lists = self.main.split("deployment_permissions = {", 1)[1].split("deployment_app =", 1)[0]
+        self.assertNotIn("_MOVE", permission_lists)
+        self.assertNotIn("LOG_RETRIEVE", permission_lists)
+        self.assertNotIn("VCN_DELETE", permission_lists)
+        self.assertIn("VCN_ATTACH", permission_lists)
+        self.assertIn("VCN_DETACH", permission_lists)
+
+    def test_state_defaults_do_not_hide_prefix_or_workspace_grants(self):
+        self.assertIn('var.state_key == null ? []', self.main)
+        self.assertNotIn('workspace_key_prefix', self.variables)
+        self.assertIn('segment != ".."', self.variables)
+        self.assertIn('segment != "."', self.variables)
+        self.assertIn('segment != ""', self.variables)
+        self.assertIn('length(var.state_key) <= 240', self.variables)
+        self.assertNotRegex(self.main, r"target.object.name[^\n]*\*")
+
 
     def test_pinned_provider_is_same_reviewed_lock_as_foundation(self):
         self.assertIn('source  = "oracle/oci"', self.versions)
@@ -94,7 +125,11 @@ class WorkloadAccess(unittest.TestCase):
         self.assertEqual(cases, {"foundation_grants_are_bounded", "observer_has_no_mutation_grants",
                                "reject_tenancy_as_application", "reject_tenancy_as_state", "reject_shared_app_state",
                                "reject_wrong_home_region", "reject_user_as_group", "reject_wildcard_repository",
-                               "reject_bucket_policy_injection", "reject_unsupported_role", "reject_implicit_auth"})
+                               "reject_bucket_policy_injection", "reject_unsupported_role", "reject_implicit_auth",
+                               "app_deployer_has_no_state_or_admin_grants", "state_operator_exact_objects_and_no_version_deletion",
+                               "image_publisher_exact_repository_and_inherent_update_authority", "reject_state_role_without_key",
+                               "reject_state_key_wildcard", "reject_state_key_traversal", "reject_app_role_without_certificate",
+                               "reject_bad_certificate", "foundation_handoff_is_bound_and_not_authorization"})
         self.assertNotRegex(source, r'\bcommand\s*=\s*apply\b')
 
     def test_documented_boundary_and_examples_do_not_claim_oci_acceptance(self):
@@ -102,6 +137,11 @@ class WorkloadAccess(unittest.TestCase):
         self.assertIn("No live policy apply or denial", document)
         self.assertIn("inherited", document.lower())
         self.assertIn("full private Terraform plan", document)
+        self.assertIn("not upload-only", document)
+        self.assertIn("bucket-wide object metadata", document)
+        self.assertIn("manage_runtime_iam=false", document)
+        self.assertIn("OBJECT_VERSION_DELETE", document)
+        self.assertIn("moved", document)
         self.assertIn("no credential inputs", document)
         self.assertNotIn("ocid1.", (STACK / "terraform.tfvars.example").read_text())
 

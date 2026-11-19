@@ -76,7 +76,14 @@ def read_profile(path: Path, profile: str, auth: str) -> tuple[dict, list[dict]]
     return values, [check("credentials", "passed", "Required profile fields and credential file metadata checked; no credential contents reported.")]
 
 
-def run_json(argv: list[str], runner: Callable = subprocess.run) -> tuple[str, object]:
+def safe_runner(argv, **kwargs):
+    # The legacy doctor must also remain non-interactive when the caller enables auto-prompt.
+    environment = dict(os.environ)
+    environment.pop("OCI_CLI_AUTO_PROMPT", None)
+    return subprocess.run(argv, env=environment, **kwargs)
+
+
+def run_json(argv: list[str], runner: Callable = safe_runner) -> tuple[str, object]:
     try:
         result = runner(argv, capture_output=True, text=True, timeout=30, check=False,
                         stdin=subprocess.DEVNULL)
@@ -90,7 +97,7 @@ def run_json(argv: list[str], runner: Callable = subprocess.run) -> tuple[str, o
 def diagnose(*, config_file: Path, profile: str = "DEFAULT", auth: str = "api_key",
              region: str | None = None, compartment: str | None = None,
              tenancy: str | None = None, live: bool = False,
-             which: Callable = shutil.which, runner: Callable = subprocess.run) -> dict:
+             which: Callable = shutil.which, runner: Callable = safe_runner) -> dict:
     if auth not in AUTH_MODES or not PROFILE.fullmatch(profile):
         raise ValueError("Invalid authentication mode or profile name.")
     checks = []

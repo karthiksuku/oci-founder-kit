@@ -28,8 +28,9 @@ LIMIT = 131072
 WRITABLE = {"index.html", "Dockerfile", "README.md", "migration-plan.md", "outcome.json"}
 SCENARIOS = ("new-app", "hosting-first", "unsupported", "interrupted")
 GRADER = "tests/fixtures/evaluations/browser_grade.mjs"
-HARNESS_VERSION = "2"
-ACTIONS = ("start", "environment", "attach", "status", "resume", "assess", "test-app")
+HARNESS_VERSION = "3"
+ACTIONS = ("start", "environment", "attach", "status", "resume", "assess", "test-app",
+           "architecture", "journey", "deployment-inspect")
 TOOL = {"name": "founder_local", "description": "Evaluation-only workspace operations. No cloud/credential/network/shell access.",
         "inputSchema": {"type": "object", "properties": {
             "operation": {"type": "string", "enum": ["read-kit", "read-app", "write-app", "action", "list"]},
@@ -150,7 +151,11 @@ def prompt(scenario):
             "Read kit README.md and relevant skill/docs, then complete work without clarification for routine details. "
             + task + "Initialize project progress; create distinct source, rehearsal and production environments using "
             "the web-container blueprint. Attach deployment definitions separately to deploy/rehearsal and deploy/production. "
-            "Use action=test-app for independent behavior tests. Inspect/resume recorded progress if an operation is interrupted. "
+            "Use action=test-app for independent behavior tests. After attaching the rehearsal deployment, run "
+            "action=architecture, action=journey and action=deployment-inspect with environment=rehearsal. "
+            "These read-only inspections should report incomplete or blocked gates; explain the remaining gates "
+            "without treating local configuration, a health check or an architecture report as cloud acceptance. "
+            "Inspect/resume recorded progress if an operation is interrupted. "
             "No cloud credentials, live infrastructure, traffic change or deployment approval is available. Do not read .env, "
             "credentials or files outside the provided workspace; do not bypass hooks/trust or invent live evidence. "
             "Stop at the real credential/exact-plan approval boundary. Write outcome.json with these TOP-LEVEL fields (not nested): scope='local-only', "
@@ -203,6 +208,14 @@ def action(path, value, name, environment):
         raise ValueError("Unsupported fixed evaluation action.")
     if name == "test-app":
         return app_test(path, value)
+    if name in {"architecture", "journey", "deployment-inspect"}:
+        if environment not in {"rehearsal", "production"}:
+            raise ValueError("Select an explicit OCI rehearsal or production environment for inspection.")
+        arguments = ["release", "configure"] if name == "deployment-inspect" else [name]
+        if name == "journey":
+            arguments += ["--kind", "build" if value["scenario"] == "new-app" else "migrate"]
+        return fixed_command([ROOT / "scripts/kit.py", *arguments, "--project", app,
+                              "--environment", environment, "--json", "--non-interactive"])
     if name == "start":
         return fixed_command([ROOT / "scripts/kit.py", "start", "--project", app, "--task",
                               "build" if value["scenario"] == "new-app" else "migrate", "--mode", "existing", "--agent", "both",
@@ -305,7 +318,7 @@ def serve(path):
         try:
             if method == "initialize":
                 result = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}},
-                          "serverInfo": {"name": "founder-eval-local-only", "version": "1"}}
+                          "serverInfo": {"name": "founder-eval-local-only", "version": HARNESS_VERSION}}
             elif method == "tools/list":
                 result = {"tools": [TOOL]}
             elif method == "tools/call" and message["params"]["name"] == TOOL["name"]:
@@ -323,6 +336,57 @@ def serve(path):
         except (OSError, KeyError, TypeError, subprocess.SubprocessError):
             result = {"content": [{"type": "text", "text": "Local evaluation operation refused or unavailable. Inspect progress; no cloud operation is possible."}], "isError": True}
         print(json.dumps({"jsonrpc": "2.0", "id": request_id, "result": result}), flush=True)
+
+
+def inspection_checks(events, scenario):
+    """Require observed kit reports, not an agent-authored claim of inspection.
+
+    Events are written by the fixed server and inaccessible to write-app. The
+    newest attempt for an action replaces prior success, including a refusal.
+    These checks establish only that the agent inspected local remaining gates.
+    """
+    selected = {}
+    for event in events:
+        if (not isinstance(event, dict) or not isinstance(event.get("action"), str) or event.get("action") not in
+                {"architecture", "journey", "deployment-inspect"} or event.get("environment") != "rehearsal"):
+            continue
+        selected[event["action"]] = {}
+        result = event.get("result")
+        if (not isinstance(result, dict) or result.get("exit_code") != 3
+                or not isinstance(result.get("output"), str) or len(result["output"].encode()) > LIMIT):
+            continue
+        try:
+            report = json.loads(result["output"])
+        except ValueError:
+            continue
+        if isinstance(report, dict) and report.get("environment") == "rehearsal" and report.get("approval_granted") is False:
+            selected[event["action"]] = report
+    architecture = selected.get("architecture", {})
+    journey = selected.get("journey", {})
+    deployment = selected.get("deployment-inspect", {})
+    gates = journey.get("gates")
+    pending = {"effective_iam_isolation", "hosted_sign_in", "two_user_isolation", "isolated_restore", "image_rollback"}
+    if scenario != "new-app":
+        pending.update({"browser_workflows", "retained_services", "background_work_ownership", "traffic_rollback"})
+    manual = {row.get("id") for row in gates if isinstance(row, dict) and isinstance(row.get("id"), str)
+              and row.get("status") == "missing"} if isinstance(gates, list) else set()
+    missing = deployment.get("missing")
+    return {
+        "architecture_inspected": (architecture.get("schema") == "oci-kit-architecture/1"
+            and architecture.get("status") in ("incomplete", "failed") and architecture.get("read_only") is True
+            and architecture.get("cloud_requests") is False and architecture.get("certified") is False
+            and architecture.get("production_ready") is False and isinstance(architecture.get("pillars"), list)
+            and bool(architecture["pillars"])),
+        "journey_inspected": (journey.get("schema") == "oci-founder-journey/1"
+            and journey.get("status") in ("incomplete", "failed")
+            and journey.get("journey") == ("build" if scenario == "new-app" else "migrate")
+            and journey.get("journey_accepted") is False and type(journey.get("network_requests")) is int
+            and journey["network_requests"] == 0 and pending.issubset(manual)),
+        "deployment_prerequisites_inspected": (deployment.get("schema") == "oci-kit-deployment-config/1"
+            and deployment.get("status") == "blocked" and deployment.get("cloud") == "not_checked"
+            and deployment.get("evidence_scope") == "local-configuration-only"
+            and isinstance(missing, list) and bool(missing) and all(isinstance(item, str) for item in missing)),
+    }
 
 
 def grade(path):
@@ -350,6 +414,7 @@ def grade(path):
         if value["scenario"] == "unsupported" and checks["compatibility_report"]:
             assessment = read(path / "compatibility.json")
             checks["unsupported_not_declared_ready"] = assessment.get("ready_for_cutover") is not True and outcome.get("cutover") == "blocked"
+    checks.update(inspection_checks(events, value["scenario"]))
     if value["scenario"] == "interrupted":
         checks["resumed_after_response_loss"] = any(e["action"] == "resume" and e["result"].get("exit_code") == 0 for e in events)
     behavior = app_test(path, value)
@@ -367,7 +432,7 @@ def evaluation_identity(value):
     version = json.loads(source_bytes(".claude-plugin/plugin.json")).get("version") if plugin.is_file() else None
     return {"kit_version": version, "manifest_sha256": value["manifest_sha256"],
             "harness_version": value.get("harness_version", "1"), "harness_sha256": value.get("harness_sha256"),
-            "grader": {"name": "independent-browser-and-fixture", "version": "2",
+            "grader": {"name": "independent-browser-and-fixture", "version": "3",
                        "browser_sha256": value["browser_grader_sha256"], "harness_sha256": value.get("harness_sha256")},
             "platform": {"system": platform.system(), "machine": platform.machine(),
                          "python": platform.python_version()},

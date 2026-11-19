@@ -132,6 +132,12 @@ owners. Certificate private keys never enter the application Terraform variables
 
 ## Review and deploy
 
+For a fresh generic web-container target, [prepare deployment configuration](DEPLOYMENT-CONFIGURATION.md)
+from the existing selected environment. `release configure` groups missing
+choices, then prepares private variables and backend JSON through a reviewed
+local proposal. It preserves app code and existing resource choices. The manual
+path below remains available for already-configured stacks and other blueprints.
+
 Before initialization, prepare the selected stack's canonical native backend
 declaration. Attachment includes only its example. If `backend.tf.json` already
 exists, inspect it against the [state guide](../skills/oci-deploy/references/backend-state.md#supported-configuration)

@@ -128,7 +128,7 @@ class Client:
         if self.requests > 20 or time.monotonic() >= self.deadline:
             raise ValueError("Observation request bound exceeded.")
         env = {key: value for key, value in os.environ.items() if not key.startswith("OCI_")}
-        env["OCI_CLI_AUTO_PROMPT"] = "False"
+        # Leave OCI_CLI_AUTO_PROMPT absent: even "False" enables the CLI shell.
         raw = self.files.run(self.binary, [*arguments, "--region", self.target["region"],
             "--profile", self.target["profile"], "--auth", self.target["auth"],
             "--config-file", str(self.config_file), "--output", "json", "--cli-rc-file", os.devnull,

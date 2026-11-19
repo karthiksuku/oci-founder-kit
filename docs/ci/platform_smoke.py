@@ -10,12 +10,13 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = '91af893a6ffd631ea98fd1c0727371083a5e6025'
 BASELINES = {BASELINE: '0.5.0', 'c1f8de322564ac37693d25da8fa77f9daa266061': '0.6.0',
-             'd36db320a9783e34e683376de6a363622bfb406a': '0.7.0'}
+             'd36db320a9783e34e683376de6a363622bfb406a': '0.7.0',
+             '3521de84ef7d8f459b60e266fa21e78af8df34ba': '0.8.0'}
 
 
-def run(*args):
+def run(*args, expected=0):
     result = subprocess.run(list(map(str, args)), capture_output=True, text=True, timeout=120, check=False)
-    if result.returncode:
+    if result.returncode != expected:
         raise SystemExit('Platform smoke command failed; no application or credential content is shown.')
     return result.stdout
 
@@ -28,7 +29,7 @@ def main():
     baseline = args.baseline.resolve(strict=True)
     baseline_commit = run('git', '-C', baseline, 'rev-parse', 'HEAD').strip()
     if baseline_commit not in BASELINES:
-        raise SystemExit('The upgrade baseline must be a reviewed v0.5.0, v0.6.0 or v0.7.0 commit.')
+        raise SystemExit('The upgrade baseline must be a reviewed v0.5.0, v0.6.0, v0.7.0 or v0.8.0 commit.')
     work = args.work.absolute()
     work.mkdir(mode=0o700, exist_ok=False)
     original = b'# Existing founder application, preserved during installation and upgrade.\n'
@@ -61,6 +62,15 @@ def main():
     if continued.get('environment') != 'rehearsal':
         raise SystemExit('Installed continuation did not retain explicit environment selection.')
     run(sys.executable, entry, 'support', 'export', '--project', clean, '--environment', 'rehearsal', '--json')
+    for command in ('architecture', 'journey'):
+        report = json.loads(run(sys.executable, entry, command, '--project', clean,
+                               '--environment', 'rehearsal', '--json', expected=3))
+        if report.get('status') != 'incomplete' or report.get('environment') != 'rehearsal':
+            raise SystemExit('Installed evidence report did not preserve incomplete acceptance.')
+    report = json.loads(run(sys.executable, entry, 'release', 'configure', '--project', clean,
+                           '--environment', 'rehearsal', '--json', expected=3))
+    if report.get('status') != 'blocked' or report.get('cloud') != 'not_checked' or not report.get('missing'):
+        raise SystemExit('Installed configuration handoff did not preserve missing prerequisites.')
     if (clean / 'application.py').read_bytes() != original:
         raise SystemExit('Clean install changed application source.')
     onboarding = work / 'onboarding'

@@ -1,6 +1,6 @@
 {
   "schema": "oci-kit-capabilities/1",
-  "checked_on": "2026-11-18",
+  "checked_on": "2026-11-19",
   "entrypoint": "python3 .oci-founder-kit/scripts/kit.py",
   "platforms": [
     {
@@ -40,6 +40,74 @@
         "No cloud requests or automatic account activation, human enrollment or IAM grants.",
         "Onboarding configuration preserves other selections and refuses region or profile changes for bound resources.",
         "Local inspection is not token validity, permission, capacity or deployment evidence."
+      ]
+    },
+    {
+      "id": "deployment-configuration",
+      "title": "Prepare deployment inputs",
+      "summary": "Reuse selected resources and generate reviewed private deployment variables and backend configuration.",
+      "command": [
+        "release",
+        "configure",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/DEPLOYMENT-CONFIGURATION.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Explicit web-container environment",
+        "Reviewed infrastructure and private nonsecret application choices"
+      ],
+      "limitations": [
+        "Local configuration only; runtime IAM, image publication and each cloud operation remain separately reviewed.",
+        "Existing selections and automatic Terraform inputs are never overwritten."
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": "Well-Architected evidence",
+      "summary": "Review current evidence and remaining controls across the five OCI Well-Architected pillars.",
+      "command": [
+        "architecture",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/WELL-ARCHITECTED-REPORT.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Explicit OCI environment",
+        "Existing private reports for observed controls"
+      ],
+      "limitations": [
+        "Read-only projection of local reports, not certification or authenticated proof.",
+        "Unknown IAM, stale observations and missing recovery evidence remain incomplete."
+      ]
+    },
+    {
+      "id": "journey",
+      "title": "Your launch acceptance map",
+      "summary": "See the next requirement for a new app or hosting-first migration without confusing local preparation with live acceptance.",
+      "command": [
+        "journey",
+        "--project",
+        ".",
+        "--environment",
+        "rehearsal",
+        "--kind",
+        "build"
+      ],
+      "guide": "docs/FOUNDER-JOURNEY.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Explicit OCI environment"
+      ],
+      "limitations": [
+        "Missing hosted sign-in, persistence, isolated restore and rollback evidence cannot become a passing journey.",
+        "Restricted harness, ordinary agent and live OCI evidence remain separate."
       ]
     },
     {

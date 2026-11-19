@@ -163,7 +163,7 @@ variable "public_environment" {
   validation {
     condition = alltrue([for key, value in var.public_environment :
       can(regex("^[A-Z][A-Z0-9_]{0,63}$", key)) &&
-      !can(regex("SECRET|PASSWORD|TOKEN|CREDENTIAL|PRIVATE_KEY|ACCESS_KEY|DATABASE_URL|CONNECTION_STRING|^OCI_|^HOST$|^PORT$|^PUBLIC_ORIGIN$", key)) &&
+      !can(regex("SECRET|PASSWORD|TOKEN|CREDENTIAL|KEY|AUTHORIZATION|DATABASE_URL|CONNECTION_STRING|^OCI_|^HOST$|^PORT$|^PUBLIC_ORIGIN$", key)) &&
       length(value) <= 2048 && !can(regex("[\\r\\n]|://[^/]*@|-----BEGIN", value))
     ])
     error_message = "Environment entries must be reviewed nonsecret settings; reserved names and likely credentials are refused."

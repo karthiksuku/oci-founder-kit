@@ -1,6 +1,6 @@
 # OCI Well-Architected decision review
 
-Source checked 13 November 2026:
+Source checked 19 November 2026:
 [Oracle's Well-Architected Framework](https://docs.oracle.com/en/solutions/oci-best-practices/index.html).
 Its five pillars are Security and compliance; Reliability and resilience;
 Performance and cost optimization; Operational efficiency; and Distributed
@@ -21,10 +21,18 @@ have different availability and recovery needs.
 
 ## Security controls are separate changes
 
-The foundation blueprint creates only a compartment and a narrow inspection
-policy. Configure workload networking, NSGs, HTTPS, application authorization,
+The legacy foundation blueprint creates a compartment and a narrow inspection
+policy. The modular workload foundation can separately prepare compartments,
+networking, private state, registry and operator-access plans. Configure NSGs,
+HTTPS, application authorization,
 Secret Management, logging and alarms through the chosen application plan.
 Declare which controls are implemented, tested, proposed or blocked.
+
+Use the [private Well-Architected report](../../../docs/WELL-ARCHITECTED-REPORT.md)
+to inspect current environment-bound evidence across these pillars. It does not
+authenticate owner-supplied reports or certify the workload. The
+[founder journey](../../../docs/FOUNDER-JOURNEY.md) shows the remaining live
+identity, persistence, recovery and migration acceptance work.
 
 Cloud Guard initial enablement and target/responder changes can affect a
 broader compartment subtree. First inspect the existing reporting region,

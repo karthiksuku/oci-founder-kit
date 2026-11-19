@@ -7,12 +7,16 @@ They do not create users, change memberships, grant administrator privileges or
 claim that the application is ready to deploy.
 
 Choose one role explicitly. Use separate groups and private working directories
-when different people need different roles.
+when different people need different roles. A role is proposed policy text, not proof
+that a member session is authorized or isolated.
 
 | Role | Application compartment | Separate state compartment |
 |---|---|---|
 | `foundation-provisioner` | Create/change/delete the eight networking resource types used by the minimal VCN foundation; create/read the exact named repository, including pulling its images | Create the exact named bucket and read its metadata; no updates to an existing bucket |
 | `observer` | Read selected network, Container Instance, load-balancer and metrics metadata; inspect the exact named repository | Read the exact named bucket's metadata |
+| `app-deployer` | Manage the generic web target's Container Instances, load balancer and NSGs; attach to existing networking; read the selected repository and associate the selected existing certificate | No policy attached |
+| `state-operator` | No policy attached | Read bucket-wide object metadata; read/write/delete only the exact state key and its `.lock` companion |
+| `image-publisher` | Read/push to the exact existing repository; OCI's required update permission also permits image, tag and signature mutations | No policy attached |
 
 The network types are VCNs, subnets, route tables, security lists, DHCP options,
 internet gateways, NAT gateways and service gateways. The provisioner can change
@@ -29,16 +33,58 @@ request summaries, which can reveal object names and access settings. The summar
 does not return a preauthenticated access URL; that URL is available only when
 the request is created. Keep this metadata private.
 
-Both roles exclude Terraform-state object reads/writes, preauthenticated request
-creation, retention-rule changes, bucket deletion, image publication/deletion,
-IAM administration, Vault secret-bundle reads, human user/group management and application
-deployment. Neither role grants bucket/repository updates that could change an
-existing private resource to public. These creation permissions do not constrain
+The original `foundation-provisioner` and `observer` grants remain unchanged.
+They exclude state content, publication and app deployment. Every role excludes
+IAM administration, human enrollment, direct Vault secret-bundle reads,
+preauthenticated request creation, retention-rule changes, bucket deletion and
+bucket/repository settings that could make an existing private resource public. These creation permissions do not constrain
 every initial resource setting: use the kit's reviewed private-bucket/repository
 plans. Later configuration changes require a separate administrator review and
 exact plan. Inherited permissions can be broader and are never revoked by this
 template. The provisioner's repository read permission permits image pulls;
-only the observer role excludes image content access.
+the observer and state roles exclude repository image content access.
+
+## Deployment, state and publication boundaries
+
+`app-deployer` supports the generic `web-container` with `manage_runtime_iam=false`.
+An administrator must already have configured the runtime identity, image-pull
+access and any app-specific secret access. The existing certificate, registry,
+VCN, public/private subnets and Container Instances must use the dedicated app
+compartment for this role. A certificate elsewhere needs a separately reviewed
+policy in its own compartment; do not broaden this policy to the tenancy.
+The role includes exact certificate metadata/public bundle reads and association
+management, but no certificate private-key read or certificate creation/renewal.
+Certificate association behavior still requires live acceptance.
+
+Deployment grants include resource deletion and changing traffic/exposure through
+NSGs and load-balancer configuration. They are compartment-wide for these resource
+types, not limited to resources named by the kit. VCN attachment/detachment supports
+NSG creation/deletion without granting VCN creation, configuration or deletion.
+Container, load-balancer and NSG moves are excluded. Container log retrieval is
+excluded, though work-request diagnostics remain available. Creating arbitrary
+containers also lets the operator exercise the runtime identity's permissions
+indirectly. A direct secret-read exclusion does not prevent code deployed by that
+operator from using existing runtime secret permissions. Keep workers and state
+in separate compartments and review the effective runtime permissions.
+
+`state-operator` requires `state_key`. It grants content operations on exactly that
+key and `<state_key>.lock`; no wildcard or non-default Terraform workspace is
+granted. The backend enumerates workspace keys during initialization, so the role
+also grants **bucket-wide object metadata** listing. Use a dedicated bucket with
+no unrelated workloads. Reads include historical state at the permitted name;
+state may contain secrets and must remain private. `OBJECT_DELETE` allows deletion
+of the current state/lock object and can leave versioning markers; the role does
+not grant `OBJECT_VERSION_DELETE` for permanently deleting prior versions. Version
+cleanup and restoration remain separate exact reviewed operations. Keep versioning
+enabled and verify the backend's synthetic lock/recovery test before real state.
+
+`image-publisher` is **not upload-only**: Oracle requires `REPOSITORY_UPDATE` for
+pushes and also uses it for deleting/restoring images, removing versions and
+changing tags/signatures. `REPOSITORY_MANAGE`, which controls repository settings
+and visibility, is excluded, as are repository creation/deletion. Use the existing
+digest-only publication gate for each actual upload. That gate restricts this
+workflow; it cannot prevent a human with the role using another client to perform
+other allowed image operations. Review this authority before granting membership.
 
 ## First account: the administrator handoff
 
@@ -61,7 +107,7 @@ only the observer role excludes image content access.
    `Administrators` or `All-Domain-Users` as a shortcut for this workload role.
 
 The administrator applying this template needs policy-authoring permission in
-**both** compartments. The application and state policies attach separately;
+each compartment receiving a policy; the original two roles attach in **both**. The application and state policies attach separately;
 an application-child policy does not grant access to a sibling state compartment.
 An inherited deny or denied read requires the authorized administrator to resolve
 the boundary. Do not switch identities to circumvent it.
@@ -78,7 +124,9 @@ but the state still contains account identifiers and access policies.
 
 Required inputs are the expected tenancy, selected group, app compartment,
 separate state compartment, exact repository/bucket names, role, policy prefix,
-home region, profile and authentication method. The authenticated profile must
+home region, profile and authentication method. `state-operator` additionally
+requires `state_key`; `app-deployer` requires `certificate_ocid`. Other roles can
+omit those fields. The authenticated profile must
 match the expected account. The IAM region must equal the confirmed home region;
 the app may use another subscribed region. The template compares the supplied
 region values, but does not independently discover the home region.
@@ -102,16 +150,26 @@ targets the separately declared state compartment. Only after the owner approves
 that exact plan, use the gate's printed apply command. Do not run raw apply or
 claim an approved plan was already executed.
 
-There is no `oci-kit foundation` component for this standalone template yet.
-It uses the existing deploy gate directly. Never pass it off as a named web
-deployment, and do not transfer prior approvals. No changes to the gate are
-needed or supplied by this blueprint.
+The `oci-kit foundation` access component can prepare this template with an
+explicit role and bind its private handoff to the named environment and proposal.
+Its output transfers no target resources or authorization claims. Standalone use
+can omit `environment` and `request_sha256`; when supplied, both are required.
+Use the existing deploy gate for every cloud change and never pass this policy
+stack off as a named web deployment or transfer prior approvals.
+
+Existing v0.8 state has two unindexed policy addresses. The included `moved`
+blocks preserve those resources as `[0]` when introducing optional attachments.
+Review the full plan when upgrading; the same original role should not replace
+policies solely because of this address change. Changing role can remove an
+attachment and alter grants, so it requires its own exact reviewed plan.
 
 ## Verify access and continue
 
-Verify both policy attachments and statements with the administrator. After IAM
+Verify every planned policy attachment and statement with the administrator. After IAM
 propagation, use a separate member session to inspect the intended metadata.
-Check denied access to an unrelated compartment and to state objects/secrets.
+Check denied access to an unrelated compartment, another environment's state
+content and direct secret APIs. For state operators test approved synthetic names
+only; for app deployers account for indirect runtime authority.
 Record the identity, target, timestamp, actual result and remaining inherited
 grants privately. Do not print object content, secrets or unredacted policy IDs
 into shared reports. A denied inventory read does not prove an absent resource.
@@ -125,11 +183,12 @@ resource identifiers and administrator inspection instead of broadening grants.
 OCI policy condition matching can be case-insensitive: review name collisions
 before granting access, even though these inputs require lowercase names.
 
-Workload deploy permissions, Container Instance runtime identities, certificate
-associations, state objects/locking and billing reads remain separate reviews.
+The three new roles propose separate workload, publication and state grants.
+Container Instance runtime identities, effective certificate integration, backend
+locking and billing reads still need separate review and live acceptance.
 The observer does not grant certificate metadata, billing access, raw logs,
 registry image reads or all checks needed by the operations dashboard. Missing
-reads remain unknown. Neither role grants tenancy-level region/limit/IAM
+reads remain unknown. No role grants tenancy-level region/limit/IAM
 inventory; the administrator can supply those prerequisites privately.
 
 Before production use, verify meaningful positive and negative access checks in
@@ -140,7 +199,7 @@ is another exact reviewed plan, not automatic cleanup.
 
 ## Public design references
 
-Reviewed 18 November 2026. The templates are original code; no external Terraform
+Reviewed 19 November 2026. The templates are original code; no external Terraform
 module, internal policy or customer configuration was copied.
 
 - [First sign-in and security verification](https://docs.oracle.com/en-us/iaas/Content/GSG/Tasks/signingin_topic-Signing_In_for_the_First_Time.htm)
@@ -158,3 +217,6 @@ module, internal policy or customer configuration was copied.
 - [Container configuration and environment variables](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/container_instances_container_instance.html)
 - [Load-balancer metadata permissions](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/lbpolicyreference.htm)
 - [Metric read permissions](https://docs.oracle.com/en-us/iaas/Content/Identity/Reference/monitoringpolicyreference.htm)
+- [Exact object-name IAM conditions](https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/managingobjects.htm)
+- [Certificate identifiers, public bundle conditions and associations](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/certificatespolicyreference.htm)
+- [Native Terraform OCI backend state/lock paths and permissions](https://developer.hashicorp.com/terraform/language/v1.16.x/backend/oci)

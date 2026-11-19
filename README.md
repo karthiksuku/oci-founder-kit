@@ -143,13 +143,15 @@ Credentials stay out of chat and Git. Budgets provide alerts rather than hard sp
 
 ## What is tested
 
-**0.8.0 preview.** One project-local interface connects app packaging, OCI prerequisites, explicit environments, reviewed releases and private operating evidence. Package Next.js, FastAPI or your Docker app without replacing its source. The optional SaaS essentials pack adds durable jobs, private attachments and signed webhooks with a separate worker identity. Hosting migration retains your existing data and identity. Existing v0.5/v0.6 commands and records remain supported. [Follow the complete workflow →](docs/WORKFLOW.md)
+**0.9.0 preview.** One project-local interface connects app packaging, OCI prerequisites, explicit environments, reviewed releases and private operating evidence. Package Next.js, FastAPI or your Docker app without replacing its source. The optional SaaS essentials pack adds durable jobs, private attachments and signed webhooks with a separate worker identity. Hosting migration retains your existing data and identity. Existing v0.5/v0.6 commands and records remain supported. [Follow the complete workflow →](docs/WORKFLOW.md)
 
 | Verified | Still requires workload-specific validation |
 | --- | --- |
 | Local app/authentication tests, project installation, website/browser checks, migration packaging and read-only OCI plans | Live OCI application deployment, hosted identity, deployed HTTPS, cloud recovery and traffic cutover |
 
-The Taskboard defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets. The [reusable web target](blueprints/web-container/README.md) retains your app's services and requires its own tested authentication and secret adapter. Verify deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.8.0.md)
+The Taskboard defaults to a restricted sandbox. The [hardened reference](blueprints/fullstack-container/PRODUCTION.md) adds HTTPS, OIDC, per-user access and Vault secrets. The [reusable web target](blueprints/web-container/README.md) retains your app's services and requires its own tested authentication and secret adapter. Verify deployed controls and recovery before real users. [Read the test evidence →](docs/RELEASE-0.9.0.md)
+
+Use [deployment configuration](docs/DEPLOYMENT-CONFIGURATION.md) to connect selected resources to private inputs, then inspect [Well-Architected evidence](docs/WELL-ARCHITECTED-REPORT.md) and the [founder journey](docs/FOUNDER-JOURNEY.md) for remaining acceptance work. These reports preserve unknowns and do not certify the workload.
 
 ## Go deeper
 

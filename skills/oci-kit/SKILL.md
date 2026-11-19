@@ -4,7 +4,7 @@ description: Set up OCI and build an app, or migrate an existing web workload fr
 license: UPL-1.0
 metadata:
   author: Karthik Sukumar
-  version: "0.8.0"
+  version: "0.9.0"
 ---
 
 # Start building on OCI
@@ -91,6 +91,16 @@ the private observations. These
 return one `next_action` but never execute it. A website focus or a saved record
 is context, not a completed check or approval. Recheck earlier prerequisites and
 stale results before continuing the requested stage.
+
+For a generic web-container target, use `release configure --environment NAME`
+to inspect missing deployment choices. Its reviewed local proposal reuses selected
+foundation outputs and generates private variables/backend files; it never runs a
+cloud operation or replaces existing inputs. Follow
+[deployment configuration](../../docs/DEPLOYMENT-CONFIGURATION.md).
+Use `architecture --environment NAME` and `journey --environment NAME --kind build`
+(or `--kind migrate`) to inspect current evidence and remaining acceptance work.
+These read-only reports preserve unknowns; an incomplete report is a next-action
+map, not a reason to discard the application or claim production success.
 
 If state is missing, inspect the app and initialize it with `start --mode existing`.
 For a legacy kit without this helper, follow the [update guide](../../docs/INSTALL.md#update-or-remove-a-project-installation)

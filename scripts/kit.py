@@ -29,7 +29,7 @@ class Parser(argparse.ArgumentParser):
 def parser():
     cli = Parser(description=__doc__)
     commands = cli.add_subparsers(dest="command", required=True, parser_class=Parser)
-    for name in ("onboard", "start", "status", "next", "doctor", "package", "foundation", "release", "verify", "observe", "support", "environment", "capabilities"):
+    for name in ("onboard", "start", "status", "next", "doctor", "package", "foundation", "release", "verify", "observe", "architecture", "journey", "support", "environment", "capabilities"):
         child = commands.add_parser(name)
         child.add_argument("--project", type=Path, default=Path("."))
         child.add_argument("--environment")
@@ -80,6 +80,8 @@ def parser():
         if name == "support":
             child.add_argument("action", choices=("export",))
             child.add_argument("--write", action="store_true", help="Write the displayed allowlisted projection to a new private file; never upload.")
+        if name == "journey":
+            child.add_argument("--kind", choices=("build", "migrate"), default="build")
         if name == "environment":
             child.add_argument("action", choices=("list", "create", "configure"))
             child.add_argument("--role", choices=("source", "rehearsal", "production"))
@@ -90,8 +92,9 @@ def parser():
             child.add_argument("--components-file", type=Path)
             child.add_argument("--convert-legacy", action="store_true")
         if name == "release":
-            child.add_argument("action", choices=("init", "plan", "run", "apply", "list", "record", "rollback"))
+            child.add_argument("action", choices=("configure", "init", "plan", "run", "apply", "list", "record", "rollback"))
             child.add_argument("--approve")
+            child.add_argument("--config", type=Path, help="Private nonsecret deployment choices for release configure.")
             child.add_argument("--backend-config", type=Path)
             child.add_argument("--var-file", type=Path, action="append", default=[])
             child.add_argument("--receipt", type=Path)
@@ -242,9 +245,18 @@ def dispatch(args):
     if args.command == "observe":
         return p.helper("operations").request(args.project, environment=args.environment, live=args.live,
                     receipt=args.receipt, config_file=args.config_file, cost_config=args.cost_config, component=args.component)
+    if args.command == "architecture":
+        return p.helper("architecture").request(args.project, environment=args.environment)
+    if args.command == "journey":
+        return p.helper("journey_acceptance").request(args.project, environment=args.environment, journey=args.kind)
     if args.command == "support":
         return p.helper("support").request(args.project, environment=args.environment, write=args.write)
     if args.command == "release":
+        if args.action == "configure":
+            if args.component != "web" or (args.config and args.approve):
+                raise common.KitError("DEPLOYMENT_CONFIG_INPUT")
+            return p.helper("deployment_config").request(args.project, environment=args.environment,
+                action="prepare" if args.approve else "propose" if args.config else "inspect", config=args.config, approve=args.approve)
         if args.action in {"init", "plan", "run", "apply"}:
             return gate_request(p, common, args, selected)
         if args.component != "web":
@@ -268,7 +280,8 @@ def main(argv=None):
             known = [item for item in codes if isinstance(item, str) and item in common.ERRORS]
             value = common.project_blocked(value, code=value.get("code", known[0] if known else default),
                                           command=args.command, action=args.action, environment=args.environment)
-        code = 3 if value.get("status") in {"blocked", "failed"} else 0
+        code = 3 if value.get("status") in {"blocked", "failed"} or (
+            args.command in {"architecture", "journey"} and value.get("status") == "incomplete") else 0
     except (ValueError, OSError, KeyError, TypeError, RecursionError) as exc:
         value = common.error(getattr(exc, "code", "UNSAFE_INPUT"), missing=getattr(exc, "missing", ()))
         code = 3
@@ -276,7 +289,7 @@ def main(argv=None):
         # Known gate exceptions are deliberately opaque at this boundary.
         value = common.error("OPERATION_FAILED"); code = 3
     if "error" in value:
-        command = args.command if "args" in locals() and args.command in {"onboard", "package", "foundation", "doctor", "observe", "release", "environment", "support", "verify", "status", "next", "start"} else None
+        command = args.command if "args" in locals() and args.command in {"onboard", "package", "foundation", "doctor", "observe", "architecture", "journey", "release", "environment", "support", "verify", "status", "next", "start"} else None
         value["error"].setdefault("recheck_command", ["python3", ".oci-founder-kit/scripts/kit.py", *([command] if command else []), "--help"])
         if command == "onboard":
             value["error"]["recheck_command"] = ["python3", str(ROOT / "scripts/kit.py"), "onboard", "--help"]
@@ -292,6 +305,15 @@ def main(argv=None):
         print("Recheck: " + shlex.join(error["recheck_command"]))
     elif value.get("schema") == "oci-kit-onboarding/1":
         common.project_module().helper("onboarding").render(value)
+    elif value.get("schema") == "oci-founder-journey/1":
+        common.project_module().helper("journey_acceptance").render(value)
+    elif value.get("schema") == "oci-kit-architecture/1":
+        print("Well-Architected evidence: " + value["environment"] + " · " + value["status"])
+        for pillar in value["pillars"]:
+            print(pillar["title"])
+            for control in pillar["controls"]:
+                print("  " + control["id"] + ": " + control["status"] + " · " + control["owner"])
+                print("  " + control["instruction"])
     else:
         print(json.dumps(value, indent=2, sort_keys=True))
     return code

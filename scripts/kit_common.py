@@ -46,6 +46,10 @@ for codes, phase, owner, recovery in (
     ("FOUNDATION_BOUNDARY FOUNDATION_STATE_BOUNDARY", "foundation-isolation", "administrator", "Select dedicated non-root workload and state compartments and obtain authorized review of inherited IAM before continuing."),
     ("FOUNDATION_CHANGED FOUNDATION_STALE_PROPOSAL", "foundation-review", "owner", "Prepare and review a new local foundation proposal; source changes invalidate old hashes and cloud approvals remain separate."),
     ("FOUNDATION_OUTPUTS FOUNDATION_OUTPUT_BINDING FOUNDATION_OUTPUT_FIELDS FOUNDATION_OUTPUT_TARGET FOUNDATION_STALE_OUTPUT FOUNDATION_BACKEND_BINDING FOUNDATION_INPUT_OR_HANDOFF_FAILED", "foundation-handoff", "agent", "Inspect private output from the exact prepared component and its separately approved apply; recheck environment, proposal and backend bindings before importing it."),
+    ("DEPLOYMENT_CONFIG_INPUT", "deployment-configuration", "founder", "Review the missing nonsecret target and application choices in docs/DEPLOYMENT-CONFIGURATION.md. Credentials stay outside all Terraform inputs."),
+    ("DEPLOYMENT_CONFIG_TARGET DEPLOYMENT_CONFIG_RETARGET", "deployment-selection", "owner", "Select an explicit web-container target. Preserve existing resource selections; a retarget requires the separate backed-up environment configuration workflow."),
+    ("DEPLOYMENT_CONFIG_SOURCE DEPLOYMENT_CONFIG_EXISTING_INPUT", "deployment-source", "agent", "Inspect the existing infrastructure and Terraform inputs without replacing them. Automatic preparation requires reviewed blueprint sources and no automatic variable files; use the manual workflow for existing inputs."),
+    ("DEPLOYMENT_CONFIG_STALE", "deployment-review", "owner", "Prepare and review a fresh local deployment configuration proposal after source, environment, kit or expiry changes. Its hash authorizes no cloud operation."),
 ):
     for code in codes.split():
         ERRORS[code] = (phase, owner, recovery)

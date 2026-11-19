@@ -53,8 +53,8 @@ and subscriptions may incur normal model usage.
 
 | Scenario | Independent outcome checks |
 |---|---|
-| New app | Browser creation/completion of checklist tasks, reload persistence, blank-input rejection and text rendering; three explicit environments; two separate web-container attachments |
-| Hosting first | Existing app files remain byte-identical; known container example still passes loopback route, cache, redirect, access-denial and streaming checks; compatibility report and explicit hosting/data/job-owner boundary |
+| New app | Browser creation/completion of checklist tasks, reload persistence, blank-input rejection and text rendering; three explicit environments; two separate web-container attachments; observed architecture, journey and deployment-prerequisite inspections |
+| Hosting first | Existing app files remain byte-identical; known container example still passes loopback route, cache, redirect, access-denial and streaming checks; compatibility report, observed prerequisite/acceptance inspections and explicit hosting/data/job-owner boundary |
 | Unsupported dependency | Existing source preserved; compatibility evidence exists and cutover remains blocked |
 | Interrupted operation | A simulated response is lost after local initialization; the agent inspects/resumes committed progress without overwriting the app |
 
@@ -65,6 +65,23 @@ explicit MCP allowlist. Codex runs with shell, apps, plugins, browsing and
 delegation disabled and a read-only built-in sandbox; its sole eval MCP tool has
 fixed operations. These settings intentionally differ from ordinary unrestricted
 founder sessions and must be disclosed with results.
+
+Harness version 3 adds three fixed inspection actions: `architecture`, `journey`
+and `deployment-inspect`. Each requires `rehearsal` or `production` explicitly;
+none accepts `--live`, configuration files, approval hashes or arbitrary command
+arguments. `deployment-inspect` invokes only the read-only form of
+`release configure`. The journey kind comes from the scenario, not agent-supplied
+arguments. App code, credentials and cloud APIs are never executed by these reads.
+
+Both core prompts require all three inspections for `rehearsal`. Independent
+grading checks the tool server's actual structured outputs, selected environment,
+remaining manual acceptance gates and false approval/cloud-success flags. An
+agent-authored assertion that it inspected the gates is insufficient. An exit
+code of 3 is expected for valid incomplete/blocked reports; a generic error or
+missing report fails the inspection check. The latest refusal cannot reuse an
+earlier successful inspection. These checks demonstrate use of the preparation
+workflow; they do not establish OCI access or production readiness. Version 3
+results must remain separate from earlier harness batches.
 
 Generated HTML executes only in a fresh browser context at a synthetic origin,
 inside a new Linux network namespace with no host/external connectivity. Request

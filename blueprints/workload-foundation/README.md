@@ -10,6 +10,7 @@ the enterprise landing zone, grant administrator access or claim CIS certificati
 | network | VCN, public load-balancer subnet, private application subnet, internet/NAT/service gateways, routes and an empty security list | Explicit nonoverlapping RFC1918 /16; no default SSH access. App blueprint supplies reviewed NSGs. NAT permits routed egress only when NSGs allow it. |
 | state | Empty private versioned bucket in the separate state compartment | No state upload, credential or IAM change. Inherited access and backend locking still need verification. Deletion is protected. |
 | registry | Empty private repository in the app compartment | Digest-only publication, no implicit tag or upload. Deletion is protected. |
+| access | One explicit operator role using the [workload-access templates](../workload-access/README.md) | Administrator profile selected explicitly; policies written in the home region. No enrollment or runtime IAM grants. Effective inherited access remains unverified. |
 
 All components pin OCI provider 9.10.0 with the reviewed provider lock. Each has
 credential-free Terraform mock-plan assertions. Mock results and configuration
@@ -51,6 +52,7 @@ handoff are remembered:
 | network | vcn_cidr; app compartment already bound to the environment |
 | state | state_compartment_id, namespace, state_key ending .tfstate, workspace_key_prefix with no overlap |
 | registry | app compartment already bound to the environment |
+| access | state_compartment_id, home_region, developer_group_id, access_role, registry_name, state_bucket_name, administrator_profile, administrator_auth; state-operator also needs state_key; app-deployer also needs certificate_id |
 | Optional certificate responsibility | certificate: hostname, renewal_owner (role name), ownership (unverified or verified-by-owner) |
 
 ~~~sh
@@ -85,6 +87,19 @@ The compartments handoff remembers the separate state compartment for the state
 component. Network and registry handoffs bind the app target directly. State
 handoff binds the backend destination, while initialization and synthetic lock/
 recovery tests retain their own approval boundaries.
+
+Access roles are proposed separately: foundation-provisioner, observer,
+app-deployer, state-operator and image-publisher. The selected administrator must
+already be authorized to write the exact policies. Selecting their context is an
+explicit administrative handoff, not a workaround for a denied workload identity.
+The access handoff does not switch the app's profile, region or backend to the
+administrator's context and never establishes that effective permissions passed.
+The image-publisher permission also permits image deletion/tag changes; the state
+role lists bucket metadata but accesses only the exact default-workspace state and
+lock objects. Read the role-specific boundaries before reviewing a policy plan.
+
+Once these prerequisites are selected, [release configure](../../docs/DEPLOYMENT-CONFIGURATION.md)
+can generate private deployment inputs without copying resource identifiers.
 
 Before using any state bucket, the authorized administrator must resolve inherited
 access restrictions and verify isolation. The private bucket flag alone is

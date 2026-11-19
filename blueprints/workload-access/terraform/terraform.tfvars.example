@@ -11,3 +11,9 @@ region                 = "REPLACE_WITH_HOME_REGION"
 home_region            = "REPLACE_WITH_CONFIRMED_HOME_REGION"
 config_file_profile    = "REPLACE_WITH_ADMINISTRATOR_PROFILE"
 auth                   = "SecurityToken"
+
+# For role = "state-operator", bind the exact default-workspace key privately:
+# state_key = "rehearsal/app.tfstate"
+# For role = "app-deployer", select an existing certificate in the app compartment:
+# certificate_ocid = "REPLACE_WITH_EXISTING_CERTIFICATE_OCID"
+# The foundation helper supplies environment/request_sha256; omit for standalone use.

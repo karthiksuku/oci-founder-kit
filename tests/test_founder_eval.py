@@ -67,6 +67,23 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(json.loads(selected["output"])["environment"], "rehearsal")
         self.assertEqual(json.loads(selected["output"])["continuation_command"][-2:], ["--environment", "rehearsal"])
 
+    def test_actual_inspection_actions_return_blocked_gates_without_changing_app(self):
+        for action, environment in (("start", None), ("environment", "rehearsal"), ("attach", "rehearsal")):
+            args = {"operation": "action", "action": action}
+            if environment:
+                args["environment"] = environment
+            result = evaluation.call(self.path, args)
+            self.assertEqual(result["exit_code"], 0, result.get("output"))
+        app = self.path / "app"
+        before = {str(path.relative_to(app)): path.read_bytes() for path in app.rglob("*") if path.is_file()}
+        for action in ("architecture", "journey", "deployment-inspect"):
+            result = evaluation.call(self.path, {"operation": "action", "action": action, "environment": "rehearsal"})
+            self.assertEqual(result["exit_code"], 3, result.get("output"))
+        after = {str(path.relative_to(app)): path.read_bytes() for path in app.rglob("*") if path.is_file()}
+        self.assertEqual(before, after)
+        events = evaluation.read(self.path / "events.json")
+        self.assertTrue(all(evaluation.inspection_checks(events, "hosting-first").values()))
+
     def test_symlink_and_large_file_refused(self):
         target = self.path / "app/README.md"
         target.symlink_to(self.path / "evaluation.json")
@@ -207,6 +224,102 @@ class EvaluationTests(unittest.TestCase):
             result = evaluation.app_test(self.path, value)
         self.assertEqual(result["status"], "unavailable")
         client.assert_not_called()
+
+
+class EvaluationInspectionBoundaries(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.path = Path(temporary.name)
+
+    def test_inspections_are_read_only_selected_commands(self):
+        for scenario in ("new-app", "hosting-first"):
+            for action in ("architecture", "journey", "deployment-inspect"):
+                for environment in ("rehearsal", "production"):
+                    with self.subTest(scenario=scenario, action=action, environment=environment), \
+                         mock.patch.object(evaluation, "fixed_command", return_value={"exit_code": 3, "output": "{}"}) as run:
+                        evaluation.action(self.path, {"scenario": scenario}, action, environment)
+                        command = run.call_args.args[0]
+                        self.assertEqual(command[0], ROOT / "scripts/kit.py")
+                        self.assertEqual(command[command.index("--environment") + 1], environment)
+                        self.assertIn("--json", command)
+                        self.assertIn("--non-interactive", command)
+                        for forbidden in ("--live", "--approve", "--config", "apply", "run", "init", "plan"):
+                            self.assertNotIn(forbidden, command)
+                        if action == "deployment-inspect":
+                            self.assertEqual(command[1:3], ["release", "configure"])
+                        elif action == "journey":
+                            self.assertEqual(command[command.index("--kind") + 1], "build" if scenario == "new-app" else "migrate")
+                        else:
+                            self.assertEqual(command[1], "architecture")
+
+    def test_inspections_refuse_missing_source_and_arbitrary_environment(self):
+        for action in ("architecture", "journey", "deployment-inspect"):
+            for environment in (None, "source", "other", "production --live"):
+                with self.subTest(action=action, environment=environment), \
+                     mock.patch.object(evaluation, "fixed_command") as run, self.assertRaises(ValueError):
+                    evaluation.action(self.path, {"scenario": "new-app"}, action, environment)
+                run.assert_not_called()
+
+    def reports(self, scenario="hosting-first"):
+        values = {
+            "architecture": {"schema": "oci-kit-architecture/1", "status": "incomplete", "environment": "rehearsal",
+                             "read_only": True, "cloud_requests": False, "approval_granted": False,
+                             "certified": False, "production_ready": False, "pillars": [{"controls": [{"id": "control", "status": "unknown"}]}]},
+            "journey": {"schema": "oci-founder-journey/1", "status": "incomplete", "environment": "rehearsal",
+                        "journey": "build" if scenario == "new-app" else "migrate", "journey_accepted": False,
+                        "approval_granted": False, "network_requests": 0,
+                        "gates": [{"id": name, "status": "missing"} for name in
+                                  ("effective_iam_isolation", "hosted_sign_in", "two_user_isolation", "isolated_restore", "image_rollback",
+                                   "browser_workflows", "retained_services", "background_work_ownership", "traffic_rollback")]},
+            "deployment-inspect": {"schema": "oci-kit-deployment-config/1", "status": "blocked", "environment": "rehearsal",
+                                   "cloud": "not_checked", "approval_granted": False,
+                                   "evidence_scope": "local-configuration-only", "missing": ["backend"]},
+        }
+        return [{"action": name, "environment": "rehearsal", "result": {"exit_code": 3, "output": json.dumps(value)}}
+                for name, value in values.items()]
+
+    def test_grader_requires_real_report_shapes_not_agent_claims(self):
+        for scenario in ("new-app", "hosting-first"):
+            events = self.reports(scenario)
+            checks = evaluation.inspection_checks(events, scenario)
+            self.assertTrue(all(checks.values()))
+            self.assertFalse(any(evaluation.inspection_checks([], scenario).values()))
+            self.assertFalse(evaluation.inspection_checks(events[1:], scenario)["architecture_inspected"])
+            events[0]["result"] = {"exit_code": 3, "output": json.dumps({"status": "blocked", "error": {"code": "UNSAFE_INPUT"}})}
+            self.assertFalse(evaluation.inspection_checks(events, scenario)["architecture_inspected"])
+
+    def test_wrong_target_scope_and_claimed_cloud_success_cannot_pass_inspection(self):
+        mutations = [("architecture", "certified", True), ("architecture", "cloud_requests", True),
+                     ("journey", "journey_accepted", True), ("journey", "network_requests", 1),
+                     ("journey", "journey", "build"), ("deployment-inspect", "approval_granted", True),
+                     ("deployment-inspect", "cloud", "verified"), ("deployment-inspect", "missing", [])]
+        for action, field, value in mutations:
+            with self.subTest(action=action, field=field):
+                events = self.reports()
+                event = next(row for row in events if row["action"] == action)
+                report = json.loads(event["result"]["output"])
+                report[field] = value;event["result"]["output"] = json.dumps(report)
+                self.assertFalse(all(evaluation.inspection_checks(events, "hosting-first").values()))
+        for field in ("environment", "result"):
+            events = self.reports()
+            if field == "environment": events[1][field] = "production"
+            else: events[1][field] = {"exit_code": 0, "output": "not-json"}
+            self.assertFalse(evaluation.inspection_checks(events, "hosting-first")["journey_inspected"])
+
+    def test_newest_refusal_does_not_reuse_earlier_success(self):
+        events = self.reports()
+        events.append({"action": "journey", "environment": "rehearsal", "result": {"exit_code": 3, "output": "{}"}})
+        self.assertFalse(evaluation.inspection_checks(events, "hosting-first")["journey_inspected"])
+
+    def test_prompt_requires_inspection_and_version_distinguishes_trials(self):
+        self.assertEqual(evaluation.HARNESS_VERSION, "3")
+        for scenario in ("new-app", "hosting-first"):
+            prompt = evaluation.prompt(scenario)
+            for action in ("architecture", "journey", "deployment-inspect"):
+                self.assertIn("action=" + action, prompt)
+            self.assertIn("environment=rehearsal", prompt)
+            self.assertIn("incomplete", prompt)
 
 
 class EvaluationIdentityAndBatch(unittest.TestCase):

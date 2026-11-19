@@ -189,9 +189,10 @@ to prepare workload resources; the agent does not automate these Console writes.
    inherited policies using [Oracle's policy reference](https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/managingpolicies.htm).
    Never substitute a tenancy-wide administrator grant for a missing permission.
    The optional [workload-access templates](../blueprints/workload-access/README.md)
-   prepare narrowly defined foundation-provisioner or observer policies for
-   existing groups and compartments. They do not grant application deployment,
-   state-object access, secret access or human identity administration. Review
+   prepare an explicit foundation-provisioner, observer, app-deployer,
+   state-operator or image-publisher role for existing groups and compartments.
+   Roles remain separate; runtime identity and human enrollment are prerequisites.
+   State and publication permissions have documented collateral authority. Review
    each role's remaining powers and exclusions before using it.
 5. **Verify and hand back.** Check the intended operator can inspect the selected
    target; verify access to an unrelated target is denied unless separately

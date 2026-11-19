@@ -19,12 +19,16 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPONENTS = ("compartments", "network", "state", "registry")
+COMPONENTS = ("compartments", "network", "state", "registry", "access")
 INPUTS = {"workspace", "component", "name", "region", "home_region", "profile", "auth", "tenancy_id",
-          "parent_compartment_id", "state_compartment_id", "vcn_cidr", "namespace", "state_key", "workspace_key_prefix"}
+          "parent_compartment_id", "state_compartment_id", "vcn_cidr", "namespace", "state_key", "workspace_key_prefix",
+          "developer_group_id", "access_role", "registry_name", "state_bucket_name", "certificate_id",
+          "administrator_profile", "administrator_auth"}
 COMMON = {"workspace", "component", "name", "region", "profile", "auth", "tenancy_id"}
 EXTRA = {"compartments": {"parent_compartment_id", "home_region"}, "network": {"vcn_cidr"},
-         "state": {"state_compartment_id", "namespace", "state_key", "workspace_key_prefix"}, "registry": set()}
+         "state": {"state_compartment_id", "namespace", "state_key", "workspace_key_prefix"}, "registry": set(),
+         "access": {"state_compartment_id", "home_region", "developer_group_id", "access_role", "registry_name",
+                    "state_bucket_name", "administrator_profile", "administrator_auth"}}
 
 
 class FoundationError(ValueError):
@@ -86,16 +90,22 @@ def choices(value, env, p):
             if not isinstance(item, str) or not item or len(item) > 512 or any(ord(c) < 32 for c in item):
                 raise FoundationError("FOUNDATION_CONFIG", "Use bounded nonsecret string choices.")
         gate = p.helper("readiness").load("skills/oci-deploy/scripts/deploy_gate.py")
-        patterns = {"component": "(?:compartments|network|state|registry)", "name": "[a-z][a-z0-9-]{2,24}",
+        patterns = {"component": "(?:compartments|network|state|registry|access)", "name": "[a-z][a-z0-9-]{2,24}",
                     "region": gate.REGION.pattern, "home_region": gate.REGION.pattern,
                     "profile": "[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", "auth": "(?:api_key|security_token)",
-                    "namespace": "[a-z0-9]{1,64}"}
+                    "namespace": "[a-z0-9]{1,64}",
+                    "administrator_profile": "[A-Za-z0-9][A-Za-z0-9_.-]{0,63}",
+                    "administrator_auth": "(?:api_key|security_token)",
+                    "access_role": "(?:foundation-provisioner|observer|app-deployer|state-operator|image-publisher)",
+                    "registry_name": "[a-z0-9]+(?:[._/-][a-z0-9]+)*",
+                    "state_bucket_name": "[a-z0-9]+(?:[._-][a-z0-9]+)*"}
         for key, pattern in patterns.items():
             if key in value and not re.fullmatch(pattern, value[key]):
                 raise FoundationError("FOUNDATION_CONFIG", "Correct the " + key + " format in private foundation choices; use the deployment gate's supported format (profiles: 1-64 characters).")
         references = [(key, kind, value.get(key)) for key, kind in
-                      (("tenancy_id", "tenancy"), ("parent_compartment_id", "compartment"), ("state_compartment_id", "compartment"))]
-        if value.get("component") in {"network", "registry"}:
+                      (("tenancy_id", "tenancy"), ("parent_compartment_id", "compartment"), ("state_compartment_id", "compartment"),
+                       ("developer_group_id", "group"), ("certificate_id", "certificate"))]
+        if value.get("component") in {"network", "registry", "access"}:
             references.append(("environment.compartment_id", "compartment", env["target"].get("compartment_id")))
         for key, kind, reference in references:
             if reference is None:
@@ -105,6 +115,19 @@ def choices(value, env, p):
                 raise FoundationError("FOUNDATION_BOUNDARY", "Correct " + key + " in private configuration; select the expected tenancy or a dedicated non-root compartment.")
         if value.get("state_compartment_id") and value["state_compartment_id"] == env["target"].get("compartment_id"):
             raise FoundationError("FOUNDATION_STATE_BOUNDARY", "Use a separate state compartment; private access does not override inherited IAM.")
+        if value.get("component") == "access":
+            if "registry_name" in value and len(value["registry_name"]) > 255 or "state_bucket_name" in value and len(value["state_bucket_name"]) > 256:
+                raise FoundationError("FOUNDATION_CONFIG", "Use bounded exact repository and bucket names.")
+            backend = env.get("backend")
+            if backend and (value.get("state_bucket_name", backend["bucket"]) != backend["bucket"]
+                    or value.get("access_role") == "state-operator" and value.get("state_key", backend["key"]) != backend["key"]):
+                raise FoundationError("FOUNDATION_BACKEND_BINDING", "The access role must match the selected environment's exact backend bucket and state key.")
+            if value.get("certificate_id") and env["target"].get("certificate_id") and value["certificate_id"] != env["target"]["certificate_id"]:
+                raise FoundationError("FOUNDATION_OUTPUT_TARGET", "The access role must reference the selected certificate.")
+            if "state_key" in value and (len(value["state_key"]) > 240
+                    or not re.fullmatch(r"[a-z0-9][a-z0-9._/-]*\.tfstate", value["state_key"])
+                    or any(part in {"", ".", ".."} for part in value["state_key"].split("/"))):
+                raise FoundationError("FOUNDATION_BACKEND", "Select one bounded exact lowercase state key; named workspaces are not granted by this role.")
         if "vcn_cidr" in value:
             network = ipaddress.ip_network(value["vcn_cidr"], strict=True)
             private = [ipaddress.ip_network(c) for c in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
@@ -152,9 +175,11 @@ def workspace(value, project, p):
 
 
 def templates(component, p):
-    _, fd = p.open_project(ROOT / "blueprints/workload-foundation" / component)
+    directory = ROOT / "blueprints/workload-access/terraform" if component == "access" else ROOT / "blueprints/workload-foundation" / component
+    _, fd = p.open_project(directory)
     try:
-        return {name: p.read_at(fd, name).decode() for name in ("main.tf", "versions.tf", ".gitignore", ".terraform.lock.hcl")}
+        names = ("main.tf", "versions.tf", ".gitignore", ".terraform.lock.hcl") + (("variables.tf",) if component == "access" else ())
+        return {name: p.read_at(fd, name).decode() for name in names}
     finally:
         os.close(fd)
 
@@ -172,6 +197,16 @@ def tfvars(value, env, sha):
         result["vcn_cidr"] = value["vcn_cidr"]
     if component == "state":
         result.update(namespace=value["namespace"], state_key=value["state_key"], workspace_key_prefix=value["workspace_key_prefix"])
+    if component == "access":
+        result.update(region=value["home_region"], home_region=value["home_region"],
+            config_file_profile=value["administrator_profile"],
+            auth={"api_key": "APIKey", "security_token": "SecurityToken"}[value["administrator_auth"]],
+            state_compartment_ocid=value["state_compartment_id"], developer_group_ocid=value["developer_group_id"],
+            role=value["access_role"], registry_name=value["registry_name"], state_bucket_name=value["state_bucket_name"])
+        if value["access_role"] == "state-operator":
+            result["state_key"] = value["state_key"]
+        if value["access_role"] == "app-deployer":
+            result["certificate_ocid"] = value["certificate_id"]
     return result
 
 
@@ -236,8 +271,12 @@ def request(project: Path, *, environment: str, action="inspect", config=None, a
             missing, source, workspace_identity = [], {}, None
             if value["mode"] == "create":
                 missing = sorted((COMMON | EXTRA.get(value.get("component"), set())) - value.keys())
-                if value.get("component") in {"network", "registry"} and not env["target"].get("compartment_id"):
+                if value.get("component") in {"network", "registry", "access"} and not env["target"].get("compartment_id"):
                     missing.append("environment.compartment_id")
+                if value.get("component") == "access":
+                    required = {"state-operator": "state_key", "app-deployer": "certificate_id"}.get(value.get("access_role"))
+                    if required and required not in value:
+                        missing.append(required)
                 if not missing:
                     _, workspace_identity = workspace(value["workspace"], project, p)
                     source = templates(value["component"], p)
@@ -269,7 +308,8 @@ def request(project: Path, *, environment: str, action="inspect", config=None, a
                 raise FoundationError("FOUNDATION_CHANGED", "Workspace or source templates changed; prepare a fresh proposal.")
             variables = tfvars(value, env, approve)
             _, parent = p.open_project(destination)
-            name = environment + "-" + value["component"] + "-" + approve[:12]
+            stage_name = value["component"] + ("-" + value["access_role"] if value["component"] == "access" else "")
+            name = environment + "-" + stage_name + "-" + approve[:12]
             try:
                 os.mkdir(name, 0o700, dir_fd=parent)
                 fd = os.open(name, p.DIRECTORY, dir_fd=parent)
@@ -283,14 +323,14 @@ def request(project: Path, *, environment: str, action="inspect", config=None, a
             finally:
                 os.close(parent)
             stages = optional(store, "foundation-stages.json", p)
-            stages[value["component"]] = {"sha256": approve, "binding": binding, "directory": str(destination / name),
-                "region": value["region"], "variables": variables, "sources": packet["sources"], "handed_off": False}
+            stages[stage_name] = {"sha256": approve, "binding": binding, "directory": str(destination / name),
+                "region": variables["region"], "variables": variables, "sources": packet["sources"], "handed_off": False}
             save(store, "foundation-stages.json", stages, p)
             gate = str(ROOT / "skills/oci-deploy/scripts/deploy_gate.py")
             return {"schema": "oci-kit-foundation/1", "status": "prepared", "environment": environment, "component": value["component"],
                     "directory": str(destination / name), "cloud": "not_checked", "next": "review-exact-cloud-plan",
                     "plan_command": ["python3", gate, "plan", "--dir", str(destination / name)],
-                    "scope": "Local source and private variables only. No IAM policy, certificate private key, cloud operation or approval is created."}
+                    "scope": "Local source and private variables only. Access components contain IAM proposals, never executed grants. No cloud operation or approval is created."}
         return handoff(store, outputs, binding, p)
 
 
@@ -298,7 +338,8 @@ def handoff(store, outputs, binding, p):
     if outputs is None:
         raise FoundationError("FOUNDATION_OUTPUTS", "Provide private Terraform output JSON from the prepared component after its separately approved apply.")
     raw = read_private(outputs, p)
-    if set(raw) != {"foundation"} or not isinstance(raw["foundation"], dict) or raw["foundation"].get("sensitive") is not False:
+    if (not {"foundation"}.issubset(raw) or set(raw) - {"foundation", "access_review"}
+            or not isinstance(raw["foundation"], dict) or raw["foundation"].get("sensitive") is not False):
         raise FoundationError("FOUNDATION_OUTPUTS", "Use bounded terraform output -json from the prepared stage; secret outputs are refused.")
     output, env, environment = raw["foundation"].get("value"), store.environment_config, store.environment
     required = {"schema", "component", "environment", "request_sha256", "region", "target", "private"}
@@ -308,6 +349,13 @@ def handoff(store, outputs, binding, p):
         raise FoundationError("FOUNDATION_OUTPUT_BINDING", "Output must belong to the selected environment and prepared component.")
     stages = optional(store, "foundation-stages.json", p)
     stage = stages.get(output["component"])
+    if output["component"] == "access":
+        if "access_review" in raw and (not isinstance(raw["access_review"], dict) or raw["access_review"].get("sensitive") is not False):
+            raise FoundationError("FOUNDATION_OUTPUT_FIELDS", "Secret or malformed access review outputs are refused.")
+        matches = [value for key, value in stages.items() if key.startswith("access-") and value.get("sha256") == output["request_sha256"]]
+        stage = matches[0] if len(matches) == 1 else None
+    elif "access_review" in raw:
+        raise FoundationError("FOUNDATION_OUTPUT_FIELDS", "Only access components may include the separate access review output.")
     if (not stage or stage["handed_off"] or output["request_sha256"] != stage["sha256"] or stage["binding"] != binding
             or output["region"] != stage["region"]):
         raise FoundationError("FOUNDATION_STALE_OUTPUT", "Output is stale, already imported or belongs to another proposal; inspect the current component and environment.")
@@ -318,7 +366,7 @@ def handoff(store, outputs, binding, p):
     finally:
         os.close(fd)
     expected = {"compartments": {"compartment_id"}, "network": {"compartment_id", "vcn_id", "app_subnet_id", "lb_subnet_id", "app_private_ip"},
-                "state": set(), "registry": {"compartment_id", "registry_id"}}
+                "state": set(), "registry": {"compartment_id", "registry_id"}, "access": set()}
     if not isinstance(output["target"], dict) or set(output["target"]) != expected[output["component"]]:
         raise FoundationError("FOUNDATION_OUTPUT_FIELDS", "Only the prepared component's allowlisted outputs can be imported.")
     if output["component"] != "compartments" and output["target"].get("compartment_id", env["target"].get("compartment_id")) != env["target"].get("compartment_id"):
@@ -339,9 +387,10 @@ def handoff(store, outputs, binding, p):
         backend = output["backend"]
     elif "backend" in output:
         raise FoundationError("FOUNDATION_OUTPUT_FIELDS", "Only the state component can bind a backend.")
-    target = dict(env["target"], **output["target"], region=output["region"])
-    target.update(profile=variables["config_file_profile"], auth={"APIKey": "api_key", "SecurityToken": "security_token"}[variables["auth"]])
-    bind(store, target, backend, p)
+    if output["component"] != "access":
+        target = dict(env["target"], **output["target"], region=output["region"])
+        target.update(profile=variables["config_file_profile"], auth={"APIKey": "api_key", "SecurityToken": "security_token"}[variables["auth"]])
+        bind(store, target, backend, p)
     stage["handed_off"] = True
     save(store, "foundation-stages.json", stages, p)
     save(store, "foundation-settings.json", settings, p)

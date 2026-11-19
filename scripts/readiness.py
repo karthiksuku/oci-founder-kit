@@ -34,7 +34,8 @@ def load(relative: str):
 def safe_runner(argv, **kwargs):
     # Explicit profile/config/region must win over inherited CLI configuration.
     env = {key: value for key, value in os.environ.items() if not key.startswith("OCI_")}
-    env.update(OCI_CLI_AUTO_PROMPT="False", OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING="False")
+    # OCI enables auto-prompt on presence, including the string "False".
+    env["OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING"] = "False"
     return subprocess.run(argv[:1] + ["--cli-rc-file", os.devnull, "--no-retry",
         "--connection-timeout", "5", "--read-timeout", "10"] + argv[1:], env=env, **kwargs)
 

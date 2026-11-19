@@ -247,3 +247,10 @@ run "reject_similar_nested_repository" {
   }
   expect_failures = [oci_container_instances_container_instance.app]
 }
+run "api_key_is_not_public_environment" {
+  command = plan
+  variables {
+    public_environment = { API_KEY = "synthetic-private-value" }
+  }
+  expect_failures = [var.public_environment]
+}

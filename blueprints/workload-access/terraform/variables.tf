@@ -35,11 +35,11 @@ variable "developer_group_ocid" {
 }
 
 variable "role" {
-  description = "Explicit scoped role. Neither role grants application deployment or Terraform-state object access."
+  description = "Explicit scoped role; runtime IAM and effective access require separate administrator verification."
   type        = string
   validation {
-    condition     = contains(["foundation-provisioner", "observer"], var.role)
-    error_message = "Choose foundation-provisioner or observer."
+    condition     = contains(["foundation-provisioner", "observer", "app-deployer", "state-operator", "image-publisher"], var.role)
+    error_message = "Choose foundation-provisioner, observer, app-deployer, state-operator or image-publisher."
   }
 }
 
@@ -62,7 +62,7 @@ variable "registry_name" {
 }
 
 variable "state_bucket_name" {
-  description = "Exact lowercase state bucket name. No object permissions or bucket deletion are granted."
+  description = "Exact lowercase state bucket name. Content grants depend on the explicit role; bucket deletion is excluded."
   type        = string
   validation {
     condition     = length(var.state_bucket_name) <= 256 && can(regex("^[a-z0-9]+([._-][a-z0-9]+)*$", var.state_bucket_name))
@@ -103,5 +103,45 @@ variable "auth" {
   validation {
     condition     = contains(["APIKey", "SecurityToken"], var.auth)
     error_message = "Choose APIKey or SecurityToken explicitly."
+  }
+}
+
+variable "state_key" {
+  description = "Exact default-workspace state key for state-operator. Only this key and its .lock companion receive content access."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.state_key == null ? true : (length(var.state_key) <= 240 && can(regex("^[a-z0-9][a-z0-9._/-]*\\.tfstate$", var.state_key)) && alltrue([for segment in split("/", var.state_key) : segment != "" && segment != "." && segment != ".."]))
+    error_message = "Use a lowercase exact relative .tfstate key without empty segments, traversal, quotes or wildcards."
+  }
+}
+
+variable "certificate_ocid" {
+  description = "Existing certificate in the dedicated application compartment for app-deployer; never a key or secret value."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.certificate_ocid == null ? true : can(regex("^ocid1\\.certificate\\.[a-z0-9_-]+\\.[a-z0-9_-]+\\.[a-z0-9]+$", var.certificate_ocid))
+    error_message = "Select the exact existing certificate OCID in the app compartment."
+  }
+}
+
+variable "environment" {
+  description = "Optional named-environment handoff binding, supplied together with request_sha256 by the foundation helper."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.environment == "" || can(regex("^[a-z][a-z0-9-]{0,39}$", var.environment))
+    error_message = "Use a valid explicit environment name or omit the foundation binding."
+  }
+}
+
+variable "request_sha256" {
+  description = "Optional exact foundation request digest; this binding is not cloud authorization."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.request_sha256 == "" || can(regex("^[a-f0-9]{64}$", var.request_sha256))
+    error_message = "Use the exact foundation request hash or omit the foundation binding."
   }
 }
