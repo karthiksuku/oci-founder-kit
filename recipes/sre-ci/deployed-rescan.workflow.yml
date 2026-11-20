@@ -25,17 +25,29 @@ jobs:
           # New directory each run. Unknown, denied and stale findings fail the monitored job.
           target=$(mktemp -d "$FOUNDER_PRIVATE_EVIDENCE/rescan-XXXXXXXX")
           result=0
+          case "${FOUNDER_RELEASE_PROFILE:?}" in
+            new-app-nextjs)
+              : "${FOUNDER_APP_DIR:?}" "${FOUNDER_SELECTED_LOCK_SHA256:?}"
+              scan_args=(--app-directory "$FOUNDER_APP_DIR") ;;
+            taskboard|hosting-first-nextjs) scan_args=() ;;
+            *) exit 1 ;;
+          esac
           python3 -I -B "$FOUNDER_TRUSTED_KIT/scripts/sre_scan.py" scan --project "$FOUNDER_RELEASE" \
             --layout "$FOUNDER_LAYOUT" --image-digest "$FOUNDER_IMAGE_DIGEST" --trivy "$FOUNDER_TRIVY" \
-            --cache-dir "$FOUNDER_CACHE" --output "$target/local" || result=1
+            --cache-dir "$FOUNDER_CACHE" "${scan_args[@]}" --output "$target/local" || result=1
           python3 -I -B "$FOUNDER_TRUSTED_KIT/scripts/sre_scan.py" registry --project "$FOUNDER_RELEASE" \
             --environment "$FOUNDER_ENVIRONMENT" --image-id "$FOUNDER_REGISTRY_IMAGE_ID" \
             --require-deployed --output "$target/registry" || result=1
           # Both scans must refer to the same currently running digest.
           python3 -I - "$target" <<'PYVERIFY' || result=1
-          import json, pathlib, sys
+          import json, os, pathlib, sys
           folder = pathlib.Path(sys.argv[1])
           docs = [json.loads((folder / item / "summary.json").read_bytes()) for item in ("local", "registry")]
+          if os.environ["FOUNDER_RELEASE_PROFILE"] == "new-app-nextjs" and (
+              docs[0].get("schema") != "oci-sre-scan/3" or
+              docs[0].get("selected_lock_sha256") != os.environ["FOUNDER_SELECTED_LOCK_SHA256"]
+          ):
+              raise SystemExit("Selected application scan is unverified.")
           if docs[0]["image_digest"] != docs[1]["image_digest"] or not docs[1]["digest_verified"]:
               raise SystemExit("Scan identity is unverified.")
           PYVERIFY

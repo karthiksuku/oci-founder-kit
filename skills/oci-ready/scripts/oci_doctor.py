@@ -136,6 +136,7 @@ def diagnose(*, config_file: Path, profile: str = "DEFAULT", auth: str = "api_ke
             base += ["--config-file", str(config_file.expanduser().absolute()), "--profile", profile]
         status, payload = run_json(base + ["iam", "region-subscription", "list",
                                           "--tenancy-id", selected_tenancy, "--all"], runner)
+        api_read = status
         if status == "passed":
             data = payload.get("data") if isinstance(payload, dict) else None
             if not isinstance(data, list):
@@ -145,8 +146,9 @@ def diagnose(*, config_file: Path, profile: str = "DEFAULT", auth: str = "api_ke
                 status = "blocked"
         checks.append(check("region_subscription", status,
                             "Target region subscription checked." if status == "passed" else
-                            "Could not confirm a READY subscription. Check the region, IAM access and authentication; raw CLI output is withheld."))
+                            "Could not confirm a READY subscription. Check the region, IAM access and authentication; raw CLI output is withheld.") | {"api_read": api_read})
         status, payload = run_json(base + ["iam", "compartment", "get", "--compartment-id", compartment], runner)
+        api_read = status
         if status == "passed":
             data = payload.get("data") if isinstance(payload, dict) else None
             if not isinstance(data, dict) or data.get("id") != compartment:
@@ -155,7 +157,7 @@ def diagnose(*, config_file: Path, profile: str = "DEFAULT", auth: str = "api_ke
                 status = "blocked"
         checks.append(check("compartment_access", status,
                             "Target compartment is readable and ACTIVE." if status == "passed" else
-                            "Could not confirm the target compartment. Check IAM permissions, authentication and compartment state; raw CLI output is withheld."))
+                            "Could not confirm the target compartment. Check IAM permissions, authentication and compartment state; raw CLI output is withheld.") | {"api_read": api_read})
     else:
         checks.append(check("live_access", "unknown", "Live access was not checked. Rerun with --live after resolving required inputs and local blockers."))
     checks.append(check("deployment_permissions_and_capacity", "unknown",

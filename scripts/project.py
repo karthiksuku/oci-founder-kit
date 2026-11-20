@@ -629,8 +629,9 @@ def save_report(store: Store, value: dict, kind: str) -> str:
 
 def doctor(project: Path, *, environment: str, config_file=Path("~/.oci/config"), live=False) -> dict:
     with Store(project, environment=environment, write=True) as store:
-        store.read()
-        value = helper("readiness").diagnose(store.environment_config, config_file=config_file, live=live)
+        state = store.read()
+        value = helper("readiness").diagnose(store.environment_config, config_file=config_file, live=live,
+                                           store=store, state=state)
         value["source_sha256"] = source_fingerprint(store.root_fd)
         value["kit_sha256"] = kit_fingerprint()
         value["evidence"] = save_report(store, value, "doctor")

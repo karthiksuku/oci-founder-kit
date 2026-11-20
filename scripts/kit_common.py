@@ -7,6 +7,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ERRORS = {
+    "COST_TARGET": ("cost-preview", "founder", "Select a named rehearsal or production environment using the web-container blueprint."),
+    "COST_INPUT": ("cost-preview", "founder", "Review the private cost template, target and estimate hashes, dates, units and currency in docs/LAUNCH-COST.md."),
+    "TRIAL_TARGET": ("customer-trial", "founder", "Select an explicitly named rehearsal. Inspect its current deployment before preparing a tester brief."),
+    "TRIAL_INPUT": ("customer-trial", "founder", "Review the owner-only trial input, trial ID, enforced expiry and access checks in docs/CUSTOMER-TRIAL.md."),
     "SRE_CHECK_INPUT": ("promotion", "release-owner", "Select the named production environment and pass the SHA-256 of its actual pending production Terraform plan with --plan-sha256. Pass the separate named rehearsal environment with --rehearsal; it needs its own successful receipt for the tested artifact. Input validation stopped before signed evidence was checked."),
     "SRE_PLAN_INPUT": ("testing", "app-owner", "Select a named rehearsal environment to inspect the application and create a test plan."),
     "PROJECT_REQUIRED": ("setup", "founder", "Open the intended existing application folder or use start --mode new."),

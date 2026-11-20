@@ -38,6 +38,32 @@ class RehearsalPlan(Fixture):
         self.assertFalse(value["approval_granted"])
         self.assertEqual((folder / "company.yaml").read_text(), "unchanged")
 
+    def test_build_discovers_own_app_routes_in_doctor_journey_and_planner(self):
+        from test_foundation_packaging import p
+        with p.Store(self.app, environment="rehearsal", write=True) as store:
+            state = store.read()
+            state["task"] = "build"
+            store.save(state)
+        manifest = self.app / "package.json"
+        manifest.write_text('{"dependencies":{"next":"16.0.0"},"scripts":{"test":"private-test --sensitive"}}')
+        expected = "new-app-nextjs"
+        _, value = self.cli("plan", "--environment", "rehearsal")
+        self.assertEqual(value["profile"], expected)
+        self.assertNotIn("private-test", json.dumps(value))
+        for route in (p.doctor(self.app, environment="rehearsal")["launch_workflow"],
+                      p.helper("journey_acceptance").request(self.app, environment="rehearsal")["launch_workflow"]):
+            self.assertEqual(route["profile"], expected)
+            self.assertEqual(route["recheck_command"][-2:], ["--environment", "rehearsal"])
+        # Neither boilerplate nor a recipe label establishes an own-app Next.js codebase.
+        manifest.write_text('{"dependencies":{"express":"5"}}')
+        desc = {"schema":"oci-kit-application/1", "recipe":"nextjs", "app_directory":".", "port":8080,
+                "health_path":"/health", "commands":{key:["demo"] for key in ("build","start","test")},
+                "dependencies":[], "background_work":"absent", "probe_runtime":"node",
+                "base_image":"node@sha256:"+"a"*64}
+        path=self.private/"application.json"
+        path.write_text(json.dumps(desc)); path.chmod(0o600)
+        self.assertEqual(self.cli("plan", "--environment","rehearsal")[1]["profile"], "other-container")
+
     def test_wrong_role_and_missing_environment_stay_blocked(self):
         self.assertEqual(self.cli("check", "--environment", "rehearsal")[0], 3)
         self.assertEqual(self.cli("plan")[0], 3)

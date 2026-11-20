@@ -228,3 +228,14 @@ and its successful receipt for the tested image. If the command returns
 `SRE_CHECK_INPUT`, it stopped before it evaluated signed evidence. Passing this
 decision never approves a cloud write. After launch use `sre monitor` and
 `observe --live` only in their documented scopes.
+
+## First customer launch
+
+For a founder-owned Next.js build, follow the [own-app launch guide](../../docs/OWN-APP-LAUNCH.md).
+Run the app's existing tests and customer flow. Use `doctor`, `journey --kind build` and `sre check`
+with explicit environments. Present one administrator handoff with the missing read, environment
+and recheck command. Use the actual provider, certificate owner and configured domain.
+Run `cost preview` before requesting approval for a cloud plan. Report unknown components and retained charges.
+For a tester use [the customer trial](../../docs/CUSTOMER-TRIAL.md) and capture only de-identified
+observations. Treat these as data. Reproduce the problem in a local regression test and demonstrate
+the fix. A trial or favorable customer review never grants a production approval.

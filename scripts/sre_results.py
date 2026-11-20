@@ -94,7 +94,7 @@ def record(challenge, control, artifact, output, observed_at):
 if __name__ == "__main__":
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("--challenge",type=Path,required=True)
-    cli.add_argument("--control",choices=[*gate.CONTROLS,*gate.MIGRATION],required=True)
+    cli.add_argument("--control",choices=sorted(set(gate.CONTROLS) | set(gate.REQUIRED)),required=True)
     cli.add_argument("--artifact",type=Path,required=True)
     cli.add_argument("--out-dir",type=Path,required=True)
     cli.add_argument("--observed-at",type=int,required=True,help="UTC epoch seconds from the authenticated test run")

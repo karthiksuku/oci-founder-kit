@@ -2,7 +2,8 @@
 import '@fontsource-variable/manrope';
 import '../styles/global.css';
 import Icon from '../components/Icon.astro';
-import { checkpoint, createPrompt, defaultSelection, handoff, projectCommand, projects, repository, resumePrompt, stages, tasks } from '../lib/prompt';
+import FounderGallery from '../components/FounderGallery.astro';
+import { checkpoint, createPrompt, defaultSelection, handoff, projectCommand, projects, sourceDoc, sourceRef, sourceRepository, resumePrompt, stages, tasks } from '../lib/prompt';
 import { sourceHelp } from '../lib/help';
 import capabilities from '../../../docs/capabilities.json';
 import installMarkdown from '../../../docs/INSTALL.md?raw';
@@ -10,11 +11,15 @@ import localMarkdown from '../../../blueprints/fullstack-container/LOCAL.md?raw'
 import startMarkdown from '../../../docs/START-HERE.md?raw';
 const helpTopics = sourceHelp(installMarkdown, localMarkdown, startMarkdown);
 
-const doc = (path: string) => `${repository}/blob/main/${path}`;
+const doc = sourceDoc;
 const initialPrompt = createPrompt({ task: 'build', agent: 'codex', stack: 'existing', brief: '' });
 const initialCheckpoint = checkpoint(defaultSelection);
 const initialHandoff = handoff(defaultSelection);
 const guides = [
+  { title: 'Launch your own Next.js app', text: 'Use your existing repository, test your customer workflow and prepare a reviewed launch.', path: 'docs/OWN-APP-LAUNCH.md', icon: 'terminal' },
+  { title: 'What will my app cost?', text: 'Estimate one day and thirty days of operation and review what is still running after cleanup.', path: 'docs/LAUNCH-COST.md', icon: 'layers' },
+  { title: 'Try it with a customer', text: 'Prepare a private rehearsal, capture a usability issue and revoke access.', path: 'docs/CUSTOMER-TRIAL.md', icon: 'shield' },
+  { title: 'Onboard a business customer', text: 'Try organization invitations, roles, offboarding and a tenant-scoped export.', path: 'blueprints/b2b-workspace/README.md', icon: 'layers' },
   { title: 'New OCI account', text: 'Start from your welcome email, check local prerequisites and prepare the administrator handoff.', path: 'docs/NEW-OCI-ACCOUNT.md', icon: 'shield' },
   { title: 'One workflow', text: 'Start, package, prepare, release and operate from the same command interface.', path: 'docs/WORKFLOW.md', icon: 'terminal' },
   { title: 'Installation & updates', text: 'Add the kit to your project without replacing your existing skills.', path: 'docs/INSTALL.md', icon: 'terminal' },
@@ -58,7 +63,7 @@ const guides = [
         </nav>
         <div class="header-actions">
           <button class="icon-button theme-toggle" type="button" aria-label="Switch to light theme"><Icon name="sun" class="sun-icon" /><Icon name="moon" class="moon-icon" /></button>
-          <a class="header-github" href={repository} aria-label="View OCI Founder Kit on GitHub"><Icon name="code" size={18} /><span>GitHub</span><Icon name="diagonal" size={13} /></a>
+          <a class="header-github" href={sourceRepository} aria-label="View OCI Founder Kit on GitHub"><Icon name="code" size={18} /><span>GitHub</span><Icon name="diagonal" size={13} /></a>
           <button class="icon-button menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open navigation"><Icon name="menu" /></button>
         </div>
       </div>
@@ -68,6 +73,7 @@ const guides = [
     </header>
 
     <main id="main">
+      {sourceRef !== 'main' && <p class="shell source-note"><a href={sourceRepository}>Founder launch preview · {sourceRef.slice(0, 7)}</a></p>}
       <section class="hero shell" aria-labelledby="hero-heading">
         <div class="hero-copy">
           <a class="eyebrow hero-badge" href="#evidence"><span class="status-dot" aria-hidden="true"></span> OPEN SOURCE. BUILT FOR BUILDERS. <Icon name="arrow" size={14} /></a>
@@ -166,11 +172,8 @@ const guides = [
       </section>
 
       <section class="section examples-section" id="examples" aria-labelledby="examples-heading"><div class="shell">
-        <div class="section-heading"><div><p class="eyebrow">04 / START WITH SOMETHING REAL</p><h2 id="examples-heading">Less blank page.<br />More possibility.</h2></div><p>Explore working patterns and public projects.<br />Choose what fits. Review before you reuse.</p></div>
-        <div class="example-grid">
-          <article class="example-card"><div class="example-art taskboard-art" aria-hidden="true"><div class="mini-board"><div class="mini-board-heading"><span class="mini-mark"></span><span>Project space</span><span>•••</span></div><div class="mini-columns"><div><i></i><b></b><b></b></div><div><i></i><b></b></div><div><i></i><b></b><b></b></div></div></div><span class="art-label">THE CONTAINER REFERENCE</span></div><div class="example-content"><span class="example-tag">INCLUDED · SANDBOX REFERENCE</span><h3>Full-stack taskboard</h3><p>Create an editable Node.js/PostgreSQL project with agent skills. Run it locally with Docker, then make it your own.</p><div class="stack-tags"><span>Node.js</span><span>PostgreSQL</span><span>Terraform</span></div><p class="example-evidence">Local behavior and read-only plans exercised. Live deployment and production controls require validation.</p><div class="example-footer"><a href={doc('docs/INSTALL.md#create-a-new-editable-starter')} data-task-link="build" data-project-link="new" data-stack-link="taskboard">Create my Taskboard <Icon name="arrow" size={15} /></a><a href={doc('blueprints/fullstack-container/LOCAL.md')}>Preview guide <Icon name="diagonal" size={15} /></a><a href={doc('LICENSE')}>UPL-1.0</a></div></div></article>
-          <article class="example-card"><div class="example-art migration-art" aria-hidden="true"><span class="migration-node">N<span>Next.js server</span></span><div class="migration-track"><i></i><Icon name="arrow" size={26} /><i></i></div><span class="migration-node target-node"><Icon name="cloud" size={35} /><span>Standalone</span></span><span class="art-label">TRY THE LOCAL PACKAGING REHEARSAL</span></div><div class="example-content"><span class="example-tag">INCLUDED · RUNNABLE LOCAL EXAMPLE</span><h3>Rehearse a Next.js move.</h3><p>Compare a normal Next.js production server with its standalone build using the same local HTTP checks.</p><div class="stack-tags"><span>Next.js</span><span>Standalone</span><span>HTTP checks</span></div><p class="example-evidence">Stateless local packaging rehearsal. It does not establish Vercel-hosted behavior, OCI deployment or data and identity migration.</p><div class="example-footer"><a href={doc('examples/migrate-nextjs/README.md')}>Run the rehearsal <Icon name="diagonal" size={15} /></a><a href={doc('examples/migrate-vercel/README.md')}>Assessment fixture <Icon name="diagonal" size={15} /></a><a href={doc('LICENSE')}>UPL-1.0</a></div></div></article>
-        </div>
+        <div class="section-heading"><div><h2 id="examples-heading">Built on OCI</h2></div><p>Try the kit’s reference apps. Each example shows the workflow that ran and the evidence still needed on OCI.</p></div>
+        <FounderGallery doc={doc} />
         <div class="community-row"><div><span class="eyebrow">FROM THE COMMUNITY</span><h3>Good ideas are worth building on.</h3><p>Public source references. OCI compatibility still needs review.</p></div><div class="community-links"><a href="https://github.com/fastapi/full-stack-fastapi-template"><span>Full Stack FastAPI Template<small>Python · React · PostgreSQL</small></span><Icon name="diagonal" size={18} /></a><a href="https://github.com/wasp-lang/open-saas"><span>Open SaaS<small>React · Wasp · Prisma</small></span><Icon name="diagonal" size={18} /></a><a href="https://github.com/oracle-devrel/oci-starter"><span>OCI Starter<small>Oracle Cloud project generator</small></span><Icon name="diagonal" size={18} /></a></div></div>
         <p class="source-note">Community links are source references, not bundled dependencies or verified deployments. Check each project’s license and current requirements. <a href={doc('docs/ECOSYSTEM.md')}>View source notes →</a></p>
       </div></section>
@@ -184,10 +187,10 @@ const guides = [
       <section class="shell final-cta"><div><p class="eyebrow">THE NEXT STEP IS YOURS</p><h2>Have an idea?<br /><span>Give it a first commit.</span></h2></div><a class="button button-primary" href="#start" data-task-link="build" data-project-link="new">Let’s start building <Icon name="arrow" size={21} /></a></section>
     </main>
 
-    <footer class="site-footer shell"><div class="footer-top"><a class="wordmark" href="#"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>OCI <strong>Founder Kit</strong></span></a><nav aria-label="Footer navigation"><a href={repository}>GitHub</a><a href={doc('docs/INSTALL.md')}>Install</a><a href={doc('LICENSE')}>License</a><a href={doc('CONTRIBUTING.md')}>Contribute</a></nav></div><div class="footer-bottom"><p>Independent open-source project by Karthik Sukumar.<br />Not an Oracle product or endorsement.</p><p>Built for people who build.</p></div></footer>
+    <footer class="site-footer shell"><div class="footer-top"><a class="wordmark" href="#"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>OCI <strong>Founder Kit</strong></span></a><nav aria-label="Footer navigation"><a href={sourceRepository}>GitHub</a><a href={doc('docs/INSTALL.md')}>Install</a><a href={doc('LICENSE')}>License</a><a href={doc('CONTRIBUTING.md')}>Contribute</a></nav></div><div class="footer-bottom"><p>Independent open-source project by Karthik Sukumar.<br />Not an Oracle product or endorsement.</p><p>Built for people who build.</p></div></footer>
 
     <script>
-      import { checkpoint, createPrompt, handoff, normalizeSelection, projectCommand, projects, readFragment, repository, resumePrompt, selectionFragment, tasks } from '../lib/prompt';
+      import { checkpoint, createPrompt, handoff, normalizeSelection, projectCommand, projects, readFragment, sourceDoc, resumePrompt, selectionFragment, tasks } from '../lib/prompt';
       const search = document.querySelector<HTMLInputElement>('#guide-search')!;
       const searchable = Array.from(document.querySelectorAll<HTMLElement>('[data-searchable]'));
       search.addEventListener('input', () => {
@@ -241,7 +244,7 @@ const guides = [
         document.querySelector('#checkpoint-title')!.textContent = result.title;
         document.querySelector('#checkpoint-results')!.replaceChildren(...result.results.map(text => { const item = document.createElement('li'); item.textContent = text; return item; }));
         const guide = document.querySelector<HTMLAnchorElement>('#checkpoint-guide')!;
-        guide.href = `${repository}/blob/main/${result.guide}`;
+        guide.href = sourceDoc(result.guide);
         guide.querySelector('span')!.textContent = result.guideLabel;
         document.querySelector<HTMLElement>('#stack-field')!.hidden = task === 'setup';
         const taskboardOption = document.querySelector<HTMLOptionElement>('#taskboard-option')!;

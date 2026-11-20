@@ -346,3 +346,23 @@ test('compact mobile handoff puts copy before the expandable full prompt', async
   await page.keyboard.press('Enter');
   await expect(page.locator('#generated-prompt')).toBeVisible();
 });
+
+test('gallery shows real app screenshots and lets a founder copy the matching prompt', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('./#examples');
+  const gallery = page.getByRole('region', {name: 'Built on OCI'});
+  for (const name of ['Taskboard', 'Launch Notes']) {
+    const card = gallery.locator('article').filter({has: page.getByRole('heading', {name, exact: true})});
+    const screenshot = card.locator('img');
+    await screenshot.scrollIntoViewIfNeeded();
+    await expect.poll(() => screenshot.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(960);
+    await card.locator('summary').click();
+    await card.getByRole('button', {name: 'Copy prompt'}).click();
+    await expect(card.getByRole('status')).toHaveText('Prompt copied.');
+    const prompt = await page.evaluate(() => navigator.clipboard.readText());
+    expect(prompt).toContain(name);
+    expect(prompt).toContain(await card.getByRole('link', {name: name === 'Taskboard' ? 'Preview guide' : 'Run the rehearsal'}).getAttribute('href'));
+    await expect(card.getByRole('link', {name: 'UPL-1.0'})).toHaveAttribute('href', /LICENSE$/);
+    await expect(card).toContainText('OCI deployment is unverified');
+  }
+});

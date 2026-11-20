@@ -287,6 +287,65 @@
         "Agent summaries and local drills do not authorize production.",
         "Live monitoring, hosted CI and OCI deployment require separate setup and acceptance."
       ]
+    },
+    {
+      "id": "customer-launch",
+      "title": "Launch your own Next.js app",
+      "summary": "Prepare a founder-owned Next.js repository and inspect its rehearsal evidence for production promotion.",
+      "command": [
+        "journey",
+        "--kind",
+        "build",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/OWN-APP-LAUNCH.md",
+      "evidence": "preview",
+      "prerequisites": [
+        "Named web-container build environment and a Next.js application",
+        "Existing tests, identity and data providers"
+      ],
+      "limitations": [
+        "Hosted sign-in, isolation, rollback and an independently operated verifier require a live rehearsal."
+      ]
+    },
+    {
+      "id": "cost",
+      "title": "Preview launch costs",
+      "summary": "Model 24 hours and 30 days of operation and review retained resources after cleanup.",
+      "command": [
+        "cost",
+        "preview",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/LAUNCH-COST.md",
+      "evidence": "local-tested",
+      "prerequisites": [
+        "Reviewed web-container footprint and dated rates"
+      ],
+      "limitations": [
+        "Totals can be incomplete. Delayed or inaccessible billing evidence stays unknown."
+      ]
+    },
+    {
+      "id": "customer-trial",
+      "title": "Try the app with a customer",
+      "summary": "Prepare a private tester handoff, record a de-identified observation and review access revocation.",
+      "command": [
+        "trial",
+        "inspect",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/CUSTOMER-TRIAL.md",
+      "evidence": "preview",
+      "prerequisites": [
+        "Named rehearsal, current image readback and externally enforced tester access"
+      ],
+      "limitations": [
+        "The owner operates the identity provider and verifies session revocation. No messages are sent."
+      ]
     }
   ],
   "versions": {

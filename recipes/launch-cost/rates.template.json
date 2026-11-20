@@ -1,0 +1,30 @@
+{
+  "schema": "oci-launch-rates/1",
+  "currency": "USD",
+  "options": {
+    "oci": {
+      "lines": [
+        {
+          "id": "container_cpu",
+          "part_number": "B93113",
+          "expected_metric": "OCPU Per Hour"
+        },
+        {
+          "id": "container_memory",
+          "part_number": "B93114",
+          "expected_metric": "Gigabyte Per Hour"
+        },
+        {
+          "id": "load_balancer",
+          "part_number": "B93030",
+          "expected_metric": "Load Balancer"
+        },
+        {
+          "id": "load_balancer_bandwidth",
+          "part_number": "B93031",
+          "expected_metric": "Mbps Per Hour"
+        }
+      ]
+    }
+  }
+}

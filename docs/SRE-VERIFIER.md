@@ -2,7 +2,18 @@
 
 Both the CLI and the Terraform apply gate require an independent signature. A founder's local checklist, unverified GitHub artifact, repository-controlled signing workflow or signed check with a different candidate binding cannot establish eligibility. After eligibility, the separate exact-plan approval is still required. A rollback to an older digest is also a new candidate and plan.
 
-**Supported boundary.** Use a named production and rehearsal environment, distinct infrastructure/compartments/backend destinations, the identical tested image, and a clean committed project at its own Git root. Commit reviewed nonsecret app/kit installation inputs and ignore private state. For the generic web-container journey, select hosting-first migration and identify Next.js via the reviewed descriptor or the app’s Next.js package declaration. Other app profiles get diagnostics and cannot currently promote. The protected runner and its signing identity are deployment prerequisites; the kit never generates a production trust key, uploads evidence, runs arbitrary test adapters on a production machine, or enrolls itself.
+**Supported boundary.** Use a named production and rehearsal environment, distinct infrastructure/compartments/backend destinations, the identical tested image, and a clean committed project at its own Git root. Commit reviewed nonsecret app/kit installation inputs and ignore private state. The generic web-container target supports two Next.js journeys. A hosting-first migration identifies Next.js through its reviewed descriptor or package declaration. An own-app launch selects `build` for both environments, declares Next.js in its package manifest and uses a separate DNS hostname for each target. Commit the selected app's npm manifest and lockfile and supply its existing test command. The challenge binds the selected app and its descriptor using `application_selection_sha256`. Other app profiles get diagnostics and cannot currently promote. The protected runner and its signing identity are deployment prerequisites; the kit never generates a production trust key, uploads evidence, runs arbitrary test adapters on a production machine, or enrolls itself.
+
+For the `new-app-nextjs` launch profile the protected runner must additionally record a
+`nextjs_launch` JUnit suite. Verify the selected custom hostname and TLS chain,
+hosted callback/logout/session expiry, access to the retained identity and data
+providers, data surviving an approved restart, and availability of the rollback image
+in rehearsal. Use the exact test case identifiers in [the control policy](../scripts/sre_gate.py).
+Use `sre_scan.py scan --app-directory .` for a root app, or its exact project-relative directory for a nested app. Supply the full scan options from the [scan guide](../recipes/sre-ci/README.md). The bound `selected_lock_sha256` identifies the selected committed lockfile and its contents. The verifier requires a scoped scan whose selected lock provides the same direct Next.js version present in the tested image. Missing or mismatched inventory blocks promotion.
+
+Test the actual customer action and denial between users in the separate mandatory
+browser and isolation suites. Keep verifier code and signing access outside the application.
+The [founder's launch walkthrough](SRE.md#launch-your-own-nextjs-application) starts from an existing repository.
 
 1. In rehearsal test the candidate, preserve raw results privately, deploy through existing gates, and collect the current applied deployment receipt. Prepare the exact production plan. Request the private challenge with owner-only output (substitute the actual names and hash):
 

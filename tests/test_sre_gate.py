@@ -232,6 +232,12 @@ class IndependentResults(unittest.TestCase):
 
 class NamedProductionJourney(unittest.TestCase):
     def test_rehearsal_receipt_to_exact_signed_named_apply_with_fake_terraform(self):
+        self.exercise_named_apply("migrate")
+
+    def test_new_nextjs_repo_to_exact_signed_production_apply_with_fake_terraform(self):
+        self.exercise_named_apply("build")
+
+    def exercise_named_apply(self, task):
         """Use the real environment/receipt/plan readers; only Terraform and trust enrollment substitute."""
         import shutil
         from test_environment_gate import EnvironmentGate, BACKEND, TARGET, binding
@@ -239,6 +245,12 @@ class NamedProductionJourney(unittest.TestCase):
         self.addCleanup(fixture.doCleanups)
         fixture.setUp()
         p=gate.project_module()
+        if task == "build":
+            for name in (None, "rehearsal"):
+                with p.Store(fixture.project, environment=name, write=True) as store:
+                    state = store.read()
+                    state["task"] = "build"
+                    store.save(state)
         # The project root and both source stacks are committed before the signed candidate.
         prod=fixture.project/"live"
         shutil.copytree(fixture.stack,prod)
@@ -247,12 +259,17 @@ class NamedProductionJourney(unittest.TestCase):
         fixture.env.create(fixture.project,name="live",role="production",infrastructure="live",
                            target=target,backend={k:backend[k] for k in binding.BACKEND_FIELDS})
         (fixture.project/".gitignore").write_text(".oci-kit/\n.gate/\n.terraform/\n")
-        (fixture.project/"package.json").write_text('{"dependencies":{"next":"16.0.0"}}')
+        app = fixture.project / "founder-app"
+        app.mkdir()
+        app_source = b'export default function Home() { return <h1>Founder project</h1> }'
+        (app / "page.jsx").write_bytes(app_source)
+        (app / "package.json").write_text('{"dependencies":{"next":"16.0.0"},"scripts":{"test":"node --test"}}')
+        (app / "package-lock.json").write_text('{"lockfileVersion":3,"packages":{}}')
         with p.Store(fixture.project, environment="rehearsal", write=True) as store:
             fixture.env.put(store.fd,"sre-journey.json",p.canonical({"schema":"oci-sre-journey/1","journey":"view-record",
                             "assertions":["The migrated record loads"]}))
             fixture.env.put(store.fd,"application.json",p.canonical({"schema":"oci-kit-application/1","recipe":"nextjs",
-                "app_directory":".","port":8080,"health_path":"/healthz","commands":{k:[k] for k in ("build","start","test")},
+                "app_directory":"founder-app","port":8080,"health_path":"/healthz","commands":{k:[k] for k in ("build","start","test")},
                 "dependencies":[],"background_work":"source","probe_runtime":"node","base_image":"node@sha256:"+"a"*64}))
         for args in (["init","-q"],["add","."],["-c","user.email=fixture@example.invalid","-c","user.name=fixture","commit","-qm","candidate"]):
             subprocess.run(["/usr/bin/git","-C",str(fixture.project),*args],check=True,capture_output=True)
@@ -281,15 +298,72 @@ class NamedProductionJourney(unittest.TestCase):
         self.evidence=fixture.project/".oci-kit/environments/live/evidence"
         r=gate.request(fixture.project,environment="live",rehearsal="rehearsal",plan_sha256=self.plan)
         self.assertIn("binding",r,r)
-        self.assertEqual(r["binding"]["profile"],"hosting-first-nextjs")
+        profile = "new-app-nextjs" if task == "build" else "hosting-first-nextjs"
+        self.assertEqual(r["binding"]["profile"], profile)
         self.binding=r["binding"]
         controls=SignedCandidate.observations(self)
-        for name in gate.MIGRATION:
+        if task == "build":
+            controls["security_scan"]["observations"].update(schema="oci-sre-scan/3",
+                selected_lock_sha256=self.binding["selected_lock_sha256"])
+        for name in gate.PROFILE_EXTRAS[profile]:
             controls[name]={"observed_at":self.now,"artifact_sha256":"e"*64,"observations":dict.fromkeys(gate.REQUIRED[name],True)}
         self.save=lambda path,value:SignedCandidate.save(self,path,value)
         SignedCandidate.deliver(self,controls)
         pub=b" ".join(self.key.with_suffix(".pub").read_bytes().split()[:2])
         with mock.patch.object(gate,"trusted_key",return_value=pub):
+            # Neither mismatch may substitute another profile's specific control set.
+            with p.Store(fixture.project, environment="live", write=True) as prod_store:
+                state = prod_store.read()
+                prod_store.save(dict(state, task="migrate" if task == "build" else "build"))
+            mismatch = gate.request(fixture.project, environment="live", rehearsal="rehearsal", plan_sha256=self.plan)
+            self.assertNotIn("binding", mismatch)
+            self.assertIn("app_prerequisites", [c["id"] for c in mismatch["checks"]])
+            with p.Store(fixture.project, environment="live", write=True) as prod_store:
+                prod_store.save(state)
+            if task == "build":
+                self.assertIn("application_selection_sha256", self.binding)
+                local_scan = controls["security_scan"]["observations"]
+                for schema, lock_hash in (("oci-sre-scan/2", self.binding["selected_lock_sha256"]), ("oci-sre-scan/3", "0"*64)):
+                    local_scan.update(schema=schema, selected_lock_sha256=lock_hash)
+                    SignedCandidate.deliver(self, controls)
+                    self.assertEqual(gate.request(fixture.project,environment="live",rehearsal="rehearsal",plan_sha256=self.plan)["status"], "blocked")
+                local_scan.update(schema="oci-sre-scan/3", selected_lock_sha256=self.binding["selected_lock_sha256"])
+                # A descriptor alone cannot turn arbitrary app sources into a supported profile.
+                manifest = app / "package.json"
+                initial_manifest = manifest.read_bytes()
+                manifest.write_text('{"dependencies":{"express":"5"}}')
+                generic = gate.request(fixture.project, environment="live", rehearsal="rehearsal", plan_sha256=self.plan)
+                self.assertNotIn("binding", generic)
+                self.assertIn("journey_profile", [c["id"] for c in generic["checks"]])
+                manifest.write_bytes(initial_manifest)
+                # An authentic signature for another profile, or incomplete launch evidence, cannot promote.
+                SignedCandidate.deliver(self, controls, lambda packet: packet.update(binding=dict(self.binding, profile="hosting-first-nextjs")))
+                self.assertEqual(gate.request(fixture.project,environment="live",rehearsal="rehearsal",plan_sha256=self.plan)["status"], "blocked")
+                controls["nextjs_launch"]["observations"]["retained_identity_and_data"] = False
+                SignedCandidate.deliver(self, controls)
+                self.assertEqual(gate.request(fixture.project,environment="live",rehearsal="rehearsal",plan_sha256=self.plan)["status"], "blocked")
+                controls["nextjs_launch"]["observations"]["retained_identity_and_data"] = True
+                SignedCandidate.deliver(self, controls)
+                descriptor_path = fixture.project / ".oci-kit/environments/rehearsal/application.json"
+                original = descriptor_path.read_bytes()
+                descriptor = json.loads(original)
+                descriptor["commands"]["test"] = ["some-other-test"]
+                self.save(descriptor_path, descriptor)
+                self.assertEqual(gate.request(fixture.project,environment="live",rehearsal="rehearsal",plan_sha256=self.plan)["status"], "blocked")
+                self.save(descriptor_path, original)
+                # A portable protected verifier can assemble the new binding and launch-only control.
+                challenge_file = fixture.tmp / "challenge.json"
+                self.save(challenge_file, gate.request(fixture.project, environment="live", rehearsal="rehearsal", plan_sha256=self.plan))
+                proofs = fixture.tmp / "proofs"
+                proofs.mkdir(mode=0o700)
+                for name, row in controls.items():
+                    artifact = (name + " independently reviewed").encode()
+                    self.save(proofs/(name+".artifact"), artifact)
+                    self.save(proofs/(name+".json"), {"schema":"oci-sre-control/1", "id":name,
+                        "observed_at":row["observed_at"], "binding_sha256":p.digest(p.canonical(self.binding)),
+                        "raw_artifact_sha256":gate.digest(artifact), "observations":row["observations"]})
+                gate.assemble(challenge_file, proofs, fixture.tmp/"assembled.json")
+                self.assertEqual(json.loads((fixture.tmp/"assembled.json").read_bytes())["binding"], self.binding)
             r=gate.request(fixture.project,environment="live",rehearsal="rehearsal",plan_sha256=self.plan)
             self.assertEqual(r["status"],"passed",r)
             # Low-level helper otherwise loads isolated copies of the same gate from disk.
@@ -300,3 +374,23 @@ class NamedProductionJourney(unittest.TestCase):
                 self.assertEqual(code,0,err)
         receipt=json.loads(fixture.receipts()[0].read_text())
         self.assertEqual(receipt["sre_attestation_sha256"],r["attestation_sha256"])
+        self.assertEqual((app / "page.jsx").read_bytes(), app_source)
+
+    def test_new_app_inputs_must_belong_to_the_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp)
+            (app / ".gitignore").write_text("package-lock.json\n")
+            (app / "package.json").write_text('{"dependencies":{"next":"test"}}')
+            (app / "package-lock.json").write_text("{}")
+            for args in (["init","-q"], ["add","."], ["-c","user.name=fixture","-c","user.email=fixture@example.invalid",
+                                                     "commit","-qm","reviewed source"]):
+                subprocess.run(["git","-C", str(app), *args], check=True, capture_output=True)
+            with self.assertRaisesRegex(ValueError, "Commit the selected app"):
+                gate.revision(app, gate.project_module(), ["package.json", "package-lock.json"])
+
+    def test_dedicated_hostnames_exclude_ip_and_port_aliases(self):
+        def host(origin):
+            return gate.launch_hostname({"target": {"origin": origin}})
+        self.assertEqual(host("https://stage.example.test:443"), host("https://stage.example.test"))
+        for bad in ("https://127.0.0.1", "https://test", "https://invalid-.example.test"):
+            self.assertIsNone(host(bad))

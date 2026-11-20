@@ -52,12 +52,23 @@ def fresh(value, now):
     return type(value) is int and 0 <= now - value <= DAY
 
 
-def gate_status(report, *, image_digest, now, source_revision=None):
+def lock_identity(path, content_sha256):
+    # Bind the exact tracked relative path as well as bytes; sibling copies are distinct.
+    value = json.dumps(["oci-sre-npm-lock/1", path, content_sha256], separators=(",", ":"))
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def gate_status(report, *, image_digest, now, source_revision=None, selected_lock_sha256=None):
     """Validate signed projection shape, policy and freshness; signature checked by caller."""
     if not isinstance(report, dict):
         return "unknown"
     count = report.get("counts")
-    if (report.get("schema") != "oci-sre-scan/2" or not DIGEST.fullmatch(str(image_digest))
+    scoped = report.get("schema") == "oci-sre-scan/3"
+    if scoped and not re.fullmatch(r"[a-f0-9]{64}", str(report.get("selected_lock_sha256"))):
+        return "unknown"
+    if selected_lock_sha256 is not None and (not scoped or selected_lock_sha256 != report["selected_lock_sha256"]):
+        return "unknown"
+    if (report.get("schema") not in {"oci-sre-scan/2", "oci-sre-scan/3"} or not DIGEST.fullmatch(str(image_digest))
             or report.get("image_digest") != image_digest or not REV.fullmatch(str(report.get("source_revision")))
             or (source_revision is not None and report["source_revision"] != source_revision)
             or report.get("scanner_version") != VERSION or report.get("scanner_sha256") != BINARY
@@ -193,9 +204,10 @@ def image_input(layout, digest, workspace):
     return image, config
 
 
-def projection(source, image, development, db, sbom, *, source_revision, image_digest, config, sbom_digest, now):
+def projection(source, image, development, db, sbom, *, source_revision, image_digest, config, sbom_digest, now, selected_lock=None):
     count = dict.fromkeys(COUNTS, 0)
     direct, shipped = set(), set()
+    selected_source_rows = 0
     for doc, image_scan in [(source, False), (image, True), (development, False)]:
         if (doc.get("SchemaVersion") != 2 or doc.get("Trivy", {}).get("Version") != VERSION
                 or not isinstance(doc.get("Results"), list)):
@@ -211,10 +223,12 @@ def projection(source, image, development, db, sbom, *, source_revision, image_d
                         path = PurePosixPath(str(pkg.get("FilePath", "")))
                         if (path.name == "package.json" and "node_modules" in path.parts
                                 and not {"npm", "corepack", "pnpm", "yarn"}.intersection(path.parts)):
-                            shipped.add((pkg.get("Name"), pkg.get("Version")))
-                else:
+                            if selected_lock is None or (pkg.get("Name") == "next" and path.parts[-3:] == ("node_modules", "next", "package.json")):
+                                shipped.add((pkg.get("Name"), pkg.get("Version")))
+                elif selected_lock is None or (row.get("Type") == "npm" and row.get("Target") == selected_lock[0]):
                     count[key] += len(packages)
                     if doc is source:
+                        selected_source_rows += 1
                         direct.update((pkg.get("Name"), pkg.get("Version")) for pkg in packages
                                       if pkg.get("Relationship") == "direct" and pkg.get("Name") and pkg.get("Version"))
             if doc is development:
@@ -239,13 +253,17 @@ def projection(source, image, development, db, sbom, *, source_revision, image_d
                     elif item["Status"] != "PASS":
                         count["unknown"] += 1
     count["runtime_packages"] = len(direct & shipped)
+    if selected_lock is not None and selected_source_rows != 1:
+        count["unknown"] += 1
     metadata = image.get("Metadata", {})
     if (metadata.get("ImageID") != config or not metadata.get("OS", {}).get("Family")
             or not metadata.get("OS", {}).get("Name") or not sbom.get("packages")
             or sbom.get("spdxVersion") not in ("SPDX-2.2", "SPDX-2.3")
             or db.get("Version") != VERSION):
         raise ValueError("UNSUPPORTED_INVENTORY")
-    return {"schema": "oci-sre-scan/2", "source_revision": source_revision, "image_digest": image_digest,
+    scope = ({"schema": "oci-sre-scan/3", "selected_lock_sha256": selected_lock[1]} if selected_lock is not None
+             else {"schema": "oci-sre-scan/2"})
+    return {**scope, "source_revision": source_revision, "image_digest": image_digest,
             "scanner_version": VERSION, "scanner_sha256": BINARY, "observed_at": now,
             "database_schema": db["VulnerabilityDB"]["Version"],
             "database_updated_at": moment(db["VulnerabilityDB"]["UpdatedAt"]), "sbom_digest": sbom_digest,
@@ -267,6 +285,12 @@ def run_scan(args, out):
         rev = snapshot(project, staged)
         if rev != candidate:
             raise ValueError("SOURCE_CHANGED")
+        selected_lock = None
+        app_directory = getattr(args, "app_directory", None)
+        if app_directory is not None:
+            directory = project_helper.helper("packaging").relative(app_directory, dot=True)
+            lock = PurePosixPath(*directory, "package-lock.json").as_posix()
+            selected_lock = (lock, lock_identity(lock, sha(staged / lock)))
         image, config = image_input(args.layout, args.image_digest, w)
         version = json.loads(scan_process(args.trivy.resolve(), ["--config", "", "--cache-dir", str(args.cache_dir.resolve()), "version", "--format", "json"], w))
         base = ["--cache-dir", str(args.cache_dir.resolve()), "--config", "", "--ignorefile", "", "--secret-config", "",
@@ -289,7 +313,7 @@ def run_scan(args, out):
         if version != version_after or sha(args.trivy) != BINARY or gate.revision(project, project_helper) != rev:
             raise ValueError("SCANNER_CHANGED")
         return projection(source, runtime, dev, version, read_json(sbom), source_revision=rev,
-                          image_digest=args.image_digest, config=config, sbom_digest="sha256:" + sha(sbom), now=int(time.time()))
+                          image_digest=args.image_digest, config=config, sbom_digest="sha256:" + sha(sbom), now=int(time.time()), selected_lock=selected_lock)
 
 
 def registry_result(call, target, *, image_id, scan_id=None, now):
@@ -366,6 +390,7 @@ def main(argv=None):
     for command in (scan, registry):
         command.add_argument("--project", type=Path, required=True)
         command.add_argument("--output", type=Path, required=True, help="new private directory outside the project")
+    scan.add_argument("--app-directory", help="Own-app Next.js source directory within the reviewed repository; use . for the root")
     scan.add_argument("--layout", type=Path, required=True)
     scan.add_argument("--image-digest", required=True)
     scan.add_argument("--trivy", type=Path, required=True)
