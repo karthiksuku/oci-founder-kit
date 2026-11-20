@@ -218,6 +218,13 @@ Agree on one critical customer journey; keep the existing project tests and CI.
 Follow [application release testing and on-call practice](../../docs/SRE.md).
 Test the actual candidate image in rehearsal. Present failed, unknown and stale
 checks with an owner and recheck; never replace independent evidence with your
-summary. Use `sre check` for the exact named production plan. Passing this
+summary. Report whether tests exercised a static page, the app process on
+loopback, the exact built image, or live OCI. Record each image build, runtime
+test and vulnerability scan separately. Include the base image in the final-image
+scan. Build locally, obtain owner approval for the exact registry upload, then
+publish that digest. For `sre check` use the SHA-256 of the **pending
+production Terraform plan**, with the separately named rehearsal environment
+and its successful receipt for the tested image. If the command returns
+`SRE_CHECK_INPUT`, it stopped before it evaluated signed evidence. Passing this
 decision never approves a cloud write. After launch use `sre monitor` and
 `observe --live` only in their documented scopes.

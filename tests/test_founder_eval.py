@@ -19,6 +19,17 @@ class EvaluationTests(unittest.TestCase):
         self.path = Path(self.tmp.name) / "evaluation"
         evaluation.prepare(self.path, "hosting-first")
 
+    def test_failed_app_tests_keep_fixture_and_unexercised_boundaries(self):
+        # No browser or network: missing index / changed source must still say what was not tested.
+        value = evaluation.metadata(self.path)
+        (self.path / "app/server.py").write_text("# changed source")
+        for scenario, fixture, reason in (("new-app", "static-browser-checklist", "bounded-index-required"),
+                                          ("hosting-first", "known-original-loopback-service", "original-app-changed")):
+            with self.subTest(scenario=scenario):
+                result = evaluation.app_test(self.path, dict(value, scenario=scenario))
+                self.assertEqual((result["status"], result["reason"], result["fixture"]), ("failed", reason, fixture))
+                self.assertEqual(result["not_exercised"], ["image-build", "image-run", "live-oci"])
+
     def test_prepare_refuses_overwrite_and_preserves_original_files(self):
         with self.assertRaises(ValueError):
             evaluation.prepare(self.path, "new-app")

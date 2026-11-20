@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ERRORS = {
-    "SRE_CHECK_INPUT": ("promotion", "release-owner", "Select a production environment, --rehearsal NAME and the saved --plan-sha256."),
+    "SRE_CHECK_INPUT": ("promotion", "release-owner", "Select the named production environment and pass the SHA-256 of its actual pending production Terraform plan with --plan-sha256. Pass the separate named rehearsal environment with --rehearsal; it needs its own successful receipt for the tested artifact. Input validation stopped before signed evidence was checked."),
     "SRE_PLAN_INPUT": ("testing", "app-owner", "Select a named rehearsal environment to inspect the application and create a test plan."),
     "PROJECT_REQUIRED": ("setup", "founder", "Open the intended existing application folder or use start --mode new."),
     "INSTALLATION_REQUIRED": ("setup", "agent", "Inspect this project and initialize it with start --mode existing."),

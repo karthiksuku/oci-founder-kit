@@ -750,7 +750,7 @@
     },
     "docs/SRE.md": {
       "executable": false,
-      "sha256": "2baea5cc2b7df8b963825a52039fb0a25766b38b9132a82a8e90292b715966f5"
+      "sha256": "1c0ced5a0e372c639769315e20824e26008afc54dc68d5ae587173f0d7370e0b"
     },
     "docs/START-HERE.md": {
       "executable": false,
@@ -1050,7 +1050,7 @@
     },
     "scripts/founder_eval.py": {
       "executable": false,
-      "sha256": "c7d87be95a786d0f00964e97a649065939da7fb9e088299ab8d484c53273fabf"
+      "sha256": "4ba20ef10fb70f5048250681d26c14cbd7bcc8a64bb9e4131544ac618cc556f8"
     },
     "scripts/hooks.py": {
       "executable": false,
@@ -1074,7 +1074,7 @@
     },
     "scripts/kit_common.py": {
       "executable": false,
-      "sha256": "2cc5ebc9a2331a8755a9cfcefbc9d3f94908db929e0067427ad0845242724555"
+      "sha256": "bea572925da5ed259ae76e4a85f76e9637f20bab448638a2a16881e4cec904e0"
     },
     "scripts/migration.py": {
       "executable": false,
@@ -1382,7 +1382,7 @@
     },
     "skills/oci-kit/SKILL.md": {
       "executable": false,
-      "sha256": "8d0cbe098d43583bbc470ca4be622ce08934910fb2260b620f1837f741e9e10a"
+      "sha256": "81d63faa5301851e6e1513711e0c63ffa6f9e5e3d36e45512229fc2e6c6ed4ed"
     },
     "skills/oci-kit/agents/openai.yaml": {
       "executable": false,
@@ -1650,7 +1650,7 @@
     },
     "tests/test_founder_eval.py": {
       "executable": false,
-      "sha256": "1d4ac00d1f3ecadc10c2922171bf4c88e3204c12dcbd1b2d3cbdf3016799aefc"
+      "sha256": "99c37c4ede101772be870c36ca3c00796ce5c5da313e5ce83f3ffe82c35157a0"
     },
     "tests/test_hooks.py": {
       "executable": false,

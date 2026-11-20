@@ -66,6 +66,17 @@ protected runner; connect failed jobs to the responder and test actual delivery.
   --rehearsal rehearsal --plan-sha256 <reviewed-resource-plan-hash> --json
 ```
 
+Use the SHA-256 printed for the **actual pending production Terraform plan**.
+The rehearsal name selects the separate rehearsal deployment and its successful
+receipt for the tested image. Do not substitute a rehearsal plan or receipt
+hash for the production plan hash. `SRE_CHECK_INPUT` means the command stopped
+at its input check; it has not evaluated the production plan or signed evidence.
+
+In a restricted agent evaluation, the local app test exercises a static
+checklist in a browser or the known original service on loopback. Neither
+builds or runs the candidate image or verifies live OCI. Keep these limits
+in the founder handoff even when every local test passed.
+
 For the first production launch, use two reviewed image revisions in rehearsal
 so that an image rollback can actually be tested. Bootstrap monitoring and the
 private registry independently; a rehearsal is not a production promotion.
