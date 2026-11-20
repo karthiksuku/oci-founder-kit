@@ -47,6 +47,22 @@ class Staged(unittest.TestCase):
         path.write_text('ghp_' + 'B' * 30)
         self.assertEqual(hooks.scan_staged(self.root)['status'], 'passed')
 
+    def test_replacement_refs_cannot_hide_indexed_secret_bytes(self):
+        sentinel = ('ghp_' + 'R' * 30).encode()
+        self.stage('app.ts', sentinel)
+        original = git(self.root, 'rev-parse', ':app.ts').decode().strip()
+        (self.root / 'clean.txt').write_text('const enabled = true;')
+        replacement = git(self.root, 'hash-object', '-w', 'clean.txt').decode().strip()
+        git(self.root, 'replace', original, replacement)
+        self.assertEqual(git(self.root, '--no-replace-objects', 'cat-file', 'blob', original), sentinel)
+        for public in (False, True):
+            with self.subTest(public=public):
+                result = hooks.scan_staged(self.root, public=public, all_tracked=public)
+                self.assertEqual(result['status'], 'blocked')
+                self.assertEqual(result['findings'], [{'path': 'app.ts', 'rule': 'github-token'}])
+                self.assertEqual(result['incomplete'], [])
+                self.assertNotIn(sentinel.decode(), json.dumps(result))
+
     def test_private_files_and_binary_blobs_are_checked(self):
         self.stage('private.auto.tfvars.json', b'{}')
         self.stage('backend.tfbackend', b'private')

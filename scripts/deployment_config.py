@@ -16,7 +16,7 @@ TARGET_REQUIRED = {"region", "profile", "auth", "compartment_id", "vcn_id", "app
                    "app_private_ip", "certificate_id", "registry_id", "availability_domain", "image_digest",
                    "image_architecture", "origin", "port", "health_path", "ocpus", "memory_gbs"}
 VARIABLE_REQUIRED = {"tenancy_ocid", "home_region", "name", "app_image", "registry", "allowed_ingress_cidrs", "application_contract"}
-VARIABLE_OPTIONAL = {"public_environment", "secret_references", "dependency_egress"}
+VARIABLE_OPTIONAL = {"public_environment", "secret_references", "dependency_egress", "monitoring"}
 BACKEND = {"terraform": {"backend": {"oci": {}}}}
 
 
@@ -75,6 +75,14 @@ def settings(value, env, e):
         require(isinstance(cidrs, list) and 1 <= len(cidrs) <= 32 and len(set(cidrs)) == len(cidrs))
         for cidr in cidrs:
             require(isinstance(cidr, str) and str(ipaddress.IPv4Network(cidr, strict=True)) == cidr)
+    if "monitoring" in variables:
+        monitor = variables["monitoring"]
+        require(isinstance(monitor, dict) and set(monitor) == {"primary_email", "backup_email", "vantage_points", "journey"})
+        require(all(field(monitor[k], r"[^@\s]+@[^@\s]+\.[^@\s]+", 254) for k in ("primary_email", "backup_email"))
+                and monitor["primary_email"].lower() != monitor["backup_email"].lower())
+        points = monitor["vantage_points"]
+        require(isinstance(points, list) and 1 <= len(points) <= 3 and all(field(v, r"[a-z][a-z0-9-]{1,31}") for v in points)
+                and len(set(points)) == len(points) and field(monitor["journey"], r"[a-z][a-z0-9-]{0,39}"))
     public = variables.get("public_environment", {})
     require(isinstance(public, dict) and len(public) <= 64)
     for key, item in public.items():
@@ -195,6 +203,7 @@ def request(project, *, environment, action="inspect", config=None, approve=None
         e.validate_isolation(selected, e.list_configs(store, p))
         values, backend = inputs(selected, packet["variables"])
         name = "deployment-" + approve[:16]
+        variable_file = name + ".tfvars.json"
         # Keep interrupted artifacts visible and refuse adoption/overwrite. A
         # fresh proposal can be reviewed after inspecting any partial directory.
         os.mkdir(name, 0o700, dir_fd=store.fd)
@@ -213,6 +222,9 @@ def request(project, *, environment, action="inspect", config=None, approve=None
                 e.put(stack_fd, "backend.tf.json", p.canonical(BACKEND) + b"\n")
             else:
                 require(existing == BACKEND, "DEPLOYMENT_CONFIG_SOURCE")
+            # The backend gate accepts only stack-local explicit variable files.
+            # Publish before target adoption; preserve any collision or partial write.
+            e.put(stack_fd, variable_file, p.canonical(values) + b"\n")
             os.fsync(stack_fd)
         finally:
             os.close(stack_fd)
@@ -220,6 +232,7 @@ def request(project, *, environment, action="inspect", config=None, approve=None
         f.bind(store, selected["target"], selected.get("backend"), p)
         directory = ".oci-kit/environments/" + environment + "/" + name
         result = dict(base, status="prepared", variables=directory + "/variables.json", backend=directory + "/backend.json",
+                      stack_variables=str(Path(env["infrastructure"]) / variable_file), var_file=variable_file,
                       previous_evidence="recheck-required", runtime_iam="separate-administrator-prerequisite",
                       next_command=["python3", str(ROOT / "scripts/kit.py"), "release", "init", "--project", str(store.project),
                                     "--environment", environment, "--backend-config", str(store.project / directory / "backend.json")])

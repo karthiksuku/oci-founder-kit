@@ -19,6 +19,17 @@ class EvaluationTests(unittest.TestCase):
         self.path = Path(self.tmp.name) / "evaluation"
         evaluation.prepare(self.path, "hosting-first")
 
+    def test_failed_app_tests_keep_fixture_and_unexercised_boundaries(self):
+        # No browser or network: missing index / changed source must still say what was not tested.
+        value = evaluation.metadata(self.path)
+        (self.path / "app/server.py").write_text("# changed source")
+        for scenario, fixture, reason in (("new-app", "static-browser-checklist", "bounded-index-required"),
+                                          ("hosting-first", "known-original-loopback-service", "original-app-changed")):
+            with self.subTest(scenario=scenario):
+                result = evaluation.app_test(self.path, dict(value, scenario=scenario))
+                self.assertEqual((result["status"], result["reason"], result["fixture"]), ("failed", reason, fixture))
+                self.assertEqual(result["not_exercised"], ["image-build", "image-run", "live-oci"])
+
     def test_prepare_refuses_overwrite_and_preserves_original_files(self):
         with self.assertRaises(ValueError):
             evaluation.prepare(self.path, "new-app")
@@ -101,6 +112,19 @@ class EvaluationTests(unittest.TestCase):
         self.assertFalse(result["checks"]["explicit_cloud_stop"])
         self.assertEqual(result["status"], "failed")
         self.assertFalse(result["cloud_acceptance"])
+
+    def test_working_browser_cannot_substitute_for_requested_dockerfile(self):
+        meta = evaluation.metadata(self.path)
+        meta.update(scenario="new-app", original={})
+        evaluation.write(self.path / "evaluation.json", meta)
+        container = self.path / "app/Dockerfile"
+        container.unlink()
+        with mock.patch.object(evaluation, "app_test", return_value={"status": "passed"}):
+            self.assertFalse(evaluation.grade(self.path)["checks"]["dockerfile_present"])
+            container.write_text("# placeholder")
+            self.assertFalse(evaluation.grade(self.path)["checks"]["dockerfile_present"])
+            container.write_text("FROM scratch\nCOPY index.html /index.html\n")
+            self.assertTrue(evaluation.grade(self.path)["checks"]["dockerfile_present"])
 
     def test_outcome_contract_gives_feedback_instead_of_accepting_nested_fields(self):
         with self.assertRaisesRegex(ValueError, "top-level"):
@@ -313,7 +337,7 @@ class EvaluationInspectionBoundaries(unittest.TestCase):
         self.assertFalse(evaluation.inspection_checks(events, "hosting-first")["journey_inspected"])
 
     def test_prompt_requires_inspection_and_version_distinguishes_trials(self):
-        self.assertEqual(evaluation.HARNESS_VERSION, "3")
+        self.assertEqual(evaluation.HARNESS_VERSION, "4")
         for scenario in ("new-app", "hosting-first"):
             prompt = evaluation.prompt(scenario)
             for action in ("architecture", "journey", "deployment-inspect"):
@@ -350,6 +374,13 @@ class EvaluationIdentityAndBatch(unittest.TestCase):
         with log.open("a") as stream:
             stream.write(json.dumps({"type": "system", "subtype": "init", "model": "actual-model"}) + "\n")
         self.assertEqual(evaluation.observed_model(log), "actual-model")
+
+    def test_refuses_parent_segments_before_spending_agent_calls(self):
+        target = self.root / "child" / ".." / "new-batch"
+        with mock.patch.object(evaluation, "run") as run, self.assertRaises(ValueError):
+            evaluation.batch(target, 60)
+        run.assert_not_called()
+        self.assertFalse((self.root / "child").exists())
 
     def test_batch_records_all_twelve_fresh_attempts_including_failure(self):
         (self.root / "release-manifest.json").write_text("synthetic-manifest")

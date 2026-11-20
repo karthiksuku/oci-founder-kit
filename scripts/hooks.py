@@ -67,9 +67,11 @@ def bounded_read(path: Path, root: Path, limit: int = MAX_BLOB) -> bytes:
 def run_git(project: Path, args: list[str], limit: int = MAX_BLOB, timeout: int = 5) -> bytes:
     """Fixed read commands only; bounded output, duration and no stderr disclosure."""
     env = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
-    # Partial clones must report missing objects, never fetch them or run helpers.
+    # Read the indexed objects, not replacement refs. Partial clones must report
+    # missing objects, never fetch them or run helpers.
     env.update({'GIT_TERMINAL_PROMPT': '0', 'GIT_OPTIONAL_LOCKS': '0',
-                'GIT_NO_LAZY_FETCH': '1', 'GIT_ALLOW_PROTOCOL': ''})
+                'GIT_NO_LAZY_FETCH': '1', 'GIT_ALLOW_PROTOCOL': '',
+                'GIT_NO_REPLACE_OBJECTS': '1'})
     proc = subprocess.Popen(['git', '-c', 'core.fsmonitor=false', '-C', str(project), '--no-pager', *args],
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                             stdin=subprocess.DEVNULL, env=env)

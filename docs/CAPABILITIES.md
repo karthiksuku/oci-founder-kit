@@ -1,6 +1,6 @@
 # Capability and platform support
 
-Generated from [capabilities.json](capabilities.json). Evidence checked 2026-11-19.
+Generated from [capabilities.json](capabilities.json). Evidence checked 2026-11-20.
 
 An evidence label applies only to the scope described. Local tests do not establish OCI deployment, effective IAM or recovery.
 
@@ -17,6 +17,7 @@ An evidence label applies only to the scope described. Local tests do not establ
 | [Update with a recovery path](../docs/RELEASE-LIFECYCLE.md) | local-tested | Current bound deployment and behavior evidence; Previous accepted digest for rollback | Rollback needs new exact cloud plans; a single-instance update may interrupt service. |
 | [Add durable background work](../blueprints/saas-essentials/README.md) | local-tested | PostgreSQL; Separate worker identity; Reviewed ownership transfer | Native scheduling remains experimental until its exact cloud path is accepted.; PostgreSQL/HTTP and local containers exercised; OCI Queue and IAM acceptance are pending. |
 | [Share a safe support summary](../docs/OPERATIONS.md) | local-tested | Explicit environment; Private local reports | Allowlisted summary only; never automatically uploads. |
+| [Test and operate your app](../docs/SRE.md) | preview | Named rehearsal environment for planning; separate production environment and exact saved plan for promotion. | Agent summaries and local drills do not authorize production.; Live monitoring, hosted CI and OCI deployment require separate setup and acceptance. |
 
 | Platform | Evidence | Scope |
 |---|---|---|

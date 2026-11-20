@@ -113,3 +113,13 @@ variable "auth" {
     error_message = "Choose the OCI provider authentication mode matching the readiness check."
   }
 }
+
+variable "sre_latency_ms" {
+  type        = number
+  default     = null
+  description = "Optional successful task-list latency threshold in milliseconds. Emits aggregate application counters only; publishing metrics is separate."
+  validation {
+    condition     = var.sre_latency_ms == null ? true : floor(var.sre_latency_ms) == var.sre_latency_ms && var.sre_latency_ms >= 1 && var.sre_latency_ms <= 60000
+    error_message = "Choose a whole number of milliseconds from 1 to 60000."
+  }
+}

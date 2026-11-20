@@ -201,6 +201,33 @@ class Updates(unittest.TestCase):
         self.assertFalse(marker.exists(), "Baseline validation executed a repository conversion filter")
         self.assertEqual((self.project / "app.py").read_text(), "User app edits\n")
 
+    def test_legacy_baseline_tree_replacement_cannot_hide_staged_changes(self):
+        baseline = self.parent / "baseline"
+        import shutil
+        shutil.copytree(self.source, baseline)
+
+        def git(*arguments):
+            return subprocess.run(["git", "-C", str(baseline), *arguments],
+                                  check=True, capture_output=True).stdout
+
+        git("init", "-q")
+        git("add", ".")
+        git("-c", "user.name=Synthetic Test", "-c", "user.email=test@example.invalid",
+            "commit", "-qm", "Synthetic baseline")
+        data = json.loads((self.project / update.META).read_text())
+        original = (baseline / "README.md").read_bytes()
+        self.assertEqual(update.legacy_owned(data, baseline)[".oci-founder-kit/README.md"], update.digest(original))
+        original_tree = git("rev-parse", "HEAD^{tree}").decode().strip()
+        (baseline / "README.md").write_text("Changed baseline\n")
+        git("add", "README.md")
+        with self.assertRaises(update.UpdateError):
+            update.legacy_owned(data, baseline)
+        replacement_tree = git("write-tree").decode().strip()
+        git("replace", original_tree, replacement_tree)
+        self.assertEqual(git("--no-replace-objects", "show", "HEAD:README.md"), original)
+        with self.assertRaises(update.UpdateError):
+            update.legacy_owned(data, baseline)
+
     def test_symlinked_owned_target_or_parent_refused(self):
         self.new_release()
         original = self.project / ".oci-founder-kit/README.md"

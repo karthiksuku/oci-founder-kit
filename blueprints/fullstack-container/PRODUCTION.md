@@ -383,3 +383,5 @@ and Vault secrets remain until their individual retention/cleanup plans are
 approved; destroying the app stack does not establish that they were removed.
 An empty resource-search result is **unknown**, not evidence that cleanup finished.
 Publish only a redacted result summary, with unverified items left explicit.
+
+For the hardened load-balancer path, [SRE monitoring](../../docs/SRE-MONITORING.md) adds an optional external HTTPS probe, telemetry absence alarm, two responder routes and real-user objectives for the task list. A recorded delivery and recovery drill is separate from configuring subscriptions.

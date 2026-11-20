@@ -202,7 +202,7 @@ class Packaging(Fixture):
         self.assertIsNone(package.PATTERN.search(b"TLS parser constant " + b"-----BEGIN " + b"PRIVATE KEY-----"))
         self.assertIsNotNone(package.PATTERN.search(b"-----BEGIN " + b"PRIVATE KEY-----\\nMI" + b"A" * 64))
         self.assertIsNone(package.PATTERN.search(b"-----BEGIN " + b"PRIVATE KEY-----\nABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"))
-        self.assertIsNone(package.PATTERN.search(b"sk_X509_ATTRIBUTE_deep_copy"))
+        self.assertIsNone(package.PATTERN.search(b"sk_X509_ATTRIBUTE_get0"))
 
     def test_empty_npm_config_contains_no_credential_but_nonempty_file_is_blocked(self):
         self.propose(self.descriptor())

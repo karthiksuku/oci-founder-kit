@@ -46,7 +46,7 @@ def view(store, p) -> dict:
             continue
         schema = data.get("schema")
         if schema not in {"oci-workload-readiness/1", "oci-runtime-probe/1", "oci-migration-parity/1",
-                          "oci-production-check/1", "oci-operating-costs/1", "oci-operating-observation/1"}:
+                          "oci-production-check/1", "oci-operating-costs/1", "oci-operating-observation/1", "oci-sre-monitor/1"}:
             continue
         observed = data.get("observed_at")
         if (data.get("environment") != store.environment or data.get("target_sha256") != target_hash
@@ -64,7 +64,21 @@ def view(store, p) -> dict:
             unreadable += 1
             continue
         # Never forward arbitrary payloads, raw receipt fields, resource labels or errors to HTML.
-        if schema == "oci-operating-observation/1":
+        if schema == "oci-sre-monitor/1":
+            try:
+                if data.get("mode") in {"live-read-only", "injected-test-client"}:
+                    _, receipt_hash = p.helper("operations").receipt_at(store, p)
+                    if data.get("receipt_sha256") != receipt_hash:
+                        stale += 1
+                        continue
+                if now - observed > 900:
+                    stale += 1
+                    continue
+                item = p.helper("sre_monitor").dashboard_summary(data)
+            except (ValueError, OSError, KeyError, TypeError):
+                unreadable += 1
+                continue
+        elif schema == "oci-operating-observation/1":
             component = data.get("component_role")
             if (component not in {"web", "worker"} or data.get("status") not in {"passed", "failed", "unknown"}
                     or data.get("mode") not in {"live-read-only", "injected-test-client"}
@@ -169,6 +183,11 @@ def page(data: dict) -> bytes:
     rows = "".join(f"<tr><th>{escape(schema)}</th><td>{escape(item.get('status', 'owner-recorded'))} · {escape(item.get('mode', 'owner-recorded'))}</td>"
                    f"<td>{escape(item.get('failed_checks', '—'))}</td><td>{escape(dt.datetime.fromtimestamp(item['observed_at'], dt.timezone.utc).isoformat())}</td></tr>"
                    for schema, item in observations.items())
+    sre = observations.get("oci-sre-monitor/1", {})
+    reliability = ("No current SRE monitor report." if not sre else
+        f"{escape(sre['mode'])} · real-user objective: {escape(sre['slo'])}. "
+        f"{sre['successful']} successful and {sre['within']} fast successful requests out of {sre['eligible']} eligible "
+        f"across {sre['hours']}/672 complete hours. External probes (separate): {escape(sre['synthetic'])}.")
     costs = observations.get("oci-operating-costs/1", {})
     observed_costs = observations.get("oci-operating-observation/1/web", {}).get("costs", {})
     reported = (f"{observed_costs['currency']} {observed_costs['reported_amount']:,.2f}" if observed_costs else "Unknown")
@@ -191,6 +210,7 @@ p,small{{color:#bdcde1}}.value{{font-size:1.5rem;color:#fff}}footer{{margin-top:
 <section><h2>Next action</h2><p class="value">{escape(data['next_action'])}</p><small>{data['stale_reports']} stale · {data['unreadable_reports']} unreadable reports</small></section></div>
 <section><h2>Selected image digest</h2><code>{escape(data['selected_image_digest'] or 'Not selected')}</code><p>Selection alone does not establish which image is deployed.</p></section>
 <section><h2>Current observations</h2><table><thead><tr><th>Report</th><th>Result</th><th>Failed checks</th><th>Observed UTC</th></tr></thead><tbody>{rows or '<tr><td colspan="4">No current bound reports. Run doctor or verify for this environment.</td></tr>'}</tbody></table><ul>{diagnostics}</ul></section>
+<section><h2>User journey reliability</h2><p>{reliability}</p><small>Private snapshot; refresh within 15 minutes using sre monitor with --write. Missing traffic cannot establish uptime.</small></section>
 <section><h2>Usage API reported cost</h2><p class="value">{escape(reported)}</p><small>{escape(observed_costs.get('period_start_utc', 'Period unknown'))} — {escape(observed_costs.get('period_end_utc', ''))}</small><p>Selected receipt resources only. Reporting may lag; this is not the final invoice or a spending cap. Missing billing access never means zero.</p></section>
 <div class="grid"><section><h2>Estimated monthly cost</h2><p class="value">{money('estimated_monthly_usd')}</p></section>
 <section><h2>Observed period cost</h2><p class="value">{money('observed_period_usd')}</p><small>{escape(costs.get('period_start_utc', 'Period unknown'))} — {escape(costs.get('period_end_utc', ''))}</small></section>

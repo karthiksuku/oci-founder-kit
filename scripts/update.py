@@ -78,14 +78,15 @@ def metadata(project: Path) -> dict:
 def legacy_owned(data: dict, baseline: Path) -> dict[str, str]:
     baseline = baseline.expanduser().resolve(strict=True)
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    env.update(GIT_TERMINAL_PROMPT="0", GIT_OPTIONAL_LOCKS="0", GIT_NO_LAZY_FETCH="1", GIT_ALLOW_PROTOCOL="")
+    env.update(GIT_TERMINAL_PROMPT="0", GIT_OPTIONAL_LOCKS="0", GIT_NO_LAZY_FETCH="1", GIT_ALLOW_PROTOCOL="",
+               GIT_NO_REPLACE_OBJECTS="1")
     prefix = ["git", "-c", "core.fsmonitor=false", "-C", str(baseline)]
     top = subprocess.run(prefix + ["rev-parse", "--show-toplevel"], env=env,
                          capture_output=True, timeout=10, check=True).stdout.decode().strip()
     if Path(top).resolve() != baseline:
         raise UpdateError("Legacy baseline must be its own clean checkout.")
     # `git status`/diff can execute configured clean filters. Compare raw HEAD,
-    # index and regular-file bytes without Git worktree conversion instead.
+    # index and regular-file bytes without replacement refs or worktree conversion.
     head = subprocess.run(prefix + ["ls-tree", "-r", "-z", "HEAD"], env=env,
                           capture_output=True, timeout=10, check=True).stdout
     index = subprocess.run(prefix + ["ls-files", "--stage", "-z"], env=env,

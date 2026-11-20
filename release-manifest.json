@@ -38,7 +38,7 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "208e41f1d14070f48ed3cfeee5b132567dceb4aaf0be4d5e86ae0e72e173da9d"
+      "sha256": "ef6a3a58b5b5875e7b10623f9b22bb2df6bf3c3a662dd9b7e663a7869fbd5576"
     },
     "SECURITY.md": {
       "executable": false,
@@ -82,7 +82,7 @@
     },
     "blueprints/fullstack-container/PRODUCTION.md": {
       "executable": false,
-      "sha256": "0473af891c79a41d50b8be1c70091d97330ad892e833bc06f1b8db6317c54518"
+      "sha256": "2971c351d5dd77347ab33df8a4fe68f0b0b2f7278e8f8963d561086e6acaf8e1"
     },
     "blueprints/fullstack-container/README.md": {
       "executable": false,
@@ -100,13 +100,17 @@
       "executable": false,
       "sha256": "3ee764fe86f39c8ab30c374b18beec54759536e70b9acc900db53d903aed3308"
     },
+    "blueprints/fullstack-container/app/checks/browser.mjs": {
+      "executable": false,
+      "sha256": "c090e9c2216e6f7760586afff5e8c312cd76a745c4e7ef136d09493640858dfc"
+    },
     "blueprints/fullstack-container/app/package-lock.json": {
       "executable": false,
-      "sha256": "094dc3f9888409e1b147f46b75e80365465179e9a28176b399cdb1bd05db78b8"
+      "sha256": "006bf9aef0999089e3070283420274d078119a0221cec7e0a5acf3ccc67a1b5d"
     },
     "blueprints/fullstack-container/app/package.json": {
       "executable": false,
-      "sha256": "47f05b1e19e1735e4894c31fa771f8e93b4a83414649152cdcd994260686b63c"
+      "sha256": "004902eddb635439397419e804ac9f5818e7c85d6a794c19ed29bfbe6a396ad9"
     },
     "blueprints/fullstack-container/app/public/app.js": {
       "executable": false,
@@ -122,7 +126,7 @@
     },
     "blueprints/fullstack-container/app/src/app.js": {
       "executable": false,
-      "sha256": "c6f0413fed339fc73df695f52a2bff4e3dbfbd8bb730b5a37c40fa3e12d77517"
+      "sha256": "3aedd5f9c1d32cf902e721cb5131e4ae114ca7dc1e291af7bcf86ed984469177"
     },
     "blueprints/fullstack-container/app/src/auth.js": {
       "executable": false,
@@ -131,6 +135,10 @@
     "blueprints/fullstack-container/app/src/config.js": {
       "executable": false,
       "sha256": "7080db35d6bd664a129521ced8b67348e2de858008321893f158d0869a8afdee"
+    },
+    "blueprints/fullstack-container/app/src/journey-metrics.js": {
+      "executable": false,
+      "sha256": "ce3d39633799b870f4a25aab0ad1cbae120ae6e027100d6bbb6028f0977b4902"
     },
     "blueprints/fullstack-container/app/src/logger.js": {
       "executable": false,
@@ -142,7 +150,7 @@
     },
     "blueprints/fullstack-container/app/src/server.js": {
       "executable": false,
-      "sha256": "6a49651a88a232dd117d9a130b7719640449fb99d03b55de15445aed7227d73a"
+      "sha256": "14e1becab9053520b987650a1a9b5598505db875a1cad03fa02a34f337eca3ce"
     },
     "blueprints/fullstack-container/app/src/stores/oci-attachment-store.js": {
       "executable": false,
@@ -159,6 +167,10 @@
     "blueprints/fullstack-container/app/test/fakes.js": {
       "executable": false,
       "sha256": "3b9ab0b6e2b5790d889e67eebfcd4a9eb410607623881fba954b54ac1215db3e"
+    },
+    "blueprints/fullstack-container/app/test/journey-metrics.test.js": {
+      "executable": false,
+      "sha256": "25ce58c0bbba394dc51a6fca75dad2ef1cf581ba03bcf260252e363726ae305a"
     },
     "blueprints/fullstack-container/app/test/pg-store.integration.test.js": {
       "executable": false,
@@ -218,7 +230,7 @@
     },
     "blueprints/fullstack-container/terraform/container.tf": {
       "executable": false,
-      "sha256": "48d5b341b77ab29e948f642e6a3f8b0c6f24c5fcb0cb788e1609735e320658c0"
+      "sha256": "305fb8590ac99e61fa4ffe45a9153b035e2e941b086bb2044bd0c4b59b8bc7a0"
     },
     "blueprints/fullstack-container/terraform/database.tf": {
       "executable": false,
@@ -256,6 +268,10 @@
       "executable": false,
       "sha256": "1313289ff0d4276e345e2cf87a65be0cb5e268db715974c9ce56acd3614be8b3"
     },
+    "blueprints/fullstack-container/terraform/sre-monitoring.tf": {
+      "executable": false,
+      "sha256": "b4791b400ac521228d1892a58889dafa3a216344280fa1f7f4bd6cd734d03adc"
+    },
     "blueprints/fullstack-container/terraform/storage.tf": {
       "executable": false,
       "sha256": "c96a0b34ce7e237d2a93d0c95d898fc1f82918494bcf9ad2dc80c8b8fa402d41"
@@ -266,11 +282,11 @@
     },
     "blueprints/fullstack-container/terraform/tests/production.tftest.hcl": {
       "executable": false,
-      "sha256": "80930a969464b88fa3d58001afb7c6a11eba614bf702342669657d465275c410"
+      "sha256": "9cca88b453cfd97ac783c0a74c36028b577f048f7903a456a5c78db944af5d32"
     },
     "blueprints/fullstack-container/terraform/variables.tf": {
       "executable": false,
-      "sha256": "35c5685fc91b000ba23dede534b96d1b0b2303674f62d2087f9ffbc7e39e781a"
+      "sha256": "cba0a6f2ff999872985ccce9c3d708dc4b4c6e900f66b62ba1f70dbad7ec5cd2"
     },
     "blueprints/fullstack-container/terraform/versions.tf": {
       "executable": false,
@@ -418,7 +434,7 @@
     },
     "blueprints/web-container/README.md": {
       "executable": false,
-      "sha256": "2ecbb3df33be9d3e02d7c2f016017dca0da662d82cc9be469c0d594f9cf8d51b"
+      "sha256": "f6a2afbed847b028db6deb2dcbb25ab476f81f2f455ab85fb11f14e8f63d2df6"
     },
     "blueprints/web-container/blueprint.json": {
       "executable": false,
@@ -448,6 +464,10 @@
       "executable": false,
       "sha256": "aa0082884aceb68ee76f95beba71ec2ed29fd27806fa395793d219b703b8b494"
     },
+    "blueprints/web-container/terraform/monitoring.tf": {
+      "executable": false,
+      "sha256": "0cc073c0a4756ce3687e3330d2e00d984d9ba7fa1d4ade52dd5abf43cfabad6a"
+    },
     "blueprints/web-container/terraform/network.tf": {
       "executable": false,
       "sha256": "2b4c812514d8ffc267394495604daf300a256b038237bbeeb508780be16675bd"
@@ -462,7 +482,7 @@
     },
     "blueprints/web-container/terraform/tests/web.tftest.hcl": {
       "executable": false,
-      "sha256": "ff916949c11d78f0542a9097f3cb0088abe5837edeba355315ebb0a483caea28"
+      "sha256": "79ed7bd274258aafaa4ae84c4365d33341777a79b627995e296236fe6992974c"
     },
     "blueprints/web-container/terraform/variables.tf": {
       "executable": false,
@@ -590,7 +610,7 @@
     },
     "docs/AGENT-EVALUATIONS.md": {
       "executable": false,
-      "sha256": "271e279cc413bd6813920b813d6e14bbd38250706bcedfd402d7701f884bb9f3"
+      "sha256": "e45407e490d9a1afb448fb2fe2b5063be7b3a085943f0eb0c4806cb4a2336779"
     },
     "docs/BUSINESS-VALUE.md": {
       "executable": false,
@@ -598,11 +618,11 @@
     },
     "docs/CAPABILITIES.md": {
       "executable": false,
-      "sha256": "4b0280dffc8406b753ab11ebaba8ba87989a3dc49afc4753720efe45f67a0dd2"
+      "sha256": "50629c02a90bb19ad42fc4de8e6258c7ea080338326a4737178c8da23093428a"
     },
     "docs/DEPLOYMENT-CONFIGURATION.md": {
       "executable": false,
-      "sha256": "b0aecb69c2ccb98b93db7275b94be4c225c001a749cd3ea00c8b7394533ad152"
+      "sha256": "eeb87f8dd0efc59bb8f4be3b19b83c7b46bfaffd4b53111c22504c512e3121ab"
     },
     "docs/ECOSYSTEM.md": {
       "executable": false,
@@ -720,6 +740,18 @@
       "executable": false,
       "sha256": "eff31914f72f2657f8e0deee820ee8157c2231079f896bc3590763ab4a34b474"
     },
+    "docs/SRE-MONITORING.md": {
+      "executable": false,
+      "sha256": "bbe2b489cdacb5147001daccb87ab5014b6acc245a9f8cf0283eb2b35302af53"
+    },
+    "docs/SRE-VERIFIER.md": {
+      "executable": false,
+      "sha256": "a827f8a3bdc912fcccede0b1ff1331ce84488f0d408f73c0e17d51140488bc54"
+    },
+    "docs/SRE.md": {
+      "executable": false,
+      "sha256": "1c0ced5a0e372c639769315e20824e26008afc54dc68d5ae587173f0d7370e0b"
+    },
     "docs/START-HERE.md": {
       "executable": false,
       "sha256": "b7e5a938944ab7cee5c80e71151a8c66179c95bb73b3c44064e0b348815474ef"
@@ -762,7 +794,7 @@
     },
     "docs/capabilities.json": {
       "executable": false,
-      "sha256": "4412642589fe1543c2a1bfe287780c47110f7363994efc2daa41b9900638f2f7"
+      "sha256": "cd182904038482e42392de7a5581bf2bcd136ccfeda913add2695815a2c83424"
     },
     "docs/ci/README.md": {
       "executable": false,
@@ -770,7 +802,7 @@
     },
     "docs/ci/checks.workflow.yml": {
       "executable": false,
-      "sha256": "7f0ceda16eb1b7be5ac9c52f4cf0de1a8c95df07bf7160dec18a59d60c583281"
+      "sha256": "fe2ec29917cda74c40812a3ec1129d57cc6ff9719e9634ea7d0c8531bbd94861"
     },
     "docs/ci/container_smoke.py": {
       "executable": false,
@@ -876,6 +908,10 @@
       "executable": false,
       "sha256": "c48da69da4d9ea28e57c6929bcbdadad43267b164feddcd9cc4abd62c60189de"
     },
+    "examples/migrate-nextjs/checks/browser.mjs": {
+      "executable": false,
+      "sha256": "0afe16ec04a9ddfda7db09575b6c6e172f2c31c7d5008cbdd1e1c7c2cc708807"
+    },
     "examples/migrate-nextjs/lib/checklist.js": {
       "executable": false,
       "sha256": "3d8d7b62959cde456d327b625dd4435b2ea2a2039585b6accca9300c7b7383e3"
@@ -886,11 +922,11 @@
     },
     "examples/migrate-nextjs/package-lock.json": {
       "executable": false,
-      "sha256": "fd37bc4b5b499b776933ad5eb610287c30e7992ac05a4c64a507f7eaada15412"
+      "sha256": "b754857e1444eb47339feeeb9cc82c0f8e65bb165bb28b6ff520c8f2870c9fa9"
     },
     "examples/migrate-nextjs/package.json": {
       "executable": false,
-      "sha256": "f493cad2b910063e8f5ddf1f264e505dc279a5d0aea2a0412dafb4fd26d43534"
+      "sha256": "f01291dc6106ad876176a8192bc1e8353316dfdd08311ffaf5cf85f135a24c3e"
     },
     "examples/migrate-nextjs/parity.py": {
       "executable": false,
@@ -952,6 +988,30 @@
       "executable": false,
       "sha256": "1d30b3e1c99acafa4228deef0deb2dcbf74cd2d4e48c5cde6bd9cdce51738c1c"
     },
+    "recipes/sre-ci/README.md": {
+      "executable": false,
+      "sha256": "34b4f533688deacdc9fec35ecebc2aefdf2d889cbc21e7840c7d04290e2d5a64"
+    },
+    "recipes/sre-ci/deployed-rescan.workflow.yml": {
+      "executable": false,
+      "sha256": "1a32ba88f2c537030c9f6d8fff424db27c54801cbf73d0077d829399f367c685"
+    },
+    "recipes/sre-ci/founder-pr.workflow.yml": {
+      "executable": false,
+      "sha256": "5f59e044b1ca29ec9df898b385d4657c3e3624fdaf93b18ebcf537d0a0eb25ec"
+    },
+    "recipes/sre-ci/registry-scan/main.tf": {
+      "executable": false,
+      "sha256": "114a84ce87023faa0530a623dad6b883ce5fdd329e7d55b3255bb2d581813dbc"
+    },
+    "recipes/sre-ci/registry-scan/tests/registry.tftest.hcl": {
+      "executable": false,
+      "sha256": "9f1c594481a3551e2405309372c406ff5d7252e5112412b8414d7284f0500c51"
+    },
+    "recipes/sre-ci/registry-scan/versions.tf": {
+      "executable": false,
+      "sha256": "889dc68600f3f3da30eb0fa3066f5aff4c2d70bff5427a01899648bd012e36f5"
+    },
     "scripts/architecture.py": {
       "executable": false,
       "sha256": "3902e272e9ffaa445ff57f7b916f6b22268f2ae5aee4564de76bb4a11b19ab8e"
@@ -970,11 +1030,11 @@
     },
     "scripts/dashboard.py": {
       "executable": false,
-      "sha256": "ca2ac9381970261531b759e9a4dc6729d25473e9006b7362125b7885a6bfedaa"
+      "sha256": "49763fc2dfc779ceb74864794581402a74310f5b28f3adf5c804dabac78d17c8"
     },
     "scripts/deployment_config.py": {
       "executable": false,
-      "sha256": "201f6531f085b90c2518f7891d6275d0b40b1ea01a0fdbcd28f6eb450fb4eaea"
+      "sha256": "ec454dde76b1a7266186059287aeeae48286b537e13baaa471fdebd0a32018d8"
     },
     "scripts/deployment_scaffold.py": {
       "executable": false,
@@ -982,7 +1042,7 @@
     },
     "scripts/environments.py": {
       "executable": false,
-      "sha256": "f777a10a510f9e154d1a38720dc0c3e49dc7f4a1afba2be40a4fd0d90442966a"
+      "sha256": "da8bf068e5ead3d293ae55ea584eac7ec0ffb411047315c65d1375f69bfb1114"
     },
     "scripts/foundation.py": {
       "executable": false,
@@ -990,11 +1050,11 @@
     },
     "scripts/founder_eval.py": {
       "executable": false,
-      "sha256": "e7945142d2a044b9d26238cc73449e918136ef74b9d8d83bfa919997de8d0b47"
+      "sha256": "4ba20ef10fb70f5048250681d26c14cbd7bcc8a64bb9e4131544ac618cc556f8"
     },
     "scripts/hooks.py": {
       "executable": false,
-      "sha256": "70dd653ca755ccab6112de0f6b2978b918d94dab0a651de6793db9a1fae18bb5"
+      "sha256": "548c44878dc809b3c7741630c8edd6bc3a91697c9083af9d7994ee4cb8391677"
     },
     "scripts/hooks_install.py": {
       "executable": false,
@@ -1010,11 +1070,11 @@
     },
     "scripts/kit.py": {
       "executable": false,
-      "sha256": "639580d4c88fec64c73c137aeb6feb1c2bcec4f2db11e37aeaa585ab6c317fb6"
+      "sha256": "8c7dd230402fbb2c0262133a15846a4968a70be65f7be0d5c4a25d56909f2ec8"
     },
     "scripts/kit_common.py": {
       "executable": false,
-      "sha256": "ee6cd1b19bb10339352d71eddd40352e746739ab8615e55097d065704f016516"
+      "sha256": "bea572925da5ed259ae76e4a85f76e9637f20bab448638a2a16881e4cec904e0"
     },
     "scripts/migration.py": {
       "executable": false,
@@ -1034,7 +1094,7 @@
     },
     "scripts/packaging.py": {
       "executable": false,
-      "sha256": "c46177c532b0d2855b51f7697b16ae94ba5021b59335946d106927951dfb9cb2"
+      "sha256": "0c8a360fb454585c1bc012a50c17a70d84ae133f2b65220fbbafdbab605a5b0d"
     },
     "scripts/project.py": {
       "executable": false,
@@ -1062,11 +1122,39 @@
     },
     "scripts/releases.py": {
       "executable": false,
-      "sha256": "63644d66c81b4911b81bc444e477322216c43bcab32d2ac79b7d28a1e7c93cc9"
+      "sha256": "ecb68a583621dd0c0c885ab299749e920a05a90787c3a73e22a61223dc7de12b"
     },
     "scripts/scaffold.py": {
       "executable": false,
       "sha256": "5050824cd2bf0feae9f533356ec7fbba4300e82494e0ce408cebc5eb9e9b1a4b"
+    },
+    "scripts/sre_gate.py": {
+      "executable": false,
+      "sha256": "ee2352323aa87d49db1f1f22a54e47fe3dc7e99bde188e88d5cb69658f274f32"
+    },
+    "scripts/sre_latency_drill.py": {
+      "executable": false,
+      "sha256": "c20bd79e718e5bd4211db2cc4b214b84b6bfb94f8b9c5318fb1cfea7c77e122b"
+    },
+    "scripts/sre_monitor.py": {
+      "executable": false,
+      "sha256": "4c3ed6c85988bf3f4763071ff95c40b01bf13b024e3f57e5c79e2e5b4b14d700"
+    },
+    "scripts/sre_plan.py": {
+      "executable": false,
+      "sha256": "60bc478ecb3f2fb98cbef70907246a5fc19582f63d1af7098cd5d88afe8549d2"
+    },
+    "scripts/sre_restore_drill.py": {
+      "executable": false,
+      "sha256": "70e4d6a190ca85a512f828bdac4ee97856b3a0ab925cfe2d358bc013f6bd0261"
+    },
+    "scripts/sre_results.py": {
+      "executable": false,
+      "sha256": "1201671aa2b3cc20d9149e45540116453cfb6dba81a4c86a4af802e5c63bda96"
+    },
+    "scripts/sre_scan.py": {
+      "executable": false,
+      "sha256": "148c56bee58e05d9f4c0fe6c5a26b9e2060a24265fdaf3278211b16804d9c5d8"
     },
     "scripts/support.py": {
       "executable": false,
@@ -1074,7 +1162,7 @@
     },
     "scripts/update.py": {
       "executable": false,
-      "sha256": "ece780baa7851eabaf0c73d028487e0bfd0792b643aabbe311977c8170bc56c9"
+      "sha256": "4936feb345c7548be6d9eb59735b25f84b5b6a2214a4c4e351cd1f5b9abd3e2e"
     },
     "scripts/validate.py": {
       "executable": false,
@@ -1266,11 +1354,11 @@
     },
     "skills/oci-deploy/scripts/deploy_gate.py": {
       "executable": false,
-      "sha256": "7a65335e031f4e9190176fc778eb46119202ac404d96c6fd8c8d9b6589309959"
+      "sha256": "add881118826c959df3ed5a5b2a115dfa2d59cae5f72461c2e8a0663856dae79"
     },
     "skills/oci-deploy/scripts/environment_gate.py": {
       "executable": false,
-      "sha256": "c30c01f266a66a1bc4088ad99c38cb85ce0a2021207cbbff8925436dfd9989b2"
+      "sha256": "e5a2eef76a4d00eefe1c35cc2edb2f70a5837c0067a726e5d0bb2afc80cfd8fa"
     },
     "skills/oci-deploy/scripts/image_gate.py": {
       "executable": false,
@@ -1278,7 +1366,7 @@
     },
     "skills/oci-deploy/scripts/named_workload.py": {
       "executable": false,
-      "sha256": "cca8f30f67f11f047fc2158cbf0ea0a9ff9ab6863820ede21e3f8554a13eb3c4"
+      "sha256": "31ead08288f6c866d22bc1ea7e8a81ceeed36bcc45c2d45328ce9d9992f70b8f"
     },
     "skills/oci-foundation/SKILL.md": {
       "executable": false,
@@ -1294,7 +1382,7 @@
     },
     "skills/oci-kit/SKILL.md": {
       "executable": false,
-      "sha256": "e417de924aabf3239ba440c5898c6480ec93c4e21159140a843288274275a437"
+      "sha256": "81d63faa5301851e6e1513711e0c63ffa6f9e5e3d36e45512229fc2e6c6ed4ed"
     },
     "skills/oci-kit/agents/openai.yaml": {
       "executable": false,
@@ -1534,11 +1622,11 @@
     },
     "tests/test_deploy_gate.py": {
       "executable": false,
-      "sha256": "6c295600a7f094274aacc5acdb81a6055dc799fedaaff6388a37a024005b3c3f"
+      "sha256": "1fc41a9d7271c7239c659639d4e39f020f85d494970e86202842379486d8eddc"
     },
     "tests/test_deployment_config.py": {
       "executable": false,
-      "sha256": "355cf1e47fe3ac5f5b538281fd78339b429d08455b58df8ff64e032fd99935b9"
+      "sha256": "3ab62df8a1c34315797b0cc057f85c825264b9d650c84fd33e72908368416024"
     },
     "tests/test_environment_gate.py": {
       "executable": false,
@@ -1558,15 +1646,15 @@
     },
     "tests/test_foundation_packaging.py": {
       "executable": false,
-      "sha256": "ce1588b2aab9e9339153cd0ded128e8c66750fdafcd789ea46f323605306e681"
+      "sha256": "d06a0e8082c41951d352a0917aa7c1aaa0daa2a1f2ad3c9289f15bcd802ef430"
     },
     "tests/test_founder_eval.py": {
       "executable": false,
-      "sha256": "997e2feec8aef7959dfad3a58a11f2a10e4035d82942eb2e996d5d6be22aac6e"
+      "sha256": "99c37c4ede101772be870c36ca3c00796ce5c5da313e5ce83f3ffe82c35157a0"
     },
     "tests/test_hooks.py": {
       "executable": false,
-      "sha256": "7399e2abcd69cb6bf7397721fa6a5ded49eee8dd7d7b3bd582818c4d4f5a2276"
+      "sha256": "354a2e3c67c1392391b6f961ccb4d7a28684d55f681b5c3cdb55d0c022138f69"
     },
     "tests/test_hooks_install.py": {
       "executable": false,
@@ -1650,7 +1738,7 @@
     },
     "tests/test_releases.py": {
       "executable": false,
-      "sha256": "dd251df7be476fe95add80fe601a3a1bc77679be9f1ff3478733904085ffcb56"
+      "sha256": "e428617846fb9d4939ab543c06b256d0bb7f2342d9136eb246c80846f31bf443"
     },
     "tests/test_repository.py": {
       "executable": false,
@@ -1668,9 +1756,25 @@
       "executable": false,
       "sha256": "63f508cbee56de39cacf745042769e0ce28cd5488e9bc3076bd7d031bb1c2638"
     },
+    "tests/test_sre_gate.py": {
+      "executable": false,
+      "sha256": "1009a016b1f2d5257a11968715897a2856253466370a60ef7c13a5e238063293"
+    },
+    "tests/test_sre_monitor.py": {
+      "executable": false,
+      "sha256": "1b592576cdd59bb4a8501f7b18f861006794a326caa75742c92c7c04ee30aabc"
+    },
+    "tests/test_sre_plan.py": {
+      "executable": false,
+      "sha256": "2c8b0f45a4bd88619f98b98f015bde5331c831e9a422920e9f97364e2d538013"
+    },
+    "tests/test_sre_scan.py": {
+      "executable": false,
+      "sha256": "83c768381b5dd854bd00bdb371af8e35e828f5df02403f0284759eca5fde329c"
+    },
     "tests/test_update.py": {
       "executable": false,
-      "sha256": "79e4882bf39f56c97387493a15cd950a6601c7c862cfe8bf3ff932da38dbc688"
+      "sha256": "b246823763c4453ebd872083295ca20a6bdfc18ac9181acc8806d1cee3062a22"
     },
     "tests/test_value_model.py": {
       "executable": false,

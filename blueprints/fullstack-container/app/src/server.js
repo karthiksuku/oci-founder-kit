@@ -1,6 +1,7 @@
 // Entry point: read configuration, connect stores, migrate the schema, serve.
 
 import pg from "pg";
+import { taskListMetrics } from "./journey-metrics.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createAuth } from "./auth.js";
@@ -27,11 +28,14 @@ async function main() {
   if (!attachments) logger.warn("file storage is off: set OCI_BUCKET and OCI_NAMESPACE to enable attachments");
 
   const auth = config.mode === "production" ? await createAuth({ config, pool }) : null;
-  const server = createApp({ tasks, attachments, config, auth }).listen(config.port, config.host, () => {
+  const metrics = process.env.SRE_LATENCY_MS ? taskListMetrics(Number(process.env.SRE_LATENCY_MS),
+    sample => logger.info("journey-minute", sample)) : null;
+  const server = createApp({ tasks, attachments, config, auth, metrics }).listen(config.port, config.host, () => {
     logger.info("taskboard listening", { host: config.host, port: config.port, storage: Boolean(attachments) });
   });
 
   const shutdown = (signal) => {
+    metrics?.close();
     logger.info("shutting down", { signal });
     server.close(() => pool.end().finally(() => process.exit(0)));
     setTimeout(() => process.exit(1), 10_000).unref();
