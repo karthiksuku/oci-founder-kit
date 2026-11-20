@@ -145,6 +145,7 @@ jobs:
           - blueprints/fullstack-container/terraform
           - blueprints/web-container/terraform
           - blueprints/saas-essentials/terraform
+          - blueprints/workload-access/terraform
           - blueprints/workload-foundation/compartments
           - blueprints/workload-foundation/network
           - blueprints/workload-foundation/registry

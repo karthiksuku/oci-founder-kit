@@ -13,6 +13,9 @@ Work in your own project. Get help with credentials, compartments, security and 
 
 [**Open the founder guide →**](https://karthiksuku.github.io/oci-founder-kit/) · [Quick start](#get-started) · [Choose your task](#choose-your-task) · [What is tested](#what-is-tested)
 
+**Preparing to launch?** [Test your app, check a production release and set up on-call monitoring](docs/SRE.md).
+The SRE preview gives Claude Code and Codex the same rehearsal checklist and a production decision tied to the exact image and plan.
+
 ## Get started
 
 Use the [interactive start guide](https://karthiksuku.github.io/oci-founder-kit/#start)

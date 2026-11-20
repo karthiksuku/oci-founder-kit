@@ -9,7 +9,9 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:browser": "node checks/browser.mjs browser",
+    "test:a11y": "node checks/browser.mjs a11y"
   },
   "dependencies": {
     "connect-pg-simple": "10.0.0",
@@ -21,5 +23,9 @@
     "openid-client": "6.8.9",
     "pg": "8.23.1"
   },
-  "license": "UPL-1.0"
+  "license": "UPL-1.0",
+  "devDependencies": {
+    "axe-core": "4.14.0",
+    "playwright": "1.65.0"
+  }
 }

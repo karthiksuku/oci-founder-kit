@@ -49,11 +49,20 @@ work must be inspected before a new proposal; partial output directories are not
 adopted or overwritten.
 
 Preparation writes owner-only `variables.json` and seven-field `backend.json`
-under a new directory inside `.oci-kit/environments/NAME/`. It creates the
-canonical empty OCI backend declaration only if absent, preserving an identical
-existing declaration. It backs up the environment before binding missing choices.
-The result returns the exact environment-specific `release init` command. Use the
-returned variables path for the later `release plan --var-file` operation.
+under a new directory inside `.oci-kit/environments/NAME/`. It also writes an
+identical owner-only `deployment-HASH.tfvars.json` directly inside the selected
+Terraform stack. This explicit variable file is never loaded automatically.
+All variable files are created exclusively; existing files are never overwritten
+or adopted. A stack-file collision or write failure leaves the environment target
+unchanged. Inspect retained partial files before preparing a fresh proposal.
+Preparation creates the canonical empty OCI backend declaration only if absent,
+preserving an identical existing declaration. It backs up the environment before
+binding missing choices.
+The result returns the exact environment-specific `release init` command,
+`stack_variables` as the project-relative stack-file path, and `var_file` as its
+basename. Use the returned **`var_file` basename** for the later
+`release plan --var-file` operation; the backend gate accepts stack-local files
+only. The private `variables` path is retained as the source copy.
 Initialization, planning with the remote backend, resource apply and cleanup each
 retain their exact-plan approval boundary.
 

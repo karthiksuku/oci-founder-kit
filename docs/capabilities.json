@@ -1,6 +1,6 @@
 {
   "schema": "oci-kit-capabilities/1",
-  "checked_on": "2026-11-19",
+  "checked_on": "2026-11-20",
   "entrypoint": "python3 .oci-founder-kit/scripts/kit.py",
   "platforms": [
     {
@@ -266,6 +266,26 @@
       ],
       "limitations": [
         "Allowlisted summary only; never automatically uploads."
+      ]
+    },
+    {
+      "id": "sre",
+      "title": "Test and operate your app",
+      "summary": "Plan customer-facing tests, check a production candidate and inspect reliability in a named environment.",
+      "command": [
+        "sre",
+        "plan",
+        "--environment",
+        "rehearsal"
+      ],
+      "guide": "docs/SRE.md",
+      "evidence": "preview",
+      "prerequisites": [
+        "Named rehearsal environment for planning; separate production environment and exact saved plan for promotion."
+      ],
+      "limitations": [
+        "Agent summaries and local drills do not authorize production.",
+        "Live monitoring, hosted CI and OCI deployment require separate setup and acceptance."
       ]
     }
   ],

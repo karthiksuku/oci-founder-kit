@@ -7,6 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ERRORS = {
+    "SRE_CHECK_INPUT": ("promotion", "release-owner", "Select a production environment, --rehearsal NAME and the saved --plan-sha256."),
+    "SRE_PLAN_INPUT": ("testing", "app-owner", "Select a named rehearsal environment to inspect the application and create a test plan."),
     "PROJECT_REQUIRED": ("setup", "founder", "Open the intended existing application folder or use start --mode new."),
     "INSTALLATION_REQUIRED": ("setup", "agent", "Inspect this project and initialize it with start --mode existing."),
     "ENVIRONMENT_REQUIRED": ("selection", "founder", "Select --environment explicitly; saved preferences never select production."),

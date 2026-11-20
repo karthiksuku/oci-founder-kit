@@ -322,3 +322,36 @@ run "reject_insecure_production" {
   }
   expect_failures = [var.production]
 }
+
+run "sre_disabled_by_default" {
+  command = plan
+  assert {
+    condition     = length(oci_health_checks_http_monitor.external) == 0 && length(oci_monitoring_alarm.sre) == 0 && length(oci_ons_subscription.responders) == 0
+    error_message = "Existing Taskboard plans must not implicitly add any SRE resources."
+  }
+}
+
+run "sre_hardened_taskboard" {
+  command = plan
+  variables {
+    production = {
+      public_origin             = "https://app.example.test"
+      oidc_issuer               = "https://identity.example.test"
+      oidc_client_id            = "example-client"
+      certificate_ocid          = "ocid1.certificate.oc1..example"
+      security_compartment_ocid = "ocid1.compartment.oc1..securityexample"
+      database_secret_ocid      = "ocid1.vaultsecret.oc1..databaseexample"
+      database_secret_version   = 2
+      oidc_client_secret_ocid   = "ocid1.vaultsecret.oc1..identityexample"
+      session_secret_ocid       = "ocid1.vaultsecret.oc1..sessionexample"
+    }
+    sre_latency_ms = 350
+    monitoring = {
+      primary_email = "primary@example.test", backup_email = "backup@example.test", journey = "list-tasks", vantage_points = ["test-east"]
+    }
+  }
+  assert {
+    condition     = length(oci_monitoring_alarm.unhealthy_backend) == 1 && length(oci_monitoring_alarm.sre) == 2 && length(oci_ons_subscription.responders) == 2 && toset(oci_health_checks_http_monitor.external[0].targets) == toset(["app.example.test"])
+    error_message = "Hardened Taskboard must reuse backend monitoring and probe only its own HTTPS origin."
+  }
+}

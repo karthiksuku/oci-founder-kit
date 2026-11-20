@@ -65,7 +65,7 @@ function securityHeaders(_req, res, next) {
  * Build the Express app around its stores, so tests can supply doubles.
  * @param {{ tasks: object, attachments: object | null, config: { maxUploadBytes: number } }} deps
  */
-export function createApp({ tasks, attachments, config, auth, mountBeforeBody, mountApi, publicDirectory = PUBLIC_DIR }) {
+export function createApp({ tasks, attachments, config, auth, metrics, mountBeforeBody, mountApi, publicDirectory = PUBLIC_DIR }) {
   const app = express();
   const production = config.mode === "production";
   if (production && !auth) throw new Error("Production authentication is required");
@@ -104,6 +104,7 @@ export function createApp({ tasks, attachments, config, auth, mountBeforeBody, m
     app.use((req, _res, next) => { req.ownerId = "sandbox"; next(); });
   }
 
+  if (metrics) app.use(metrics.middleware); // count only requests admitted by authentication
   if (mountApi) mountApi(app);
 
   app.get("/api/tasks", async (req, res) => res.json(await tasks.list(req.ownerId)));

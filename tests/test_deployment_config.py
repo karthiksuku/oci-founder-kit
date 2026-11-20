@@ -1,6 +1,9 @@
 """Private configuration handoff preserves source and exact environment gates."""
+import contextlib
 import copy
+import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -93,6 +96,80 @@ class DeploymentConfiguration(unittest.TestCase):
         self.assertEqual(set(result["missing"]), d.VARIABLE_REQUIRED)
         self.assertEqual(before, sorted(path.relative_to(self.app) for path in self.app.rglob("*")))
 
+    def test_generated_stack_variables_are_consumable_by_backend_plan(self):
+        proposal = self.propose()
+        kit = load("kit")
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code = kit.main(["release", "configure", "--project", str(self.app), "--environment", "rehearsal",
+                             "--approve", proposal["sha256"], "--json"])
+        self.assertEqual(code, 0, output.getvalue())
+        result = json.loads(output.getvalue())
+        self.assertIn("var_file", result, "Preparation must return a backend-compatible stack-local basename.")
+        self.assertEqual(Path(result["var_file"]).name, result["var_file"])
+        self.assertTrue(result["var_file"].endswith(".tfvars.json"))
+        self.assertFalse(result["var_file"].endswith(".auto.tfvars.json"))
+        self.assertEqual(self.app / result["stack_variables"], self.stack / result["var_file"])
+        private_raw = (self.app / result["variables"]).read_bytes()
+        self.assertEqual((self.app / result["stack_variables"]).read_bytes(), private_raw)
+        self.assertEqual((self.app / result["stack_variables"]).stat().st_mode & 0o777, 0o600)
+        backend = p.helper("readiness").load("skills/oci-deploy/scripts/backend_ops.py")
+        self.assertEqual(backend.variable_files(self.stack, [result["var_file"]]),
+                         [{"name": result["var_file"], "sha256": hashlib.sha256(private_raw).hexdigest()}])
+
+    def test_stack_variable_collision_after_review_is_preserved_without_target_adoption(self):
+        target = dict(self.target); target.pop("origin")
+        e.configure(self.app, name="rehearsal", target=target)
+        choices = self.choices(); choices["target"] = {"origin": self.target["origin"]}
+        original_mkdir = os.mkdir
+        for kind in ("file", "symlink"):
+            with self.subTest(kind=kind):
+                proposal = self.propose(choices)
+                name = "deployment-" + proposal["sha256"][:16]
+                destination = self.stack / (name + ".tfvars.json")
+                before = (self.private / "environment.json").read_bytes()
+                def collide(path, *args, **kwargs):
+                    if path == name:
+                        if kind == "symlink":
+                            destination.symlink_to(self.app / "main.py")
+                        else:
+                            destination.write_bytes(b"preserve existing input\n"); destination.chmod(0o600)
+                    return original_mkdir(path, *args, **kwargs)
+                with mock.patch.object(d.os, "mkdir", side_effect=collide), self.assertRaises(FileExistsError):
+                    d.request(self.app, environment="rehearsal", action="prepare", approve=proposal["sha256"])
+                self.assertEqual((self.private / "environment.json").read_bytes(), before)
+                if kind == "symlink":
+                    self.assertTrue(destination.is_symlink())
+                    self.assertEqual(destination.readlink(), self.app / "main.py")
+                else:
+                    self.assertEqual(destination.read_bytes(), b"preserve existing input\n")
+
+    def test_stack_write_failure_does_not_adopt_target_and_fresh_proposal_can_recover(self):
+        target = dict(self.target); target.pop("origin")
+        e.configure(self.app, name="rehearsal", target=target)
+        choices = self.choices(); choices["target"] = {"origin": self.target["origin"]}
+        proposal = self.propose(choices)
+        name = "deployment-" + proposal["sha256"][:16] + ".tfvars.json"
+        before = (self.private / "environment.json").read_bytes()
+        original_open = os.open
+        def interrupted(path, *args, **kwargs):
+            if path == name:
+                raise OSError("synthetic stack write interruption")
+            return original_open(path, *args, **kwargs)
+        with mock.patch.object(d.os, "open", side_effect=interrupted), self.assertRaises(OSError):
+            d.request(self.app, environment="rehearsal", action="prepare", approve=proposal["sha256"])
+        self.assertEqual((self.private / "environment.json").read_bytes(), before)
+        self.assertFalse((self.stack / name).exists())
+        partial = self.private / ("deployment-" + proposal["sha256"][:16]) / "variables.json"
+        partial_raw = partial.read_bytes()
+        with self.assertRaises((ValueError, OSError)):
+            d.request(self.app, environment="rehearsal", action="prepare", approve=proposal["sha256"])
+        with mock.patch.object(d.time, "time", return_value=time.time() + 2):
+            fresh = self.propose(choices)
+            result = d.request(self.app, environment="rehearsal", action="prepare", approve=fresh["sha256"])
+        self.assertEqual(result["status"], "prepared")
+        self.assertEqual(partial.read_bytes(), partial_raw)
+        self.assertEqual(json.loads((self.private / "environment.json").read_bytes())["target"], self.target)
+
     def test_missing_foundation_is_the_next_step_before_application_choices(self):
         target = dict(self.target); target.pop("registry_id")
         e.configure(self.app, name="rehearsal", target=target, backend=self.backend)
@@ -136,11 +213,11 @@ class DeploymentConfiguration(unittest.TestCase):
             d.request(self.app, environment="rehearsal", action="prepare", approve=proposal["sha256"])
 
     def test_unsupported_inputs_credentials_enabled_jobs_and_different_image_refused(self):
-        changes = [{"manage_runtime_iam": True}, {"password": "synthetic-private-value"},
-            {"public_environment": {"DATABASE_URL": "synthetic-private-value"}},
-            {"public_environment": {"API_KEY": "synthetic-private-value"}},
-            {"public_environment": {"APIKEY": "synthetic-private-value"}},
-            {"public_environment": {"AUTHORIZATION": "synthetic-private-value"}},
+        changes = [{"manage_runtime_iam": True}, {"password": "EXAMPLE_TEST_VALUE"},
+            {"public_environment": {"DATABASE_URL": "EXAMPLE_TEST_VALUE"}},
+            {"public_environment": {"API_KEY": "EXAMPLE_TEST_VALUE"}},
+            {"public_environment": {"APIKEY": "EXAMPLE_TEST_VALUE"}},
+            {"public_environment": {"AUTHORIZATION": "EXAMPLE_TEST_VALUE"}},
             {"app_image": "phx.ocir.io/syntheticnamespace/synthetic-app@sha256:" + "c" * 64},
             {"application_contract": {"evidence_sha256": "b" * 64, "background_work": "enabled"}},
             {"application_contract": {"evidence_sha256": "b" * 64, "background_work": "disabled"}},

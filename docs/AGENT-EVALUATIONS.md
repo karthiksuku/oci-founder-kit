@@ -118,3 +118,10 @@ The harness follows outcome-based evaluation guidance: distinguish generated
 artifacts and independently tested behavior from the agent's own claims.
 See [OpenAI skill evaluations](https://developers.openai.com/blog/eval-skills)
 and [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+
+The SRE preview grader (v4) checks that a new app includes a nonempty Dockerfile
+with a FROM instruction, and observes explicit rehearsal planning and refusal of
+a production check with missing inputs. This structural Dockerfile check does
+not build the image. The restricted matrix covers a generated static app and
+a preserved container fixture. Actual Taskboard/Next.js rehearsal and hosted
+authentication require separate candidate-image and OCI evidence.

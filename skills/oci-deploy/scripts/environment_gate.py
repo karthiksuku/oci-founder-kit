@@ -17,7 +17,8 @@ TARGET_FIELDS = {"region", "compartment_id", "profile", "auth"}
 
 def source_binding():
     names = ("skills/oci-deploy/scripts/environment_gate.py", "scripts/project.py",
-             "scripts/environments.py", "scripts/migration.py", "scripts/readiness.py",
+             "scripts/environments.py", "scripts/migration.py", "scripts/readiness.py", "scripts/sre_gate.py",
+             "scripts/sre_scan.py", "scripts/sre_plan.py",
              "skills/oci-deploy/scripts/named_workload.py")
     templates = [path.relative_to(ROOT).as_posix() for blueprint in ("web-container", "fullstack-container", "saas-essentials")
                  for path in sorted((ROOT / "blueprints" / blueprint / "terraform").glob("*.tf"))]

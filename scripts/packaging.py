@@ -159,7 +159,10 @@ def health_command(value):
     if value["probe_runtime"] == "node":
         program = "require('http').get(" + json.dumps(url) + ",r=>{r.resume();process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1)).setTimeout(2000,()=>process.exit(1))"
         return "node -e " + shlex.quote(program)
-    program = "import urllib.request; r=urllib.request.urlopen(" + repr(url) + ",timeout=2); assert r.status==200"
+    # Check the first response, even under python -O. A login redirect is not readiness.
+    program = ("import http.client,sys; c=http.client.HTTPConnection('127.0.0.1'," + str(value["port"])
+               + ",timeout=2); c.request('GET'," + repr(value["health_path"])
+               + "); sys.exit(0 if c.getresponse().status==200 else 1)")
     return "python -c " + shlex.quote(program)
 
 

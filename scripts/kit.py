@@ -29,7 +29,7 @@ class Parser(argparse.ArgumentParser):
 def parser():
     cli = Parser(description=__doc__)
     commands = cli.add_subparsers(dest="command", required=True, parser_class=Parser)
-    for name in ("onboard", "start", "status", "next", "doctor", "package", "foundation", "release", "verify", "observe", "architecture", "journey", "support", "environment", "capabilities"):
+    for name in ("onboard", "start", "status", "next", "doctor", "sre", "package", "foundation", "release", "verify", "observe", "architecture", "journey", "support", "environment", "capabilities"):
         child = commands.add_parser(name)
         child.add_argument("--project", type=Path, default=Path("."))
         child.add_argument("--environment")
@@ -54,7 +54,7 @@ def parser():
             child.add_argument("--agent", choices=("claude", "codex", "both"), default="both")
             child.add_argument("--stack", choices=("auto", "nextjs", "fastapi", "custom"), default="auto")
             child.add_argument("--blueprint", choices=("fullstack-container",))
-        if name in {"doctor", "observe"}:
+        if name in {"doctor", "observe", "sre"}:
             child.add_argument("--live", action="store_true")
             child.add_argument("--config-file", type=Path, default=Path("~/.oci/config"))
         if name == "package":
@@ -80,6 +80,12 @@ def parser():
         if name == "support":
             child.add_argument("action", choices=("export",))
             child.add_argument("--write", action="store_true", help="Write the displayed allowlisted projection to a new private file; never upload.")
+        if name == "sre":
+            child.add_argument("action", choices=("plan", "check", "monitor"))
+            child.add_argument("--rehearsal")
+            child.add_argument("--plan-sha256")
+            child.add_argument("--monitor-input", type=Path)
+            child.add_argument("--write", action="store_true", help="Save an aggregate-only monitoring snapshot to the private dashboard.")
         if name == "journey":
             child.add_argument("--kind", choices=("build", "migrate"), default="build")
         if name == "environment":
@@ -245,6 +251,21 @@ def dispatch(args):
     if args.command == "observe":
         return p.helper("operations").request(args.project, environment=args.environment, live=args.live,
                     receipt=args.receipt, config_file=args.config_file, cost_config=args.cost_config, component=args.component)
+    if args.command == "sre":
+        if args.action != "monitor" and (args.live or args.write or args.config_file != Path("~/.oci/config")):
+            raise common.KitError("UNSAFE_INPUT")
+        if args.action == "check":
+            if not args.rehearsal or not p.valid_hash(args.plan_sha256) or args.monitor_input or selected["role"] != "production":
+                raise common.KitError("SRE_CHECK_INPUT")
+            return p.helper("sre_gate").request(args.project, environment=args.environment, rehearsal=args.rehearsal,
+                                                plan_sha256=args.plan_sha256)
+        if args.rehearsal or args.plan_sha256 or (args.action == "plan" and args.monitor_input):
+            raise common.KitError("UNSAFE_INPUT")
+        if args.action == "monitor":
+            return p.helper("sre_monitor").request(args.project, environment=args.environment, input_file=args.monitor_input, live=args.live, config_file=args.config_file, write=args.write)
+        if selected["role"] != "rehearsal":
+            raise common.KitError("SRE_PLAN_INPUT")
+        return p.helper("sre_plan").request(args.project, environment=args.environment, p=p)
     if args.command == "architecture":
         return p.helper("architecture").request(args.project, environment=args.environment)
     if args.command == "journey":
@@ -281,7 +302,7 @@ def main(argv=None):
             value = common.project_blocked(value, code=value.get("code", known[0] if known else default),
                                           command=args.command, action=args.action, environment=args.environment)
         code = 3 if value.get("status") in {"blocked", "failed"} or (
-            args.command in {"architecture", "journey"} and value.get("status") == "incomplete") else 0
+            args.command in {"architecture", "journey", "sre"} and value.get("status") in {"incomplete", "unknown"}) else 0
     except (ValueError, OSError, KeyError, TypeError, RecursionError) as exc:
         value = common.error(getattr(exc, "code", "UNSAFE_INPUT"), missing=getattr(exc, "missing", ()))
         code = 3
@@ -289,7 +310,7 @@ def main(argv=None):
         # Known gate exceptions are deliberately opaque at this boundary.
         value = common.error("OPERATION_FAILED"); code = 3
     if "error" in value:
-        command = args.command if "args" in locals() and args.command in {"onboard", "package", "foundation", "doctor", "observe", "architecture", "journey", "release", "environment", "support", "verify", "status", "next", "start"} else None
+        command = args.command if "args" in locals() and args.command in {"onboard", "package", "foundation", "doctor", "observe", "architecture", "journey", "release", "environment", "support", "verify", "status", "next", "start", "sre"} else None
         value["error"].setdefault("recheck_command", ["python3", ".oci-founder-kit/scripts/kit.py", *([command] if command else []), "--help"])
         if command == "onboard":
             value["error"]["recheck_command"] = ["python3", str(ROOT / "scripts/kit.py"), "onboard", "--help"]
@@ -303,6 +324,20 @@ def main(argv=None):
         print(error["next_action"])
         common.render_blocked_details(value)
         print("Recheck: " + shlex.join(error["recheck_command"]))
+    elif value.get("schema") == "oci-sre-decision/1":
+        print("Production decision: " + value["status"] + " (separate exact-plan approval required)")
+        for row in value["checks"]:
+            age = "unknown" if row["age_seconds"] is None else str(row["age_seconds"]) + "s"
+            print(f"{row['id']}: {row['status']} · {row['owner']} · evidence age {age}")
+            print("  " + row["recheck"])
+    elif args.command == "sre" and args.action == "plan":
+        print(f"Rehearsal test plan: {value['environment']} ({value['profile']}; preview)")
+        print(value["critical_journey_prompt"])
+        for stage, criteria in value["stages"].items():
+            print(stage.replace("_", " ").title())
+            for instruction in criteria:
+                print("  " + instruction)
+        print(value["next_action"])
     elif value.get("schema") == "oci-kit-onboarding/1":
         common.project_module().helper("onboarding").render(value)
     elif value.get("schema") == "oci-founder-journey/1":

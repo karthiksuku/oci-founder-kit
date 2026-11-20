@@ -125,6 +125,19 @@ class ReleaseLedger(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.request("rollback", approve=proposal["proposal_sha256"])
 
+    def test_interruption_before_selecting_rollback_digest_remains_recoverable(self):
+        self.accept_two()
+        first = self.request("rollback", variables=self.variables)
+        with mock.patch.object(env, "configure_locked", side_effect=OSError("interrupted")), self.assertRaises(OSError):
+            self.request("rollback", approve=first["proposal_sha256"])
+        with p.Store(self.app, environment="rehearsal") as store:
+            self.assertEqual(store.environment_config["target"]["image_digest"], self.image)
+        second = self.request("rollback", variables=self.variables)
+        self.assertNotEqual(first["proposal_sha256"], second["proposal_sha256"])
+        result = self.request("rollback", approve=second["proposal_sha256"])
+        self.assertTrue((self.app / result["stack_variables"]).is_file())
+        self.assertFalse(result["cloud_write"])
+
     def test_changed_variables_source_refused(self):
         self.accept_two(); proposal = self.request("rollback", variables=self.variables)
         self.variables.write_text(json.dumps({"app_image": "changed"})); self.variables.chmod(0o600)

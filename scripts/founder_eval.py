@@ -28,9 +28,9 @@ LIMIT = 131072
 WRITABLE = {"index.html", "Dockerfile", "README.md", "migration-plan.md", "outcome.json"}
 SCENARIOS = ("new-app", "hosting-first", "unsupported", "interrupted")
 GRADER = "tests/fixtures/evaluations/browser_grade.mjs"
-HARNESS_VERSION = "3"
+HARNESS_VERSION = "4"
 ACTIONS = ("start", "environment", "attach", "status", "resume", "assess", "test-app",
-           "architecture", "journey", "deployment-inspect")
+           "architecture", "journey", "deployment-inspect", "sre-plan", "sre-stop")
 TOOL = {"name": "founder_local", "description": "Evaluation-only workspace operations. No cloud/credential/network/shell access.",
         "inputSchema": {"type": "object", "properties": {
             "operation": {"type": "string", "enum": ["read-kit", "read-app", "write-app", "action", "list"]},
@@ -107,6 +107,8 @@ def metadata(path):
 
 
 def prepare(path, scenario):
+    if ".." in path.parts:
+        raise ValueError("Use an evaluation path without parent traversal.")
     if path.exists():
         raise ValueError("Evaluation preparation requires a new directory.")
     verify_sources()
@@ -153,6 +155,7 @@ def prompt(scenario):
             "the web-container blueprint. Attach deployment definitions separately to deploy/rehearsal and deploy/production. "
             "Use action=test-app for independent behavior tests. After attaching the rehearsal deployment, run "
             "action=architecture, action=journey and action=deployment-inspect with environment=rehearsal. "
+            "Run action=sre-plan in rehearsal and action=sre-stop in production; the latter checks that missing release evidence blocks. "
             "These read-only inspections should report incomplete or blocked gates; explain the remaining gates "
             "without treating local configuration, a health check or an architecture report as cloud acceptance. "
             "Inspect/resume recorded progress if an operation is interrupted. "
@@ -208,6 +211,12 @@ def action(path, value, name, environment):
         raise ValueError("Unsupported fixed evaluation action.")
     if name == "test-app":
         return app_test(path, value)
+    if name in {"sre-plan", "sre-stop"}:
+        expected = "production" if name == "sre-stop" else "rehearsal"
+        if environment != expected:
+            raise ValueError("Select the corresponding named environment for this fixed check.")
+        return fixed_command([ROOT / "scripts/kit.py", "sre", "check" if name == "sre-stop" else "plan",
+                              "--project", app, "--environment", expected, "--json", "--non-interactive"])
     if name in {"architecture", "journey", "deployment-inspect"}:
         if environment not in {"rehearsal", "production"}:
             raise ValueError("Select an explicit OCI rehearsal or production environment for inspection.")
@@ -414,6 +423,24 @@ def grade(path):
         if value["scenario"] == "unsupported" and checks["compatibility_report"]:
             assessment = read(path / "compatibility.json")
             checks["unsupported_not_declared_ready"] = assessment.get("ready_for_cutover") is not True and outcome.get("cutover") == "blocked"
+    if value["scenario"] == "new-app":
+        dockerfile = app / "Dockerfile"
+        checks["dockerfile_present"] = (not dockerfile.is_symlink() and dockerfile.is_file()
+            and 0 < dockerfile.stat().st_size <= LIMIT and
+            bool(re.search(rb"(?im)^\s*FROM\s+\S+", dockerfile.read_bytes())))
+    for action_id, expected_env in (("sre-plan", "rehearsal"), ("sre-stop", "production")):
+        observed = next((e.get("result", {}) for e in reversed(events)
+                         if e.get("action") == action_id and e.get("environment") == expected_env), {})
+        try:
+            report = json.loads(observed.get("output", "{}"))
+            passed = (isinstance(report, dict) and report.get("approval_granted") is False and
+                ((action_id == "sre-plan" and observed.get("exit_code") == 0 and report.get("schema") == "oci-kit-sre-plan/1"
+                  and report.get("production_ready") is False and report.get("environment") == expected_env)
+                 or (action_id == "sre-stop" and observed.get("exit_code") == 3 and report.get("status") == "blocked"
+                     and report.get("error", {}).get("code") == "SRE_CHECK_INPUT")))
+        except (TypeError, ValueError, AttributeError):
+            passed = False
+        checks[action_id.replace("-", "_") + "_observed"] = passed
     checks.update(inspection_checks(events, value["scenario"]))
     if value["scenario"] == "interrupted":
         checks["resumed_after_response_loss"] = any(e["action"] == "resume" and e["result"].get("exit_code") == 0 for e in events)
@@ -432,7 +459,7 @@ def evaluation_identity(value):
     version = json.loads(source_bytes(".claude-plugin/plugin.json")).get("version") if plugin.is_file() else None
     return {"kit_version": version, "manifest_sha256": value["manifest_sha256"],
             "harness_version": value.get("harness_version", "1"), "harness_sha256": value.get("harness_sha256"),
-            "grader": {"name": "independent-browser-and-fixture", "version": "3",
+            "grader": {"name": "independent-browser-and-fixture", "version": "4",
                        "browser_sha256": value["browser_grader_sha256"], "harness_sha256": value.get("harness_sha256")},
             "platform": {"system": platform.system(), "machine": platform.machine(),
                          "python": platform.python_version()},
@@ -548,6 +575,8 @@ def run(agent, path, seconds, model=None):
 
 def batch(path, seconds=600, models=None, trials=3):
     """Fresh independent attempts, including failures; never retry in place."""
+    if ".." in path.parts:
+        raise ValueError("Use a batch path without parent traversal.")
     if trials != 3 or not 30 <= seconds <= 900:
         raise ValueError("The core acceptance batch requires three fresh trials and bounded runtime.")
     verify_sources()

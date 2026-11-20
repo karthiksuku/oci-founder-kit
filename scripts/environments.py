@@ -274,28 +274,35 @@ def configure(project: Path, *, name: str, target: dict, backend: dict | None = 
               expected_binding: dict | None = None) -> dict:
     p = project_module()
     with p.Store(project, environment=name, write=True) as store:
-        if expected_binding is not None:
-            actual = {"target_sha256": p.digest(p.canonical(store.environment_config)),
-                      "source_sha256": p.source_fingerprint(store.root_fd), "kit_sha256": p.kit_fingerprint()}
-            if expected_binding != actual:
-                raise ValueError("Source, kit or environment changed after local review; prepare a new proposal.")
-        config = dict(store.environment_config, target=target)
-        if components is not None:
-            config["components"] = components
-        if backend is not None:
-            config["backend"] = backend
-        validate_isolation(config, list_configs(store, p))
-        original = p.read_at(store.fd, "environment.json", private=True)
-        if original == p.canonical(config) + b"\n":
-            return {**summary(config, p), "changed": False}
-        # Keep a private backup before replacing target selection. Existing records become stale.
-        put(store.fd, "environment-backup-" + uuid.uuid4().hex + ".json", original)
-        pending = ".config-" + uuid.uuid4().hex
-        put(store.fd, pending, p.canonical(config) + b"\n")
-        os.replace(pending, "environment.json", src_dir_fd=store.fd, dst_dir_fd=store.fd)
-        os.fsync(store.fd)
-        return {**summary(config, p), "changed": True, "previous_evidence": "stale",
-                "approvals_imported": False}
+        return configure_locked(store, p, target, backend, components, expected_binding)
+
+
+def configure_locked(store, p, target, backend=None, components=None, expected_binding=None):
+    """Replace selection only while the caller holds the private store's write lock."""
+    if not store.write:
+        raise ValueError("An exclusive environment store is required.")
+    if expected_binding is not None:
+        actual = {"target_sha256": p.digest(p.canonical(store.environment_config)),
+                  "source_sha256": p.source_fingerprint(store.root_fd), "kit_sha256": p.kit_fingerprint()}
+        if expected_binding != actual:
+            raise ValueError("Source, kit or environment changed after local review; prepare a new proposal.")
+    config = dict(store.environment_config, target=target)
+    if components is not None:
+        config["components"] = components
+    if backend is not None:
+        config["backend"] = backend
+    validate_isolation(config, list_configs(store, p))
+    original = p.read_at(store.fd, "environment.json", private=True)
+    if original == p.canonical(config) + b"\n":
+        return {**summary(config, p), "changed": False}
+    # Keep a private backup before replacing target selection. Existing records become stale.
+    put(store.fd, "environment-backup-" + uuid.uuid4().hex + ".json", original)
+    pending = ".config-" + uuid.uuid4().hex
+    put(store.fd, pending, p.canonical(config) + b"\n")
+    os.replace(pending, "environment.json", src_dir_fd=store.fd, dst_dir_fd=store.fd)
+    os.fsync(store.fd)
+    return {**summary(config, p), "changed": True, "previous_evidence": "stale",
+            "approvals_imported": False}
 
 
 def read_target(path: Path) -> dict:

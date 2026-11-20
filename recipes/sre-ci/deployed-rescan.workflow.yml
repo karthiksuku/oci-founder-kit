@@ -1,0 +1,42 @@
+name: Deployed image vulnerability recheck
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  rescan:
+    # Dedicated, trusted Linux AMD64 runner. Do not assign this label to PR jobs.
+    runs-on: [self-hosted, founder-rescan]
+    timeout-minutes: 30
+    environment: production-monitoring
+    steps:
+      - name: Recheck the retained deployed artifact and registry result
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${FOUNDER_TRUSTED_KIT:?}" "${FOUNDER_RELEASE:?}" "${FOUNDER_LAYOUT:?}" "${FOUNDER_CACHE:?}"
+          : "${FOUNDER_TRIVY:?}" "${FOUNDER_IMAGE_DIGEST:?}" "${FOUNDER_ENVIRONMENT:?}"
+          : "${FOUNDER_REGISTRY_IMAGE_ID:?}" "${FOUNDER_PRIVATE_EVIDENCE:?}"
+          echo "6a972c69606c7b3ea4c6bdcc6fc9332ea9ad38381624310c1e85cc77345909f3  $FOUNDER_TRIVY" | sha256sum --check --status
+          cd "$RUNNER_TEMP"
+          "$FOUNDER_TRIVY" image --config '' --disable-telemetry --cache-dir "$FOUNDER_CACHE" --download-db-only
+          # New directory each run. Unknown, denied and stale findings fail the monitored job.
+          target=$(mktemp -d "$FOUNDER_PRIVATE_EVIDENCE/rescan-XXXXXXXX")
+          result=0
+          python3 -I -B "$FOUNDER_TRUSTED_KIT/scripts/sre_scan.py" scan --project "$FOUNDER_RELEASE" \
+            --layout "$FOUNDER_LAYOUT" --image-digest "$FOUNDER_IMAGE_DIGEST" --trivy "$FOUNDER_TRIVY" \
+            --cache-dir "$FOUNDER_CACHE" --output "$target/local" || result=1
+          python3 -I -B "$FOUNDER_TRUSTED_KIT/scripts/sre_scan.py" registry --project "$FOUNDER_RELEASE" \
+            --environment "$FOUNDER_ENVIRONMENT" --image-id "$FOUNDER_REGISTRY_IMAGE_ID" \
+            --require-deployed --output "$target/registry" || result=1
+          # Both scans must refer to the same currently running digest.
+          python3 -I - "$target" <<'PYVERIFY' || result=1
+          import json, pathlib, sys
+          folder = pathlib.Path(sys.argv[1])
+          docs = [json.loads((folder / item / "summary.json").read_bytes()) for item in ("local", "registry")]
+          if docs[0]["image_digest"] != docs[1]["image_digest"] or not docs[1]["digest_verified"]:
+              raise SystemExit("Scan identity is unverified.")
+          PYVERIFY
+          exit "$result"

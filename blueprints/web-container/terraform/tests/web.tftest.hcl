@@ -250,7 +250,46 @@ run "reject_similar_nested_repository" {
 run "api_key_is_not_public_environment" {
   command = plan
   variables {
-    public_environment = { API_KEY = "synthetic-private-value" }
+    public_environment = { API_KEY = "EXAMPLE_TEST_VALUE" }
   }
   expect_failures = [var.public_environment]
+}
+
+run "no_implicit_probes_or_invitations" {
+  command = plan
+  assert {
+    condition     = length(oci_monitoring_alarm.sre) == 0 && length(oci_ons_notification_topic.alerts) == 0 && length(oci_ons_subscription.responders) == 0 && length(oci_health_checks_http_monitor.external) == 0
+    error_message = "Monitoring must not create resources, send invitations or initiate probes by default."
+  }
+}
+
+run "reviewed_external_monitor_and_routes" {
+  command = plan
+  variables {
+    monitoring = {
+      primary_email  = "primary@example.test"
+      backup_email   = "backup@example.test"
+      vantage_points = ["test-east"]
+      journey        = "checkout"
+    }
+    public_origin = "https://rehearsal.example.test:443"
+  }
+  assert {
+    condition     = length(oci_monitoring_alarm.sre) == 3 && length(oci_ons_subscription.responders) == 2 && oci_monitoring_alarm.sre["probe"].namespace == "oci_healthchecks" && oci_monitoring_alarm.sre["telemetry"].namespace == "founder_app"
+    error_message = "Use distinct backend, external and telemetry alarms with both responder routes."
+  }
+  assert {
+    condition     = oci_health_checks_http_monitor.external[0].protocol == "HTTPS" && toset(oci_health_checks_http_monitor.external[0].targets) == toset(["rehearsal.example.test"]) && oci_health_checks_http_monitor.external[0].path == var.health_path && oci_health_checks_http_monitor.external[0].interval_in_seconds == 60
+    error_message = "Only the selected HTTPS origin and reviewed health path may be monitored."
+  }
+}
+
+run "distinct_responder_routes" {
+  command = plan
+  variables {
+    monitoring = {
+      primary_email = "primary@example.test", backup_email = "Primary@example.test", vantage_points = ["test-east"], journey = "checkout"
+    }
+  }
+  expect_failures = [var.monitoring]
 }

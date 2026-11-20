@@ -102,6 +102,19 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertFalse(result["cloud_acceptance"])
 
+    def test_working_browser_cannot_substitute_for_requested_dockerfile(self):
+        meta = evaluation.metadata(self.path)
+        meta.update(scenario="new-app", original={})
+        evaluation.write(self.path / "evaluation.json", meta)
+        container = self.path / "app/Dockerfile"
+        container.unlink()
+        with mock.patch.object(evaluation, "app_test", return_value={"status": "passed"}):
+            self.assertFalse(evaluation.grade(self.path)["checks"]["dockerfile_present"])
+            container.write_text("# placeholder")
+            self.assertFalse(evaluation.grade(self.path)["checks"]["dockerfile_present"])
+            container.write_text("FROM scratch\nCOPY index.html /index.html\n")
+            self.assertTrue(evaluation.grade(self.path)["checks"]["dockerfile_present"])
+
     def test_outcome_contract_gives_feedback_instead_of_accepting_nested_fields(self):
         with self.assertRaisesRegex(ValueError, "top-level"):
             evaluation.call(self.path, {"operation": "write-app", "path": "outcome.json", "text": json.dumps({
@@ -313,7 +326,7 @@ class EvaluationInspectionBoundaries(unittest.TestCase):
         self.assertFalse(evaluation.inspection_checks(events, "hosting-first")["journey_inspected"])
 
     def test_prompt_requires_inspection_and_version_distinguishes_trials(self):
-        self.assertEqual(evaluation.HARNESS_VERSION, "3")
+        self.assertEqual(evaluation.HARNESS_VERSION, "4")
         for scenario in ("new-app", "hosting-first"):
             prompt = evaluation.prompt(scenario)
             for action in ("architecture", "journey", "deployment-inspect"):
@@ -350,6 +363,13 @@ class EvaluationIdentityAndBatch(unittest.TestCase):
         with log.open("a") as stream:
             stream.write(json.dumps({"type": "system", "subtype": "init", "model": "actual-model"}) + "\n")
         self.assertEqual(evaluation.observed_model(log), "actual-model")
+
+    def test_refuses_parent_segments_before_spending_agent_calls(self):
+        target = self.root / "child" / ".." / "new-batch"
+        with mock.patch.object(evaluation, "run") as run, self.assertRaises(ValueError):
+            evaluation.batch(target, 60)
+        run.assert_not_called()
+        self.assertFalse((self.root / "child").exists())
 
     def test_batch_records_all_twelve_fresh_attempts_including_failure(self):
         (self.root / "release-manifest.json").write_text("synthetic-manifest")

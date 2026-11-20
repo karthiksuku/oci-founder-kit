@@ -467,6 +467,30 @@ def _load_approval(stack: Path, kind: str, approve: str) -> tuple[Path, dict]:
     return gate, summary
 
 
+def require_sre(stack, selected, summary, sha, *, evaluated=False):
+    """Independent of the CLI wrapper. Only an explicit rehearsal may skip promotion checks."""
+    if summary["kind"] != "apply":
+        return None
+    if selected is None:
+        changes_container = any(row.get("type") == "oci_container_instances_container_instance"
+                                for row in summary.get("resources", []))
+        if changes_container or summary.get("target", {}).get("image_digest"):
+            raise GateRefused("A workload apply needs an explicitly bound target. Adopt the stack in a named environment first.")
+        return None  # Non-workload bootstrap still has its own exact approval.
+    if selected["role"] == "rehearsal":
+        return None
+    if selected["role"] != "production" or selected.get("component_role") != "web":
+        raise GateRefused("This workload role has no supported production SRE profile.")
+    import environment_gate
+    _, p = environment_gate.modules()
+    decision = p.helper("sre_gate").request(Path(selected["project_path"]), environment=selected["environment"],
+                                          rehearsal=None, plan_sha256=sha,
+                                          _applying=(summary, sha) if evaluated else None)
+    if decision["status"] != "passed":
+        raise GateRefused("Production SRE checks are missing, stale or failed. Run oci-kit sre check for the exact production plan and rehearsal.")
+    return decision["attestation_sha256"]
+
+
 def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     gate, summary = _load_approval(stack, kind, approve)
     if not isinstance(summary.get("backend_binding"), dict) or "backend_environment_sha256" not in summary:
@@ -497,6 +521,7 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
     require_backend(stack, summary.get("required_backend"))
     binary = summary["terraform"]
     sha = summary["plan_sha256"]
+    sre_attestation = require_sre(stack, selected, summary, sha)
     applying = gate / f"{PLAN_FILE}.{sha[:12]}.applying"
     _no_symlink(applying).unlink(missing_ok=True)
     os.rename(gate / PLAN_FILE, applying)  # consumes the approval before anything else runs
@@ -531,6 +556,8 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
                "resource_targets": summary.get("resource_targets", []),
                "backend": summary.get("backend"), "backend_operation_sha256": summary.get("backend_operation_sha256"),
                "backend_authentication": summary.get("backend_authentication")}
+    if sre_attestation:
+        receipt["sre_attestation_sha256"] = sre_attestation
     receipt["project_environment"] = selected
     receipt["workload_proof"] = summary.get("workload_proof")
     if kind == "destroy":
@@ -540,6 +567,8 @@ def cmd_apply(stack: Path, kind: str, approve: str) -> int:
             receipt["destroyed_resources"] = []
     _write_private(receipt_path, json.dumps(receipt, indent=2) + "\n")
     try:
+        if require_sre(stack, selected, summary, sha, evaluated=True) != sre_attestation:
+            raise GateRefused("Production SRE evidence changed during approval validation.")
         if time.time() > summary["expires_at_epoch"]:
             raise GateRefused("Resource approval expired during validation; no apply was started.")
         run_terraform(binary, ["apply", "-input=false", "-no-color", str(applying)], stack, gate, **authentication)

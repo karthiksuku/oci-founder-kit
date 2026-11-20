@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = "oci-kit-release-record/1"
@@ -175,7 +176,7 @@ def request(project, *, environment, action="list", receipt=None, evidence=None,
                 except FileNotFoundError:
                     env.put(fd, variables_file, p.canonical(replacement) + b"\n")
                 now = int(time.time())
-                destination = "rollback-" + str(now) + "-" + replacement_hash[:16] + ".tfvars.json"
+                destination = "rollback-" + str(now) + "-" + uuid.uuid4().hex[:16] + ".tfvars.json"
                 stack = store.project / store.environment_config["infrastructure"]
                 _, stack_fd = p.open_project(stack)
                 try:
@@ -223,20 +224,19 @@ def request(project, *, environment, action="list", receipt=None, evidence=None,
             # Consume before adoption. Interruptions remain visible and never reuse approval.
             env.put(fd, "adoption-attempt-" + approve + ".json", p.canonical({"proposal_sha256": approve,
                     "attempted_at": int(time.time()), "cloud_write": False}) + b"\n"); os.fsync(fd)
+            # Publish the non-auto-loaded variables before selecting their image. A
+            # failed write leaves the current target intact and permits a fresh proposal.
+            _, stack_fd = p.open_project(store.project / value["infrastructure"])
+            try:
+                env.put(stack_fd, value["stack_variables_file"], p.canonical(replacement) + b"\n")
+                os.fsync(stack_fd)
+            finally:
+                os.close(stack_fd)
+            # This operation holds the same write lock as validation. The new
+            # file now participates in the source fingerprint; do not reuse old evidence.
+            env.configure_locked(store, p, value["target"])
             adopt = value
-        finally:
-            os.close(fd)
-    expected = {key: adopt[key] for key in ("target_sha256", "source_sha256", "kit_sha256")}
-    env.configure(project, name=environment, target=adopt["target"], expected_binding=expected)
-    _, stack_fd = p.open_project(Path(project).expanduser().absolute() / adopt["infrastructure"])
-    try:
-        env.put(stack_fd, adopt["stack_variables_file"], p.canonical(replacement) + b"\n")
-        os.fsync(stack_fd)
-    finally:
-        os.close(stack_fd)
-    with p.Store(project, environment=environment, write=True) as store:
-        fd = env.private_directory(store.fd, "releases", p)
-        try:
+            store.environment_config = dict(store.environment_config, target=value["target"])
             env.put(fd, "adoption-result-" + approve + ".json", p.canonical({
                 **common.bound(store, p, "oci-kit-rollback-adoption/1"), "observed_at": int(time.time()),
                 "proposal_sha256": approve, "local_configuration_adopted": True, "cloud_write": False}) + b"\n")

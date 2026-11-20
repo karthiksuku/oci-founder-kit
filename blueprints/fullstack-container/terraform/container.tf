@@ -8,16 +8,16 @@ locals {
   database_url = local.production_enabled ? null : format("postgres://%s:%s@%s:%d/postgres", "taskboard", urlencode(random_password.db[0].result),
   local.db_endpoint.fqdn, local.db_endpoint.port)
   app_environment = merge({
-    HOST             = local.app_private_ip
-    PORT             = tostring(local.app_port)
-    APP_MODE         = local.production_enabled ? "production" : "sandbox"
-    DATABASE_CA_CERT = data.oci_psql_db_system_connection_detail.main.ca_certificate
-    OCI_BUCKET       = oci_objectstorage_bucket.uploads.name
-    OCI_NAMESPACE    = data.oci_objectstorage_namespace.ns.namespace
-    OCI_REGION       = var.region
-    OCI_AUTH         = "resource-principal"
-    }, var.production == null ? {
-    DATABASE_URL = local.database_url
+    HOST                                                  = local.app_private_ip
+    PORT                                                  = tostring(local.app_port)
+    APP_MODE                                              = local.production_enabled ? "production" : "sandbox"
+    DATABASE_CA_CERT                                      = data.oci_psql_db_system_connection_detail.main.ca_certificate
+    OCI_BUCKET                                            = oci_objectstorage_bucket.uploads.name
+    OCI_NAMESPACE                                         = data.oci_objectstorage_namespace.ns.namespace
+    OCI_REGION                                            = var.region
+    OCI_AUTH                                              = "resource-principal"
+    }, var.sre_latency_ms == null ? {} : { SRE_LATENCY_MS = tostring(var.sre_latency_ms) }, var.production == null ? {
+    DATABASE_URL                                          = local.database_url
     } : {
     PUBLIC_ORIGIN                    = local.public_origin
     OIDC_ISSUER                      = var.production.oidc_issuer

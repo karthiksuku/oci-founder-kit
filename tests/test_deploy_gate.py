@@ -279,6 +279,7 @@ class Plan(GateTestCase):
     def test_symlinked_gate_directory_is_refused(self):
         elsewhere = self.tmp / "elsewhere"
         elsewhere.mkdir(mode=0o755)
+        elsewhere.chmod(0o755)  # Establish the control independently of the caller's umask.
         (self.stack / ".gate").symlink_to(elsewhere)
         code, _, err = self.run_gate("plan", "--dir", str(self.stack))
         self.assertEqual(code, 2)

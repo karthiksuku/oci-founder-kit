@@ -16,7 +16,7 @@ OCI = "registry.terraform.io/oracle/oci"
 WORKLOAD = {CI, "oci_load_balancer_load_balancer", "oci_core_network_security_group", "oci_core_vcn",
             "oci_core_subnet", "oci_core_internet_gateway", "oci_core_nat_gateway", "oci_core_service_gateway",
             "oci_core_route_table", "oci_core_security_list", "oci_psql_db_system", "oci_objectstorage_bucket",
-            "oci_ons_notification_topic", "oci_ons_subscription", "oci_monitoring_alarm",
+            "oci_health_checks_http_monitor", "oci_ons_notification_topic", "oci_ons_subscription", "oci_monitoring_alarm",
             "oci_apigateway_gateway", "oci_apigateway_deployment", "oci_queue_queue"}
 PARENTS = {"oci_load_balancer_backend_set": ("load_balancer_id", "oci_load_balancer_load_balancer"),
            "oci_load_balancer_backend": ("load_balancer_id", "oci_load_balancer_load_balancer"),

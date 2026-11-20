@@ -176,3 +176,5 @@ reviewing them is separate from independently verifying a live deployment:
 - [OCI Container Instances overview](https://docs.oracle.com/en-us/iaas/Content/container-instances/overview-of-container-instances.htm)
 - [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting)
 - [OCI limits and quotas](https://docs.oracle.com/en-us/iaas/Content/General/service-limits/overview.htm)
+
+For opt-in, reviewed external probes, an alert route and private user-journey reliability metrics, see [SRE monitoring](../../docs/SRE-MONITORING.md). Choosing monitoring does not change the ingress allowlist or grant telemetry permissions.
