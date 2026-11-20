@@ -44,6 +44,10 @@ try {
     assert.deepEqual(await page.evaluate(async()=>(await axe.run(document,{runOnly:{type:'tag',
       values:['wcag2a','wcag2aa','wcag21a','wcag21aa']}})).violations.map(v=>v.id)), []);
   }
+  if (process.argv[3]) {
+    await page.setViewportSize({width: 960, height: 540});
+    await page.screenshot({path: process.argv[3], animations: 'disabled'});
+  }
   console.log('Passed standalone local Next.js '+mode+' check.');
 } finally {
   try { await browser?.close(); } finally {

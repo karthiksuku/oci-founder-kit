@@ -16,7 +16,8 @@ their contents. It proposes four stages. For Taskboard, start with sign-in,
 create a task, reload, and confirm a second account cannot read it. For a
 Next.js hosting migration, test a meaningful existing action with the original
 database, identity provider and storage, plus callback, cache, redirect and
-worker ownership behavior. Other workloads receive a diagnostic plan only.
+worker ownership behavior. For a new Next.js web app, use the separate launch
+profile below. Other workloads receive a diagnostic plan only.
 
 Save the critical journey, if desired, in the **owner-only** file
 `.oci-kit/environments/rehearsal/sre-journey.json` (mode 0600), e.g.
@@ -24,6 +25,24 @@ Save the critical journey, if desired, in the **owner-only** file
 The plan reports the assertion count; this declaration is neither executable
 nor proof. Keep private identifiers, credentials and real customer data out
 of test definitions, screenshots and prompts.
+
+## Launch your own Next.js application
+
+Follow the [own-app launch walkthrough](OWN-APP-LAUNCH.md) from the founder's Git
+repository. In rehearsal, `doctor` and `journey` identify the launch profile and
+return its `sre plan` command. For a nested app, select its directory in the
+private [packaging descriptor](../recipes/README.md). Commit that app's
+`package.json` declaring Next.js and its `package-lock.json`. Declare its existing
+test command. The protected verifier binds that app selection to its signed results.
+
+When a live doctor read fails, its private `permission_review` identifies the
+OCI API operation, the permission to verify, the scope and a recheck command.
+Check the selected identity, resource and region before requesting any change.
+These operations use Oracle's [IAM](https://docs.oracle.com/en-us/iaas/Content/Identity/Reference/iampolicyreference.htm),
+[network](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/corepolicyreference_topic-Permissions_Required_for_Each_API_Operation.htm),
+[certificate](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/certificatespolicyreference.htm),
+[registry](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/registrypolicyreference.htm) and
+[capacity](https://docs.oracle.com/en-us/iaas/Content/General/service-limits/overview.htm) permissions.
 
 | When | Evidence to collect | Where to start |
 |---|---|---|
@@ -114,7 +133,7 @@ over 28 days remains **collecting history** until sufficient data exists.
 
 ## Evidence scope
 
-This is a preview for Taskboard and hosting-first Next.js. Local tests, signed
+This preview covers Taskboard, a founder-owned Next.js launch and hosting-first Next.js. Local tests, signed
 CI evidence, an independently observed OCI rehearsal and actual production SLOs
 are separate. No compliance certification, vulnerability-free claim or
 high-availability claim is implied. Single-instance updates may interrupt

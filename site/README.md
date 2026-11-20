@@ -104,3 +104,12 @@ Community projects are linked as source references, not copied into this site:
 
 See the repository's [ecosystem notes](../docs/ECOSYSTEM.md) before reusing a
 reference. Keep each project's license and attribution with any code you adopt.
+
+The Built on OCI gallery uses real screenshots of synthetic local sessions. Reproduce them
+from each app directory after installing its pinned dependencies and building the Next.js example.
+Pass a new PNG path as the third argument to `node checks/browser.mjs browser /path/to/screenshot.png`.
+The screenshot is taken after the customer workflow assertions pass.
+
+For a side-by-side preview set `SITE_BASE` to its public subdirectory (with a trailing slash)
+and `PUBLIC_KIT_PREVIEW_REVISION` to the full published source commit. The displayed links,
+generated agent prompt and clone instructions will then reference that revision.

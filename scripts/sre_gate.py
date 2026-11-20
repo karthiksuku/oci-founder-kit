@@ -1,4 +1,4 @@
-"""Offline, fail-closed production promotion for the two reference web journeys.
+"""Offline, fail-closed production promotion for supported web journeys.
 
 Private JSON is not a trust anchor. A protected verifier signs the exact binding,
 observations and raw-artifact digests. The OCI deploy gate recomputes this decision.
@@ -17,6 +17,7 @@ import stat
 import subprocess
 import tempfile
 import time
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = "oci-founder-production/1"
@@ -37,12 +38,15 @@ REQUIRED = {
                   "restricted_ingress", "tls", "private_state", "private_backups", "runtime_identity_boundary"),
     "monitoring_drill": ("alert_fired", "primary_received", "fallback_assigned", "recovery_cleared",
                         "no_data_detected", "runbook", "user_sli_instrumented"),
+    "nextjs_launch": ("custom_hostname_https", "hosted_callback_logout_expiry", "retained_identity_and_data",
+                      "persisted_after_restart", "previous_image_available"),
     "migration_parity": ("route_parity", "cookie_redirect_cache", "user_workflow_parity"),
     "traffic_return": ("source_preserved", "rehearsed_return", "source_behavior_verified"),
     "service_ownership": ("external_data_retained", "external_auth_retained", "single_job_owner"),
 }
 MIGRATION = ("migration_parity", "traffic_return", "service_ownership")
-CONTROLS = tuple(x for x in REQUIRED if x not in MIGRATION) + ("security_scan", "oci_registry_scan")
+PROFILE_EXTRAS = {"taskboard": (), "new-app-nextjs": ("nextjs_launch",), "hosting-first-nextjs": MIGRATION}
+CONTROLS = tuple(x for x in REQUIRED if x not in MIGRATION and x != "nextjs_launch") + ("security_scan", "oci_registry_scan")
 LIMIT = 24 * 60 * 60
 HEX = re.compile(r"[0-9a-f]{64}")
 IMAGE = re.compile(r"sha256:[0-9a-f]{64}")
@@ -57,10 +61,20 @@ def project_module():
 
 
 def profile_controls(profile):
-    return CONTROLS + MIGRATION if profile == "hosting-first-nextjs" else CONTROLS
+    return CONTROLS + PROFILE_EXTRAS[profile]
 
 
-def revision(project, p):
+def launch_hostname(config):
+    # The environment validator already requires a lowercase HTTPS origin.
+    host = urlsplit(config["target"].get("origin", "")).hostname or ""
+    labels = host.split(".")
+    if (len(host) <= 253 and len(labels) > 1 and not labels[-1].isdigit()
+            and all(re.fullmatch("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)):
+        return host
+    return None
+
+
+def revision(project, p, required_paths=()):
     # Invoke no hooks, external diff, or project program. Never retain filenames or git diagnostics.
     env = {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
            "GIT_CONFIG_GLOBAL": os.devnull, "GIT_NO_REPLACE_OBJECTS": "1", "GIT_OPTIONAL_LOCKS": "0"}
@@ -83,6 +97,7 @@ def revision(project, p):
         raise ValueError("Unsupported source tree.")
     total = 0
     private_path = p.helper("hooks").private_path
+    missing = set(required_paths)
     for entry in rows[:-1]:
         meta, name = entry.split(b"\t", 1)
         mode, kind, oid = meta.split()
@@ -90,6 +105,7 @@ def revision(project, p):
         if (mode not in {b"100644", b"100755"} or kind != b"blob" or rel.is_absolute()
                 or ".." in rel.parts or private_path(rel.as_posix())):
             raise ValueError("Unsupported tracked input.")
+        missing.discard(rel.as_posix())
         _, fd = p.open_project(project / rel.parent)
         try:
             data = p.read_at(fd, rel.name, maximum=16 * p.LIMIT)
@@ -100,6 +116,8 @@ def revision(project, p):
         if (total > 256 * p.LIMIT or executable != (mode == b"100755")
                 or hashlib.new(algorithm, b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest().encode() != oid):
             raise ValueError("Tracked worktree differs from the candidate commit.")
+    if missing:
+        raise ValueError("Commit the selected app package manifest and production lockfile.")
     if git(["rev-parse", "--verify", "HEAD^{commit}"]).decode().strip() != commit:
         raise ValueError("The candidate changed during inspection.")
     return commit
@@ -179,8 +197,12 @@ def indicator(row, name, binding, now, p):
     if name in {"security_scan", "oci_registry_scan"}:
         scanner = p.helper("sre_scan")
         if name == "security_scan":
+            selected_lock = binding.get("selected_lock_sha256")
+            if binding.get("profile") == "new-app-nextjs" and not p.valid_hash(selected_lock):
+                return "unknown"
             return scanner.gate_status(data, image_digest=binding["image_digest"], now=now,
-                                       source_revision=binding["source_revision"])
+                                       source_revision=binding["source_revision"],
+                                       selected_lock_sha256=selected_lock)
         return scanner.registry_status(data, image_digest=binding["image_digest"], now=now)
     expected = set(REQUIRED[name])
     if name == "restore":
@@ -218,7 +240,7 @@ def request(project, *, environment, rehearsal, plan_sha256, _applying=None):
         if not p.valid_hash(plan_sha256):
             raise ValueError("Invalid plan identity.")
         with p.Store(project, environment=environment) as prod:
-            prod.read()
+            production_state = prod.read()
             env = p.helper("environments")
             configs = env.list_configs(prod, p)
             cfg = prod.environment_config
@@ -245,16 +267,30 @@ def request(project, *, environment, rehearsal, plan_sha256, _applying=None):
                 row("rehearsal_binding", "failed", "release-engineer", "Select distinct rehearsal and production targets with the identical tested image.")
                 return result
             with p.Store(project, environment=rehearsal) as staging:
-                staging.read()
-                # Use the exact same framework detection and safe application path as the planner.
-                plan = p.helper("sre_plan").request(project, environment=rehearsal, p=p)
-                profile = plan["profile"]
-                if not plan["critical_journey_declared"]:
+                stage_state = staging.read()
+                planner = p.helper("sre_plan")
+                info, app_paths = planner.inspect_application(staging, stage_state, p)
+                profile = info["profile"]
+                declaration = planner.journey_declaration(staging.fd, p)
+                if not declaration:
                     row("critical_journey", "unknown", "application-owner", "Declare the critical customer journey and assertions in the private rehearsal profile.")
                     return result
-                if profile not in {"taskboard", "hosting-first-nextjs"}:
-                    row("journey_profile", "unknown", "application-owner", "Use the reference Taskboard or an identified hosting-first Next.js application.")
+                if profile not in PROFILE_EXTRAS:
+                    row("journey_profile", "unknown", "application-owner", "Select Taskboard, a new Next.js app or an identified Next.js hosting migration.")
                     return result
+                if profile in {"new-app-nextjs", "hosting-first-nextjs"} and stage_state["task"] != production_state["task"]:
+                    row("app_prerequisites", "failed", "application-owner",
+                        "Select the same build or migration workflow in rehearsal and production.")
+                    return result
+                if profile == "new-app-nextjs":
+                    if "package-lock.json" not in info["dependency_files"] or not info["test_command_declared"]:
+                        row("app_prerequisites", "failed", "application-owner",
+                            "Commit the app's npm lockfile and declare its existing project test command.")
+                        return result
+                    hosts = {launch_hostname(cfg), launch_hostname(stage)}
+                    if None in hosts or len(hosts) != 2:
+                        row("launch_origins", "failed", "application-owner", "Configure dedicated rehearsal and production HTTPS hostnames.")
+                        return result
                 try:
                     _, receipt = p.helper("operations").receipt_at(staging, p)
                 except SAFE:
@@ -279,12 +315,21 @@ def request(project, *, environment, rehearsal, plan_sha256, _applying=None):
             ident = p.identity(prod.root_fd)
             key_path = TRUST / ident / (environment + ".pub")
             result["verifier_public_key_path"] = str(key_path)
-            binding = {"policy": POLICY, "plan_sha256": plan_sha256, "source_revision": revision(project, p),
+            binding = {"policy": POLICY, "plan_sha256": plan_sha256, "source_revision": revision(project, p, app_paths if profile == "new-app-nextjs" else ()),
                        "project_identity": ident, "source_sha256": p.source_fingerprint(prod.root_fd), "kit_sha256": p.kit_fingerprint(),
                        "image_digest": image, "profile": profile, "environment": environment, "rehearsal": rehearsal,
-                       "critical_journey": plan["critical_journey"], "journey_sha256": plan["journey_sha256"],
+                       "critical_journey": declaration["journey"], "journey_sha256": declaration["journey_sha256"],
                        "production_sha256": p.digest(p.canonical(cfg)), "rehearsal_sha256": p.digest(p.canonical(stage)),
                        "rehearsal_receipt_sha256": receipt}
+            if profile == "new-app-nextjs":
+                binding["application_selection_sha256"] = info["application_selection_sha256"]
+                lock = Path(app_paths[1])
+                _, directory = p.open_project(project / lock.parent)
+                try:
+                    lock_sha = digest(p.read_at(directory, lock.name, maximum=16 * p.LIMIT))
+                finally:
+                    os.close(directory)
+                binding["selected_lock_sha256"] = p.helper("sre_scan").lock_identity(lock.as_posix(), lock_sha)
             result["binding"] = binding
             result["required_controls"] = list(profile_controls(profile))
             keys = {}
@@ -316,9 +361,11 @@ def assemble(challenge, report_dir, output):
     binding_fields = {"policy", "plan_sha256", "source_revision", "project_identity", "source_sha256", "kit_sha256",
                       "image_digest", "profile", "environment", "rehearsal", "production_sha256", "rehearsal_sha256",
                       "rehearsal_receipt_sha256", "critical_journey", "journey_sha256"}
+    if isinstance(b, dict) and b.get("profile") == "new-app-nextjs":
+        binding_fields.update(("application_selection_sha256", "selected_lock_sha256"))
     if (challenge.get("schema") != "oci-sre-decision/1" or not isinstance(b, dict) or set(b) != binding_fields
             or not re.fullmatch("[a-z][a-z0-9-]{1,47}", str(b["critical_journey"]))
-            or b["policy"] != POLICY or b["profile"] not in {"taskboard", "hosting-first-nextjs"}
+            or b["policy"] != POLICY or b["profile"] not in PROFILE_EXTRAS
             or not IMAGE.fullmatch(str(b["image_digest"])) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", str(b["source_revision"]))
             or not all(p.valid_hash(b[k]) for k in binding_fields if k.endswith("sha256") or k == "project_identity")):
         raise ValueError("The selected challenge is not supported.")

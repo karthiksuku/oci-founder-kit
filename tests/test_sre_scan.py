@@ -27,14 +27,43 @@ def observed():
     return src, img, dev
 
 
-def report(s=None, i=None, d=None):
+def report(s=None, i=None, d=None, selected_lock=None):
     src, img, dev = observed()
     return scan.projection(s or src, i or img, d or dev, {"Version": scan.VERSION, "VulnerabilityDB": {"Version": 2, "UpdatedAt": STAMP}},
                            {"packages": [{"name": "fixture"}], "spdxVersion": "SPDX-2.3"}, source_revision=REV,
-                           image_digest=DIGEST, config=CONFIG, sbom_digest=CONFIG, now=NOW)
+                           image_digest=DIGEST, config=CONFIG, sbom_digest=CONFIG, now=NOW, selected_lock=selected_lock)
 
 
 class Scan(unittest.TestCase):
+    def test_scoped_coverage_requires_selected_lock_and_its_shipped_next_version(self):
+        source, image, dev = observed()
+        lock = "apps/web/package-lock.json"
+        scope = (lock, scan.lock_identity(lock, "0"*64))
+        sibling = dict(source["Results"][0], Target="demo/package-lock.json",
+                       Packages=[{"Name":"next","Version":"1","Relationship":"direct"}])
+        source["Results"] += [sibling]
+        selected = dict(sibling, Target=lock, Packages=[{"Name":"next","Version":"2","Relationship":"direct"}])
+        source["Results"][0] = selected
+        runtime = image["Results"][1]["Packages"][0]
+        runtime.update(Name="next", Version="1", FilePath="srv/node_modules/next/package.json")
+        def read():
+            projection = report(source, image, dev, selected_lock=scope)
+            return scan.gate_status(projection, now=NOW, image_digest=DIGEST, selected_lock_sha256=scope[1])
+        self.assertEqual(read(), "unknown")  # Only a sibling's dependency shipped.
+        runtime["Version"] = "2"
+        self.assertEqual(read(), "passed")
+        value = report(source, image, dev, selected_lock=scope)
+        self.assertEqual(scan.gate_status(value, now=NOW, image_digest=DIGEST,
+                        selected_lock_sha256=scan.lock_identity(sibling["Target"], "0"*64)), "unknown")
+        self.assertEqual(scan.gate_status(report(), now=NOW, image_digest=DIGEST, selected_lock_sha256=scope[1]), "unknown")
+        selected["Vulnerabilities"] = [{"Severity":"HIGH"}]
+        self.assertEqual(read(), "blocked")
+        selected["Vulnerabilities"] = []
+        source["Results"].append(selected)
+        self.assertEqual(read(), "unknown")
+        selected["Target"] = "other/package-lock.json"
+        self.assertEqual(read(), "unknown")
+
     def test_candidate_identity_and_database_freshness(self):
         clean = report()
         self.assertEqual(scan.gate_status(clean, image_digest=DIGEST, source_revision=REV, now=NOW), "passed")

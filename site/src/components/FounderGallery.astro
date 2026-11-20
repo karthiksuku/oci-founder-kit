@@ -1,0 +1,71 @@
+---
+import Icon from './Icon.astro';
+import {repository, sourceRef} from '../lib/prompt';
+const {doc} = Astro.props as {doc: (path: string) => string};
+const examples = [
+  {
+    name: 'Taskboard', image: 'taskboard', alt: 'Taskboard after a tester completed a rehearsal task.',
+    problem: 'Keep track of a small team’s launch tasks.',
+    evidence: 'Chromium created a task, marked it complete and reloaded it using the in-memory sandbox.',
+    source: 'blueprints/fullstack-container', guide: 'blueprints/fullstack-container/LOCAL.md',
+    prompt: 'Use OCI Founder Kit to create an editable Taskboard in a new empty directory. Run it locally, add a launch task, mark it done and verify it survives a reload. Show me the files to edit. Stop before any cloud change.',
+  },
+  {
+    name: 'Launch Notes', image: 'launch-notes', alt: 'Launch Notes showing a project checklist in the standalone Next.js app.',
+    problem: 'Turn a project idea into a checklist you can share with a teammate.',
+    evidence: 'Chromium opened a stage in the standalone Next.js server, changed the project name and verified the preview after reload.',
+    source: 'examples/migrate-nextjs', guide: 'examples/migrate-nextjs/README.md',
+    prompt: 'Run the OCI Founder Kit Launch Notes example locally. Build the standalone Next.js server, exercise its project checklist and compare the two local servers. Keep my own app and its providers intact. Stop before publishing an image.',
+  },
+];
+---
+<div class="example-grid">
+  {examples.map((app) => <article class="example-card">
+    <img class="gallery-shot" width="960" height="540" loading="lazy" src={`${import.meta.env.BASE_URL}gallery/${app.image}.png`} alt={app.alt} />
+    <div class="example-content">
+      <span class="example-tag">Kit example · Locally tested</span>
+      <h3>{app.name}</h3><p>{app.problem}</p><p class="gallery-evidence">{app.evidence} OCI deployment is unverified.</p>
+      <details class="gallery-prompt">
+        <summary>Try with Claude Code or Codex</summary>
+        <p>Read {doc(app.guide)}. {app.prompt}</p>
+        <button type="button" class="button button-secondary" data-gallery-copy>Copy prompt</button>
+        <span role="status"></span>
+      </details>
+      <div class="example-footer">
+        {app.image === 'taskboard' && <a href={doc('docs/INSTALL.md#create-a-new-editable-starter')} data-task-link="build" data-project-link="new" data-stack-link="taskboard">Create my Taskboard <Icon name="arrow" size={15} /></a>}
+        <a href={doc(app.guide)}>{app.image === 'taskboard' ? 'Preview guide' : 'Run the rehearsal'}</a>
+        <a href={`${repository}/tree/${sourceRef}/${app.source}`}>Source on GitHub</a>
+        <a href={doc('LICENSE')}>UPL-1.0</a>
+      </div>
+    </div>
+  </article>)}
+</div>
+<p class="source-note">These examples use synthetic data. <a href={doc('CONTRIBUTING.md')}>Submit a licensed community app for review on GitHub →</a></p>
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-gallery-copy]')) {
+    button.addEventListener('click', async () => {
+      const parent = button.closest('details')!;
+      const prompt = parent.querySelector('p')!;
+      const status = parent.querySelector('[role="status"]')!;
+      try {
+        await navigator.clipboard.writeText(prompt.textContent || '');
+        status.textContent = 'Prompt copied.';
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(prompt);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        status.textContent = 'Prompt selected. Use your copy shortcut.';
+      }
+    });
+  }
+</script>
+<style>
+  .gallery-shot { display: block; width: 100%; height: auto; aspect-ratio: 16/9; border-bottom: 1px solid var(--line); }
+  .gallery-prompt { padding: 12px 0 16px; font-size: .88rem; }
+  .gallery-prompt summary { color: var(--accent); }
+  .gallery-prompt p { margin: .6rem 0; overflow-wrap: anywhere; }
+  .gallery-prompt [role=status] { margin-inline-start: .5rem; }
+  .gallery-evidence { margin-bottom: 0; }
+</style>

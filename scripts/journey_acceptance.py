@@ -167,7 +167,7 @@ def request(project: Path, *, environment: str, journey="build"):
             raise ValueError("Source or target changed while reading evidence; repeat the report.")
         blocking = {"missing", "failed", "unknown", "stale", "ambiguous", "invalid"}
         next_gate = next(row for row in gates if row["status"] in blocking)
-        return {"schema": SCHEMA, "environment": environment, "journey": journey,
+        result = {"schema": SCHEMA, "environment": environment, "journey": journey,
                 "status": "failed" if any(row["status"] == "failed" for row in gates) else "incomplete",
                 "gates": gates, "next_action": next_gate, "evidence_counts": counts,
                 "handoff_rules": [
@@ -181,12 +181,17 @@ def request(project: Path, *, environment: str, journey="build"):
                                    "ordinary_agent_session": "not-established-by-this-report",
                                    "approved_live_oci_journey": "incomplete"},
                 "scope": "Read-only coverage from private local reports. Reported checks and owner records are not authenticated end-to-end proof. Unimplemented acceptance contracts remain explicit manual gates; no cloud action or evidence write occurs."}
+        if config["role"] == "rehearsal":
+            result["launch_workflow"] = p.helper("sre_plan").launch_route(store, state, p)
+        return result
 
 
 def render(value):
     print("Founder journey: " + value["journey"] + " · " + value["environment"] + " · " + value["status"])
     for row in value["gates"]:
         print(row["id"] + ": " + row["status"] + " · " + row["evidence_class"])
+    if value.get("launch_workflow", {}).get("recheck_command"):
+        print("Launch workflow", value["launch_workflow"]["profile"], shlex.join(value["launch_workflow"]["recheck_command"]))
     next_gate = value["next_action"]
     print("Next: " + next_gate["next_action"])
     if next_gate["recheck_command"]:

@@ -1,5 +1,13 @@
 export const repository = 'https://github.com/karthiksuku/oci-founder-kit';
 
+// A side-by-side Pages preview must install and document the same revision.
+const previewRevision = import.meta.env?.PUBLIC_KIT_PREVIEW_REVISION || '';
+if (previewRevision && !/^[a-f0-9]{40}$/.test(previewRevision)) throw new Error('Use a full public Git commit for the site preview.');
+export const sourceRef = previewRevision || 'main';
+export const sourceRepository = previewRevision ? `${repository}/tree/${sourceRef}` : repository;
+export const sourceDoc = (path: string) => `${repository}/blob/${sourceRef}/${path}`;
+const cloneCommands = [`git clone ${repository}.git`, ...(previewRevision ? [`git -C oci-founder-kit checkout --detach ${sourceRef}`] : [])];
+
 export type Task = 'build' | 'migrate' | 'setup';
 export type Agent = 'codex' | 'claude';
 export type Stack = 'existing' | 'nextjs' | 'fastapi' | 'choose' | 'taskboard';
@@ -109,7 +117,8 @@ export function createPrompt(raw: Selection & { brief: string }): string {
   const taskboard = input.task === 'build' && input.stack === 'taskboard';
   const brief = raw.brief.trim().slice(0, 1200);
   const lines = [
-    `Read ${repository} and follow its README installation instructions.`,
+    `Read ${sourceRepository} and follow its README installation instructions.`,
+    ...(previewRevision ? [`For this preview, use the reviewed kit at commit ${sourceRef}. Inspect an existing installation and use the supported update path if needed.`] : []),
     'Inspect the project and any existing OCI Founder Kit installation first. If installed, check its status and use its current skills; do not reinstall or overwrite it.',
     input.project === 'new' ? 'I am starting a new project. Use my intended empty project folder; preserve any existing files if the folder is not empty.' : 'I am working in an existing project. Preserve its source, instructions, services and uncommitted work.',
     ...(taskboard ? [
@@ -124,6 +133,9 @@ export function createPrompt(raw: Selection & { brief: string }): string {
     `Then use ${entry}: ${task.goal}`,
     'Use the reviewed project helper to maintain a local project record when available. Its status and resume commands inspect local records; they do not run tests, detect a live deployment or approve cloud changes.',
   ];
+  if (input.task === 'build' && input.stack === 'nextjs') {
+    lines.push('Follow docs/OWN-APP-LAUNCH.md. Use my Next.js app and its existing tests. Run doctor, journey and cost preview for the named rehearsal, then report what my 24-hour demo and 30-day deployment would cost.');
+  }
   if (brief) lines.push('', `My project brief: ${brief}`);
   lines.push('');
   if (input.task !== 'setup' && !taskboard) lines.push(stackInstructions[input.stack === 'taskboard' ? 'existing' : input.stack]);
@@ -153,20 +165,20 @@ export function resumePrompt(raw: Selection): string {
 
 export function installCommand(agent: Agent, stack: Stack = 'existing', project: Project = 'existing'): string {
   if (project === 'continue') return ['python3 .oci-founder-kit/scripts/kit.py environment list --project .', '# Replace ENVIRONMENT with the existing target you intend to continue.', 'python3 .oci-founder-kit/scripts/kit.py next --project . --environment ENVIRONMENT'].join('\n');
-  return [`git clone ${repository}.git`, stack === 'taskboard' ? 'python3 oci-founder-kit/scripts/blueprint.py create fullstack-container \\' : 'python3 oci-founder-kit/scripts/install.py \\', `  --project /absolute/path/to/my-app --agent ${agent}`, 'cd /absolute/path/to/my-app'].join('\n');
+  return [...cloneCommands, stack === 'taskboard' ? 'python3 oci-founder-kit/scripts/blueprint.py create fullstack-container \\' : 'python3 oci-founder-kit/scripts/install.py \\', `  --project /absolute/path/to/my-app --agent ${agent}`, 'cd /absolute/path/to/my-app'].join('\n');
 }
 
 export function projectCommand(raw: Selection): string {
   const input = normalizeSelection(raw);
   if (input.project === 'continue') return installCommand(input.agent, input.stack, 'continue');
   if (input.task === 'setup') return [
-    `git clone ${repository}.git`,
+    ...cloneCommands,
     'python3 oci-founder-kit/scripts/kit.py onboard inspect \\',
     '  --project /absolute/path/to/my-app',
   ].join('\n');
   const stack = input.stack === 'nextjs' || input.stack === 'fastapi' ? input.stack : input.stack === 'existing' ? 'custom' : 'auto';
   return [
-    `git clone ${repository}.git`,
+    ...cloneCommands,
     'python3 oci-founder-kit/scripts/kit.py start \\',
     `  --project /absolute/path/to/my-app --mode ${input.project} \\`,
     `  --task ${input.task} --agent ${input.agent} --stack ${stack}${input.stack === 'taskboard' ? ' --blueprint fullstack-container' : ''}`,

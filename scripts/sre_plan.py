@@ -62,40 +62,72 @@ def journey_declaration(directory, p):
             "assertion_count": len(declaration["assertions"])}
 
 
+def inspect_application(store, state, p):
+    """Inspect only the descriptor-selected app, returning metadata and reviewed source paths."""
+    pkg = p.helper("packaging")
+    try:
+        desc = pkg.descriptor_value(p.object_at(store.fd, "application.json", private=True))
+    except FileNotFoundError:
+        desc = None
+    fd = pkg.app_fd(store, desc, p) if desc else os.dup(store.root_fd)
+    blueprint = store.environment_config["blueprint"]
+    try:
+        if not desc and blueprint == "fullstack-container" and not ordinary(fd, "package.json"):
+            try:
+                nested = os.open("app", p.DIRECTORY, dir_fd=fd)
+            except FileNotFoundError:
+                pass
+            else:
+                os.close(fd)
+                fd = nested
+        package = p.object_at(fd, "package.json") if ordinary(fd, "package.json") else {}
+        scripts = package.get("scripts", {})
+        known = [n for n in ("build", "lint", "typecheck", "test", "test:integration", "test:e2e")
+                 if isinstance(scripts, dict) and isinstance(scripts.get(n), str) and scripts[n].strip()]
+        locks = [n for n in ("package-lock.json", "pnpm-lock.yaml", "yarn.lock", "requirements.txt", "poetry.lock", "uv.lock")
+                 if ordinary(fd, n)]
+    finally:
+        os.close(fd)
+    next_declared = any(isinstance(deps, dict) and isinstance(deps.get("next"), str) and deps["next"].strip()
+                        for deps in (package.get("dependencies"), package.get("devDependencies")))
+    profile = "other-container"
+    if blueprint == "fullstack-container":
+        profile = "taskboard"
+    elif state["task"] == "migrate" and (next_declared or desc and desc["recipe"] == "nextjs"):
+        profile = "hosting-first-nextjs"
+    elif state["task"] == "build" and next_declared and (not desc or desc["recipe"] in {"nextjs", "dockerfile"}):
+        profile = "new-app-nextjs"
+    info = {"profile": profile, "app_descriptor": desc is not None,
+            "test_command_declared": bool(desc and desc["commands"]["test"]) or "test" in known,
+            "discovered_scripts": known, "dependency_files": locks}
+    app_dir = desc["app_directory"] if desc else "."
+    tracked_inputs = [name if app_dir == "." else app_dir + "/" + name for name in ("package.json", "package-lock.json")]
+    if profile == "new-app-nextjs":
+        # A private app-directory/command change must invalidate a signed monorepo launch.
+        info["application_selection_sha256"] = p.digest(p.canonical({"descriptor": desc, "manifest": package}))
+    return info, tracked_inputs
+
+
+def launch_route(store, state, p):
+    """Founder continuation for the selected rehearsal; never runs app commands or claims eligibility."""
+    try:
+        info, _ = inspect_application(store, state, p)
+    except (OSError, ValueError, TypeError, RecursionError):
+        return {"profile": "unknown", "instruction": "Review the selected application descriptor and package manifest."}
+    supported = info["profile"] != "other-container"
+    return {"profile": info["profile"], "support": "preview" if supported else "diagnostic-only", "recheck_command": [
+        "python3", ".oci-founder-kit/scripts/kit.py", "sre", "plan", "--project", ".", "--environment", store.environment],
+        "instruction": ("Review the existing project tests and define the customer action to exercise on the rehearsal hostname."
+                        if supported else "Use the diagnostic plan for local checks. This workload has no verified production profile.")}
+
+
 def request(project, *, environment, p):
     with p.Store(project, environment=environment) as store:
         state = store.read()
         if store.environment_config["role"] != "rehearsal":
             raise ValueError("Select a rehearsal environment to plan application testing.")
-        pkg = p.helper("packaging")
-        try:
-            desc = pkg.descriptor_value(p.object_at(store.fd, "application.json", private=True))
-        except FileNotFoundError:
-            desc = None
-        fd = pkg.app_fd(store, desc, p) if desc else os.dup(store.root_fd)
-        profile = "other-container"
-        try:
-            if not desc and store.environment_config["blueprint"] == "fullstack-container" and not ordinary(fd, "package.json"):
-                try:
-                    nested = os.open("app", p.DIRECTORY, dir_fd=fd)
-                except FileNotFoundError:
-                    pass
-                else:
-                    os.close(fd)
-                    fd = nested
-            package = p.object_at(fd, "package.json") if ordinary(fd, "package.json") else {}
-            if store.environment_config["blueprint"] == "fullstack-container":
-                profile = "taskboard"
-            elif state["task"] == "migrate" and (desc and desc["recipe"] == "nextjs" or any(
-                    isinstance(package.get(k), dict) and "next" in package[k] for k in ("dependencies", "devDependencies"))):
-                profile = "hosting-first-nextjs"
-            scripts = package.get("scripts", {})
-            known = [n for n in ("build", "lint", "typecheck", "test", "test:integration", "test:e2e")
-                     if isinstance(scripts, dict) and isinstance(scripts.get(n), str)]
-            locks = [n for n in ("package-lock.json", "pnpm-lock.yaml", "yarn.lock", "requirements.txt", "poetry.lock", "uv.lock")
-                     if ordinary(fd, n)]
-        finally:
-            os.close(fd)
+        info, _ = inspect_application(store, state, p)
+        profile = info["profile"]
         declaration = journey_declaration(store.fd, p)
         workflow = ("Sign in, create a task, reload, and confirm a second user cannot see it." if profile == "taskboard"
                     else "Select one existing customer action and compare its visible result on source and target."
@@ -103,10 +135,10 @@ def request(project, *, environment, p):
         stages = {key: list(items) for key, items in STAGES.items()}
         if state["task"] == "migrate":
             stages["rehearsal"].append("Compare source/target routes and retained providers, prove one scheduler owner, and rehearse restoring source traffic.")
+        if profile == "new-app-nextjs":
+            stages["rehearsal"].append("Verify the chosen hostname and TLS chain, hosted sign-in callback/logout/expiry, retained identity and data providers, and persistence after a scoped restart. Use synthetic accounts and data.")
         return {"schema": "oci-kit-sre-plan/1", "status": "planned", "environment": environment,
-                "profile": profile, "support": "preview", "app_descriptor": desc is not None,
-                "test_command_declared": bool(desc and desc["commands"]["test"]) or "test" in known,
-                "discovered_scripts": known, "dependency_files": locks, "existing_workflow_count": workflow_count(store.root_fd, p),
+                **info, "support": "diagnostic-only" if profile == "other-container" else "preview", "existing_workflow_count": workflow_count(store.root_fd, p),
                 "critical_journey_prompt": workflow, "critical_journey_declared": declaration is not None,
                 "critical_journey": declaration["journey"] if declaration else None,
                 "journey_sha256": declaration["journey_sha256"] if declaration else None,

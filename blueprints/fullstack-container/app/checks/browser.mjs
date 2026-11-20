@@ -40,6 +40,10 @@ try {
       values:['wcag2a','wcag2aa','wcag21a','wcag21aa']}})).violations.map(issue => issue.id));
     assert.deepEqual(ids, [], 'Accessibility violations: '+ids.join(', '));
   }
+  if (process.argv[3]) {
+    await page.setViewportSize({width: 960, height: 540});
+    await page.screenshot({path: process.argv[3], animations: 'disabled'});
+  }
   console.log('Passed local Taskboard '+mode+' rehearsal. Hosted identity and real storage were not tested.');
 } finally {
   try { await browser?.close(); } finally { server.closeAllConnections(); await new Promise(r => server.close(r)); }

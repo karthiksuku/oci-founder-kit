@@ -29,7 +29,7 @@ class Parser(argparse.ArgumentParser):
 def parser():
     cli = Parser(description=__doc__)
     commands = cli.add_subparsers(dest="command", required=True, parser_class=Parser)
-    for name in ("onboard", "start", "status", "next", "doctor", "sre", "package", "foundation", "release", "verify", "observe", "architecture", "journey", "support", "environment", "capabilities"):
+    for name in ("onboard", "start", "status", "next", "doctor", "sre", "trial", "cost", "package", "foundation", "release", "verify", "observe", "architecture", "journey", "support", "environment", "capabilities"):
         child = commands.add_parser(name)
         child.add_argument("--project", type=Path, default=Path("."))
         child.add_argument("--environment")
@@ -77,6 +77,15 @@ def parser():
             child.add_argument("--receipt", type=Path)
             child.add_argument("--cost-config", type=Path)
             child.add_argument("--component", choices=("web", "worker"), default="web")
+        if name == "trial":
+            child.add_argument("action", choices=("inspect", "prepare", "feedback", "close"))
+            child.add_argument("--input", type=Path, help="Owner-only trial review or de-identified feedback file.")
+            child.add_argument("--trial-id")
+        if name == "cost":
+            child.add_argument("action", choices=("preview",))
+            child.add_argument("--rates", type=Path)
+            child.add_argument("--assumptions", type=Path)
+            child.add_argument("--after-cleanup", type=Path)
         if name == "support":
             child.add_argument("action", choices=("export",))
             child.add_argument("--write", action="store_true", help="Write the displayed allowlisted projection to a new private file; never upload.")
@@ -183,6 +192,9 @@ def gate_request(p, common, args, selected):
         result.update(status="awaiting-approval", plan_sha256=digest,
                       review_file=str(Path(component["infrastructure"]) / ".gate" / filename),
                       next_action="Review this exact private plan, its costs and expiry; request owner approval of its hash.")
+    if args.action == "plan" or filename == "plan-summary.json":
+        result["cost_preview_command"] = ["python3", ".oci-founder-kit/scripts/kit.py", "cost", "preview",
+                                          "--environment", args.environment]
     return result
 
 
@@ -270,6 +282,17 @@ def dispatch(args):
         return p.helper("architecture").request(args.project, environment=args.environment)
     if args.command == "journey":
         return p.helper("journey_acceptance").request(args.project, environment=args.environment, journey=args.kind)
+    if args.command == "trial":
+        if selected["role"] != "rehearsal":
+            raise common.KitError("TRIAL_TARGET")
+        try:
+            return p.helper("customer_trial").request(args.project, action=args.action, environment=args.environment,
+                        trial_id=args.trial_id, input_file=args.input, p=p)
+        except (KeyError, ValueError, TypeError, OSError):
+            raise common.KitError("TRIAL_INPUT") from None
+    if args.command == "cost":
+        return p.helper("launch_cost").request(args.project, environment=args.environment, rates=args.rates,
+                    assumptions=args.assumptions, after_cleanup=args.after_cleanup, p=p)
     if args.command == "support":
         return p.helper("support").request(args.project, environment=args.environment, write=args.write)
     if args.command == "release":
@@ -302,7 +325,7 @@ def main(argv=None):
             value = common.project_blocked(value, code=value.get("code", known[0] if known else default),
                                           command=args.command, action=args.action, environment=args.environment)
         code = 3 if value.get("status") in {"blocked", "failed"} or (
-            args.command in {"architecture", "journey", "sre"} and value.get("status") in {"incomplete", "unknown"}) else 0
+            args.command in {"architecture", "journey", "sre", "cost", "trial"} and value.get("status") in {"incomplete", "unknown"}) else 0
     except (ValueError, OSError, KeyError, TypeError, RecursionError) as exc:
         value = common.error(getattr(exc, "code", "UNSAFE_INPUT"), missing=getattr(exc, "missing", ()))
         code = 3
@@ -310,7 +333,7 @@ def main(argv=None):
         # Known gate exceptions are deliberately opaque at this boundary.
         value = common.error("OPERATION_FAILED"); code = 3
     if "error" in value:
-        command = args.command if "args" in locals() and args.command in {"onboard", "package", "foundation", "doctor", "observe", "architecture", "journey", "release", "environment", "support", "verify", "status", "next", "start", "sre"} else None
+        command = args.command if "args" in locals() and args.command in {"onboard", "package", "foundation", "doctor", "observe", "architecture", "journey", "release", "environment", "support", "verify", "status", "next", "start", "sre", "cost", "trial"} else None
         value["error"].setdefault("recheck_command", ["python3", ".oci-founder-kit/scripts/kit.py", *([command] if command else []), "--help"])
         if command == "onboard":
             value["error"]["recheck_command"] = ["python3", str(ROOT / "scripts/kit.py"), "onboard", "--help"]
@@ -330,6 +353,9 @@ def main(argv=None):
             age = "unknown" if row["age_seconds"] is None else str(row["age_seconds"]) + "s"
             print(f"{row['id']}: {row['status']} · {row['owner']} · evidence age {age}")
             print("  " + row["recheck"])
+    elif args.command == "cost":
+        for line in common.project_module().helper("launch_cost").summary_lines(value):
+            print(line)
     elif args.command == "sre" and args.action == "plan":
         print(f"Rehearsal test plan: {value['environment']} ({value['profile']}; preview)")
         print(value["critical_journey_prompt"])

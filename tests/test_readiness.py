@@ -47,6 +47,12 @@ class Readiness(unittest.TestCase):
         self.assertEqual(checks["vcn"], "unknown")
         self.assertEqual(checks["physical_capacity"], "unknown")
         self.assertTrue(result["administrator_handoff"])
+        packet = result["permission_review"]
+        permissions = {row["check"]:row["permission_to_verify"] for row in packet["reads_to_verify"]}
+        self.assertEqual(permissions["vcn"], "VCN_READ")
+        self.assertEqual(permissions["certificate"], "CERTIFICATE_READ")
+        self.assertEqual(permissions["quota_ocpus"], "read resource-availability")
+        self.assertEqual(packet["recheck_command"][-3:], ["--environment", self.config["name"], "--live"])
         self.assertNotIn("PRIVATE_PROVIDER_ERROR", json.dumps(result))
         self.assertNotIn("ocid1", json.dumps(result))
 
@@ -64,9 +70,23 @@ class Readiness(unittest.TestCase):
         for name in ("vcn", "app_subnet_id", "lb_subnet_id", "registry", "certificate", "quota_ocpus", "quota_memory_gbs"):
             self.assertEqual(checks[name], "passed", name)
         self.assertEqual(result["status"], "incomplete")
+        self.assertFalse(result["permission_review"]["reads_to_verify"])
         self.assertFalse(result["production_ready"])
         self.assertEqual(checks["physical_capacity"], "unknown")
         self.assertEqual(checks["image_architecture"], "unknown")
+
+    def test_insufficient_quota_and_inactive_resources_do_not_request_more_access(self):
+        def readable(argv, **kwargs):
+            if "limits" in argv:
+                data = {"available": 0}
+            else:
+                data = {"id": argv[-1], "lifecycle-state": "UNAVAILABLE"}
+            return SimpleNamespace(returncode=0, stdout=json.dumps({"data": data}))
+        self.doctor.diagnose = lambda **kwargs: {"status":"passed", "checks":[
+            {"check":"region_subscription","status":"blocked","api_read":"passed"}]}
+        result = self.run_with(readable)
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["permission_review"]["reads_to_verify"], [])
 
     def test_offline_makes_no_requests_and_wrong_architecture_blocks(self):
         self.config["target"]["image_architecture"] = "ARM64"

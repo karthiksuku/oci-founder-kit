@@ -16,6 +16,12 @@ Work in your own project. Get help with credentials, compartments, security and 
 **Preparing to launch?** [Test your app, check a production release and set up on-call monitoring](docs/SRE.md).
 The SRE preview gives Claude Code and Codex the same rehearsal checklist and a production decision tied to the exact image and plan.
 
+For your own Next.js app, follow the [first launch walkthrough](docs/OWN-APP-LAUNCH.md).
+It connects your repository and existing services to the [24-hour and 30-day cost preview](docs/LAUNCH-COST.md),
+a [private first-customer trial](docs/CUSTOMER-TRIAL.md) and a rehearsed rollback.
+The optional [B2B workspace starter](blueprints/b2b-workspace/README.md) demonstrates invitations,
+roles, exports and offboarding across two organizations. Live OCI acceptance is pending.
+
 ## Get started
 
 Use the [interactive start guide](https://karthiksuku.github.io/oci-founder-kit/#start)

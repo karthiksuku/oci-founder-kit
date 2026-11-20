@@ -18,6 +18,9 @@ An evidence label applies only to the scope described. Local tests do not establ
 | [Add durable background work](../blueprints/saas-essentials/README.md) | local-tested | PostgreSQL; Separate worker identity; Reviewed ownership transfer | Native scheduling remains experimental until its exact cloud path is accepted.; PostgreSQL/HTTP and local containers exercised; OCI Queue and IAM acceptance are pending. |
 | [Share a safe support summary](../docs/OPERATIONS.md) | local-tested | Explicit environment; Private local reports | Allowlisted summary only; never automatically uploads. |
 | [Test and operate your app](../docs/SRE.md) | preview | Named rehearsal environment for planning; separate production environment and exact saved plan for promotion. | Agent summaries and local drills do not authorize production.; Live monitoring, hosted CI and OCI deployment require separate setup and acceptance. |
+| [Launch your own Next.js app](../docs/OWN-APP-LAUNCH.md) | preview | Named web-container build environment and a Next.js application; Existing tests, identity and data providers | Hosted sign-in, isolation, rollback and an independently operated verifier require a live rehearsal. |
+| [Preview launch costs](../docs/LAUNCH-COST.md) | local-tested | Reviewed web-container footprint and dated rates | Totals can be incomplete. Delayed or inaccessible billing evidence stays unknown. |
+| [Try the app with a customer](../docs/CUSTOMER-TRIAL.md) | preview | Named rehearsal, current image readback and externally enforced tester access | The owner operates the identity provider and verifies session revocation. No messages are sent. |
 
 | Platform | Evidence | Scope |
 |---|---|---|

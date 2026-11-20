@@ -15,6 +15,18 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 
+PERMISSION_CHECKS = {
+    "region_subscription": ("ListRegionSubscriptions", "TENANCY_INSPECT", "selected tenancy"),
+    "compartment_access": ("GetCompartment", "COMPARTMENT_INSPECT", "selected compartment"),
+    "vcn": ("GetVcn", "VCN_READ", "selected VCN compartment"),
+    "app_subnet_id": ("GetSubnet", "SUBNET_READ", "selected application subnet compartment"),
+    "lb_subnet_id": ("GetSubnet", "SUBNET_READ", "selected load balancer subnet compartment"),
+    "certificate": ("GetCertificate", "CERTIFICATE_READ", "selected certificate compartment"),
+    "registry": ("GetContainerRepository", "REPOSITORY_READ", "selected registry compartment"),
+    "quota_ocpus": ("GetResourceAvailability", "read resource-availability", "selected workload compartment"),
+    "quota_memory_gbs": ("GetResourceAvailability", "read resource-availability", "selected workload compartment"),
+}
+
 
 def load(relative: str):
     path = ROOT / relative
@@ -41,7 +53,7 @@ def safe_runner(argv, **kwargs):
 
 
 def diagnose(config: dict, *, config_file: Path = Path("~/.oci/config"), live=False,
-             runner=safe_runner, which=shutil.which) -> dict:
+             runner=safe_runner, which=shutil.which, store=None, state=None) -> dict:
     p = load("scripts/project.py")
     load("scripts/environments.py").validate(config)
     doctor = load("skills/oci-ready/scripts/oci_doctor.py")
@@ -95,10 +107,14 @@ def diagnose(config: dict, *, config_file: Path = Path("~/.oci/config"), live=Fa
             "--config-file", str(config_file.expanduser().absolute()), "--region", target.get("region", ""), "--output", "json"]
             if which("oci") else [])
 
+    unreadable_operations = set()
+
     def read(name, field, argv, predicate, action):
         status = "unknown"
         if query_allowed and target.get(field):
             outcome, payload = doctor.run_json(base + argv + [target[field]], runner)
+            if outcome != "passed":
+                unreadable_operations.add(name)
             data = payload.get("data") if isinstance(payload, dict) else None
             if outcome == "passed" and isinstance(data, dict) and data.get("id") == target[field]:
                 verdict = predicate(data)
@@ -136,6 +152,8 @@ def diagnose(config: dict, *, config_file: Path = Path("~/.oci/config"), live=Fa
                 outcome, payload = doctor.run_json(base + ["limits", "resource-availability", "get", "--service-name", "compute",
                     "--limit-name", limit, "--compartment-id", target["compartment_id"],
                     "--availability-domain", target["availability_domain"]], runner)
+                if outcome != "passed":
+                    unreadable_operations.add("quota_" + field)
                 data = payload.get("data") if isinstance(payload, dict) else None
                 available = data.get("available") if isinstance(data, dict) else None
                 if outcome == "passed" and type(available) in {int, float} and math.isfinite(available) and available >= 0:
@@ -157,8 +175,28 @@ def diagnose(config: dict, *, config_file: Path = Path("~/.oci/config"), live=Fa
             ("scheduler_ownership", "Prove target schedulers and workers are disabled using the application's own mechanism until ownership transfers.")):
         add(name, "unknown", message)
     status = "blocked" if access["status"] == "blocked" or any(c["status"] == "blocked" for c in checks) else "incomplete"
-    return {"schema": "oci-workload-readiness/1", "environment": config["name"], "blueprint": config["blueprint"],
+    # A failed metadata read can also mean a wrong resource, region, network or expired identity.
+    # Only name the exact read operation for an actual attempt, never infer a missing grant.
+    unresolved = []
+    unreadable_operations.update(c["check"] for c in access["checks"] if c.get("api_read") in {"blocked", "unknown"})
+    for c in [*access["checks"], *checks]:
+        if c["check"] in unreadable_operations and c["check"] in PERMISSION_CHECKS:
+            op, permission, where = PERMISSION_CHECKS[c["check"]]
+            unresolved.append({"check": c["check"], "operation": op, "permission_to_verify": permission,
+                               "scope": where, "outcome": c["status"]})
+    value = {"schema": "oci-workload-readiness/1", "environment": config["name"], "blueprint": config["blueprint"],
         "target_sha256": p.digest(p.canonical(config)), "observed_at": int(time.time()),
         "mode": "live-read-only" if live else "offline", "status": status, "access": access, "checks": checks,
         "administrator_handoff": [{"check": c["check"], "action": c["administrator_action"]} for c in checks if "administrator_action" in c],
         "production_ready": False, "scope": "Read-only prerequisite evidence. No credentials, account identifiers, resource payloads or cloud writes. Unknown checks require separate evidence."}
+    recheck = ["python3", ".oci-founder-kit/scripts/kit.py", "doctor", "--project", ".",
+               "--environment", config["name"], "--live"]
+    default_config = config_file.expanduser().absolute() == Path("~/.oci/config").expanduser().absolute()
+    if not default_config:
+        recheck.extend(["--config-file", "<original-private-config-file>"])
+    value["permission_review"] = {"owner": "authorized-tenancy-administrator", "reads_to_verify": unresolved,
+                                  "recheck_command": recheck, "uses_default_config": default_config,
+                                  "instruction": "Verify the selected identity, resource and region first. Review the listed permission only if the read is denied. Reuse the original private --config-file when one was supplied."}
+    if store is not None and config["role"] == "rehearsal":
+        value["launch_workflow"] = p.helper("sre_plan").launch_route(store, state, p)
+    return value

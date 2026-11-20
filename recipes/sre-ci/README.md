@@ -23,6 +23,14 @@ python3 -I /trusted/oci-founder-kit/scripts/sre_scan.py scan \
   --cache-dir /private/trivy-cache --output /private/new-local-result
 ```
 
+For a founder-owned Next.js launch add `--app-directory .` to that command, or pass the reviewed
+project-relative application directory, such as `--app-directory apps/web`. The scanner binds its
+relative npm lockfile path and committed contents to the source revision, selects that exact Trivy
+npm result and matches its direct Next.js version to the runtime image inventory. The resulting v3
+summary is mandatory for the `new-app-nextjs` profile. A workspace lockfile outside the app, an
+unavailable package inventory or an unmatched version leaves coverage unknown. Repo-wide findings
+are still included. The original unscoped scan remains available for earlier profiles.
+
 The private output includes `source.json` (production lockfile), `including-development.json`, `runtime.json`, the exact image's SPDX inventory and a projected `summary.json`. Only the summary belongs in the protected verifier's `security_scan` observation. Record lower-severity runtime issues and development-only findings in private remediation tracking with owner and due date. High/Critical vulnerabilities in the final image or the production lockfile, secrets, an end-of-life OS or failed hardening rules block; unsupported inputs, UNKNOWN severity, or a scan/database older than 24 hours are unknown. Both block promotion. Unchanged PR history, fixture allowances, ignore files or a previous image verdict do not transfer to the new image. [Trivy vulnerability coverage](https://trivy.dev/latest/docs/scanner/vulnerability/)
 
 ## Post-publication OCI registry scan
@@ -41,6 +49,8 @@ The reader checks the selected environment's region/profile, private registry, c
 
 ## Monitor the released digest
 
-Install [the daily rescan](deployed-rescan.workflow.yml) only on a dedicated, protected runner with validated tools, trusted outside-project kit, isolated cache and private read-only OCI profile. Populate the runner's `FOUNDER_*` environment **from the currently accepted deployment receipt**. Keep the clean checkout, private layout and scan evidence outside the workflow checkout. The additional `--require-deployed` performs a fresh, receipt-bound runtime read: the selected, scanned, registry and actually running digests must all match. A missing or replaced revision fails the scheduled job. The workflow does not stop or patch an app and does not use a signing or deployment credential.
+Install [the daily rescan](deployed-rescan.workflow.yml) only on a dedicated, protected runner with validated tools, trusted outside-project kit, isolated cache and private read-only OCI profile. Populate the runner's `FOUNDER_*` environment **from the currently accepted deployment receipt**. Set `FOUNDER_RELEASE_PROFILE` to the signed profile. For `new-app-nextjs` also set
+`FOUNDER_APP_DIR` from the reviewed application selection and `FOUNDER_SELECTED_LOCK_SHA256`
+from the accepted signed binding. Keep the clean checkout, private layout and scan evidence outside the workflow checkout. The additional `--require-deployed` performs a fresh, receipt-bound runtime read: the selected, scanned, registry and actually running digests must all match. A missing or replaced revision fails the scheduled job. The workflow does not stop or patch an app and does not use a signing or deployment credential.
 
 Route failures **and missed schedules** to the named responders via their approved notification integration. Confirm delivery using a rehearsal failure and have the responder acknowledge it; a red job or an unconfirmed subscription is not evidence of notification delivery. Review resource retention and costs with the owner. Schedule installation and hosted runner behavior remain unverified until tested with the founder's account.
